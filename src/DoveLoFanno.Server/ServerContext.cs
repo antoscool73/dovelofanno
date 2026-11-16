@@ -24,6 +24,7 @@ public sealed class ServerContext : IDisposable
     public Backup Backups { get; }
     public ProfileStore Profiles { get; }
     public GuideStore Guide { get; }
+    public TonightStore Tonight { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -52,6 +53,7 @@ public sealed class ServerContext : IDisposable
         Backups = new Backup(DbPath, Path.Combine(DataDir, "backup"));
         Profiles = new ProfileStore(DbPath);
         Guide = new GuideStore(DbPath);
+        Tonight = new TonightStore(DbPath, Guide);
     }
 
     static string Full(string? configured, string fallback) =>

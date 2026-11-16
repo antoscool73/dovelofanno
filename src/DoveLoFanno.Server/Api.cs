@@ -17,6 +17,7 @@ public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartR
 public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
 public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin);
 public sealed record PinCheck(string? Pin);
+public sealed record WorkRef(long WorkId);
 
 /// <summary>
 /// API v1. Congelata con la wave 3 (16/11/2026): il documento docs/api/openapi-v1.json è quello approvato e un test
@@ -204,6 +205,37 @@ public static class Api
             })
             .WithSummary("Controlla il PIN di un profilo prima di entrarci")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status403Forbidden);
+
+        // "La mia serata in TV" del profilo (aggiunta della wave 5)
+        prof.MapGet("/{id:long}/tonight", IResult (long id, ServerContext ctx) =>
+            ctx.Tonight.Items(id, ctx.Clock.GetUtcNow()) is { } items ? Results.Ok(items) : Results.NotFound())
+            .WithSummary("La mia serata in TV: i titoli del profilo con il prossimo passaggio in guida")
+            .Produces<List<TonightItem>>().Produces(StatusCodes.Status404NotFound);
+
+        prof.MapPost("/{id:long}/tonight", IResult (long id, WorkRef body, ServerContext ctx) =>
+            ctx.Tonight.Add(id, body.WorkId, ctx.Clock.GetUtcNow()) switch
+            {
+                TonightResult.Ok => Results.NoContent(),
+                TonightResult.NoWork => Results.BadRequest(new ApiError("opera sconosciuta")),
+                _ => Results.NotFound(),
+            })
+            .WithSummary("Aggiunge un'opera alla mia serata (se c'è già non cambia nulla)")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
+
+        prof.MapDelete("/{id:long}/tonight/{workId:long}", IResult (long id, long workId, ServerContext ctx) =>
+            ctx.Tonight.Remove(id, workId) == TonightResult.Ok ? Results.NoContent() : Results.NotFound())
+            .WithSummary("Toglie un'opera dalla mia serata")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+
+        prof.MapPost("/{id:long}/watched", IResult (long id, WorkRef body, ServerContext ctx) =>
+            ctx.Tonight.Watched(id, body.WorkId, ctx.Clock.GetUtcNow()) switch
+            {
+                TonightResult.Ok => Results.NoContent(),
+                TonightResult.NoWork => Results.BadRequest(new ApiError("opera sconosciuta")),
+                _ => Results.NotFound(),
+            })
+            .WithSummary("Segna un'opera come vista dal profilo e la toglie dalla mia serata")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");
