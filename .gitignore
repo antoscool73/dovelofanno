@@ -6,3 +6,4 @@ TestResults/
 artifacts/
 data/
 .claude/settings.local.json
+tools/oracle/data/

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DoveLoFanno.Core/DoveLoFanno.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DoveLoFanno.Core.Tests/DoveLoFanno.Core.Tests.csproj" />
+  </Folder>
+</Solution>
