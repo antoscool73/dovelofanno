@@ -36,8 +36,13 @@ jobs:
         run: |
           .\tools\oracle\Export-OracleGuide.ps1 -Guide "$env:RUNNER_TEMP\guide.xml.gz"
 
+      - name: ffmpeg per i collaudi del registratore
+        run: choco install ffmpeg -y --no-progress
+
       - name: Compilazione
         run: dotnet build DoveLoFanno.slnx -c Release
 
       - name: Test
+        env:
+          DLF_REQUIRE_FFMPEG: "1"
         run: dotnet test DoveLoFanno.slnx -c Release --no-build --logger "console;verbosity=normal"

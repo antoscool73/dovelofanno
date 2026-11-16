@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DoveLoFanno.Core/DoveLoFanno.Core.csproj" />
+    <Project Path="src/DoveLoFanno.Server/DoveLoFanno.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DoveLoFanno.Core.Tests/DoveLoFanno.Core.Tests.csproj" />
