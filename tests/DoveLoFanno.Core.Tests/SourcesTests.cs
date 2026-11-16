@@ -162,6 +162,13 @@ public class SourcesTests
             r.SetState(a, "recording");
             Assert.Equal(0, r.RecoverAfterRestart(now.AddHours(4)));
             Assert.Equal("failed", r.Get(a)!.State);
+
+            // esito con parti perse: tornano come lista di intervalli
+            var lost = (now.AddMinutes(40), now.AddMinutes(45));
+            r.Finish(a, new RecordingOutcome("incomplete", "x.mp4", false, 5, [lost], [], "a.log"));
+            var row = r.Get(a)!;
+            Assert.Equal(("incomplete", 5), (row.State, row.LostMinutes));
+            Assert.Equal([new LostRange(lost.Item1, lost.Item2)], row.LostRanges);
         }
         finally { Cleanup(db); }
     }

@@ -13,6 +13,8 @@ if (args.Contains("--healthcheck"))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+// i numeri sono solo numeri (le impostazioni web predefinite accettano anche "12" tra virgolette)
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.Strict);
 builder.Services.AddSingleton<ServerContext>();
 builder.Services.AddSingleton<ProbeHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProbeHost>());

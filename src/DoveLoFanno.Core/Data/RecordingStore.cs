@@ -6,10 +6,25 @@ namespace DoveLoFanno.Data;
 
 public sealed record RecordingRow(
     long Id, long ChannelId, string ChannelName, string Title, DateTimeOffset Start, DateTimeOffset Stop, int BeforeMin, int AfterMin,
-    string Format, string State, int LostMinutes, string LostRanges, string File, string Log, DateTimeOffset CreatedAt, long? WorkId)
+    string Format, string State, int LostMinutes, IReadOnlyList<LostRange> LostRanges, string File, string Log, DateTimeOffset CreatedAt, long? WorkId)
 {
     public DateTimeOffset RecordFrom => Start.AddMinutes(-BeforeMin);
     public DateTimeOffset RecordTo => Stop.AddMinutes(AfterMin);
+}
+
+/// <summary>Parte della registrazione persa (PC in sospensione o partito in ritardo).</summary>
+public sealed record LostRange(DateTimeOffset From, DateTimeOffset To)
+{
+    // nel database: [[da, a], ...] in secondi Unix
+    internal static IReadOnlyList<LostRange> Parse(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<long[][]>(json)?.Where(p => p.Length == 2)
+                .Select(p => new LostRange(Db.FromUnix(p[0]), Db.FromUnix(p[1]))).ToList() ?? [];
+        }
+        catch (JsonException) { return []; }
+    }
 }
 
 public sealed record PartRow(long Id, int PartNo, long? StreamId, string Url, string File, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, string ExitReason);
@@ -42,7 +57,7 @@ public sealed class RecordingStore(string dbPath)
 
     static RecordingRow Map(SqliteDataReader r) => new(
         r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.GetString(3), Db.FromUnix(r.GetInt64(4)), Db.FromUnix(r.GetInt64(5)),
-        r.GetInt32(6), r.GetInt32(7), r.GetString(8), r.GetString(9), r.GetInt32(10), r.GetString(11), r.GetString(12), r.GetString(13),
+        r.GetInt32(6), r.GetInt32(7), r.GetString(8), r.GetString(9), r.GetInt32(10), LostRange.Parse(r.GetString(11)), r.GetString(12), r.GetString(13),
         Db.FromUnix(r.GetInt64(14)), Db.NLong(r, 15));
 
     public RecordingRow? Get(long id)
