@@ -23,6 +23,11 @@
 
   const first = $derived(profiles.length === 0);
 
+  // il campo da compilare prende subito il cursore (tastiera, telecomando)
+  function focusOnMount(node: HTMLInputElement) {
+    node.focus();
+  }
+
   function enter(p: Profile) {
     session.enter(p);
     router.go('/');
@@ -83,7 +88,7 @@
     <form class="panel" onsubmit={add}>
       <h1>{first ? 'Benvenuto. Come ti chiami?' : 'Nuovo profilo'}</h1>
       {#if first}<p class="lead">Sarà il primo profilo, da adulto. Gli altri della famiglia li aggiungi dopo.</p>{/if}
-      <label class="field">Nome<input bind:value={name} maxlength="40" required autocomplete="off" /></label>
+      <label class="field">Nome<input bind:value={name} maxlength="40" required autocomplete="off" use:focusOnMount /></label>
       {#if !first}
         <label class="check"><input type="checkbox" bind:checked={child} /> Profilo bambino: solo programmi adatti, senza PIN</label>
       {/if}
@@ -111,7 +116,7 @@
     <form class="panel narrow" onsubmit={unlock}>
       <Avatar name={pinFor.name} color={pinFor.avatar} size={72} />
       <h1>{pinFor.name}</h1>
-      <label class="field">PIN<input bind:value={pin} type="password" inputmode="numeric" maxlength="8" autocomplete="off" required /></label>
+      <label class="field">PIN<input bind:value={pin} type="password" inputmode="numeric" maxlength="8" autocomplete="off" required use:focusOnMount /></label>
       {#if pinError}<p class="error" role="alert">{pinError}</p>{/if}
       <div class="actions">
         <Button variant="ghost" onclick={() => (pinFor = null)}>Indietro</Button>
