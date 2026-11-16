@@ -711,6 +711,245 @@
         }
       }
     },
+    "/api/v1/guide": {
+      "get": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Programmi che si sovrappongono a [from, to): filtri per canale, testo (anche regia e attori), gruppo, sottogenere, voto minimo, solo canali registrabili",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "channelId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sub",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minRating",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "onlyRecordable",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "max",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GuideProgramme"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guide/programmes/{id}": {
+      "get": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Un programma della guida",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideProgramme"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/guide/status": {
+      "get": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Fonti della guida, canali collegati, programmi e fino a quando arriva",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guide/refresh": {
+      "post": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Riscarica subito tutte le guide, in background",
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          }
+        }
+      }
+    },
+    "/api/v1/guide/sources": {
+      "post": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Aggiunge una guida XMLTV (indirizzo o file sul server); si carica in background",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewGuideSource"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuideSourceRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guide/sources/{id}": {
+      "delete": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Toglie una guida con i suoi programmi (una guida indicata da una playlist torna al prossimo controllo)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -829,6 +1068,228 @@
           }
         }
       },
+      "GuideProgramme": {
+        "required": [
+          "id",
+          "guideChannelId",
+          "guideChannelName",
+          "channelId",
+          "channelName",
+          "start",
+          "stop",
+          "title",
+          "subtitle",
+          "description",
+          "categories",
+          "group",
+          "sub",
+          "year",
+          "country",
+          "directors",
+          "actors",
+          "episode",
+          "icon",
+          "workId",
+          "workKey",
+          "rating",
+          "ratingSource",
+          "scheduled"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "guideChannelId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "guideChannelName": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "channelName": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stop": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "group": {
+            "type": "string"
+          },
+          "sub": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "country": {
+            "type": "string"
+          },
+          "directors": {
+            "type": "string"
+          },
+          "actors": {
+            "type": "string"
+          },
+          "episode": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "workId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "workKey": {
+            "type": "string"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ratingSource": {
+            "type": "string"
+          },
+          "scheduled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GuideSourceRow": {
+        "required": [
+          "id",
+          "url",
+          "enabled",
+          "fromPlaylist",
+          "lastLoadedAt",
+          "lastStop",
+          "lastError",
+          "channels",
+          "programmes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "url": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "fromPlaylist": {
+            "type": "boolean"
+          },
+          "lastLoadedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastStop": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "channels": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "programmes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "GuideStatus": {
+        "required": [
+          "channels",
+          "linkedChannels",
+          "programmes",
+          "lastLoadedAt",
+          "until",
+          "guides"
+        ],
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "linkedChannels": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "programmes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastLoadedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "guides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuideSourceRow"
+            }
+          }
+        }
+      },
       "Health": {
         "required": [
           "status",
@@ -907,6 +1368,17 @@
           }
         }
       },
+      "NewGuideSource": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "NewProfile": {
         "required": [
           "name",
@@ -982,6 +1454,13 @@
               "null",
               "string"
             ]
+          },
+          "programmeId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -1458,6 +1937,9 @@
     },
     {
       "name": "Profili"
+    },
+    {
+      "name": "Guida"
     }
   ]
 }

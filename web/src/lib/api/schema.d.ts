@@ -842,6 +842,268 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Programmi che si sovrappongono a [from, to): filtri per canale, testo (anche regia e attori), gruppo, sottogenere, voto minimo, solo canali registrabili */
+        get: {
+            parameters: {
+                query: {
+                    from: string;
+                    to: string;
+                    channelId?: number;
+                    text?: string;
+                    group?: string;
+                    sub?: string;
+                    minRating?: number;
+                    onlyRecordable?: boolean;
+                    max?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GuideProgramme"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/programmes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un programma della guida */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GuideProgramme"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fonti della guida, canali collegati, programmi e fino a quando arriva */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GuideStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Riscarica subito tutte le guide, in background */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aggiunge una guida XMLTV (indirizzo o file sul server); si carica in background */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewGuideSource"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GuideSourceRow"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Toglie una guida con i suoi programmi (una guida indicata da una playlist torna al prossimo controllo) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backups": {
         parameters: {
             query?: never;
@@ -925,6 +1187,69 @@ export interface components {
             /** Format: int32 */
             streamsOk: number;
         };
+        GuideProgramme: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            guideChannelId: number;
+            guideChannelName: string;
+            /** Format: int64 */
+            channelId: null | number;
+            channelName: string;
+            /** Format: date-time */
+            start: string;
+            /** Format: date-time */
+            stop: string;
+            title: string;
+            subtitle: string;
+            description: string;
+            categories: string[];
+            group: string;
+            sub: string;
+            /** Format: int32 */
+            year: number;
+            country: string;
+            directors: string;
+            actors: string;
+            episode: string;
+            icon: string;
+            /** Format: int64 */
+            workId: null | number;
+            workKey: string;
+            /** Format: double */
+            rating: null | number;
+            ratingSource: string;
+            scheduled: boolean;
+        };
+        GuideSourceRow: {
+            /** Format: int64 */
+            id: number;
+            url: string;
+            enabled: boolean;
+            fromPlaylist: boolean;
+            /** Format: date-time */
+            lastLoadedAt: null | string;
+            /** Format: date-time */
+            lastStop: null | string;
+            lastError: string;
+            /** Format: int32 */
+            channels: number;
+            /** Format: int32 */
+            programmes: number;
+        };
+        GuideStatus: {
+            /** Format: int32 */
+            channels: number;
+            /** Format: int32 */
+            linkedChannels: number;
+            /** Format: int32 */
+            programmes: number;
+            /** Format: date-time */
+            lastLoadedAt: null | string;
+            /** Format: date-time */
+            until: null | string;
+            guides: components["schemas"]["GuideSourceRow"][];
+        };
         Health: {
             status: string;
             api: string;
@@ -952,6 +1277,9 @@ export interface components {
             /** Format: date-time */
             to: string;
         };
+        NewGuideSource: {
+            url: string;
+        };
         NewProfile: {
             name: string;
             isChild: boolean;
@@ -971,6 +1299,8 @@ export interface components {
             /** Format: int32 */
             afterMin: null | number;
             format: null | string;
+            /** Format: int64 */
+            programmeId?: null | number;
         };
         NewSource: {
             name: string;
