@@ -58,3 +58,22 @@ export function fileName(path: string): string {
   const i = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   return i >= 0 ? path.slice(i + 1) : path;
 }
+
+/** Etichetta di un giorno per i pulsanti della guida: "Oggi, lun 16", "Domani, mar 17", "Mer 18". */
+export function dayChip(d: Date, now: Date = new Date()): string {
+  const diff = Math.round((startOfDay(d) - startOfDay(now)) / 86_400_000);
+  const base = `${dayNames[d.getDay()]} ${d.getDate()}`;
+  if (diff === 0) return `Oggi, ${base.toLowerCase()}`;
+  if (diff === 1) return `Domani, ${base.toLowerCase()}`;
+  return base;
+}
+
+/** Mezzanotte locale del giorno di d. */
+export function midnight(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Voto con la virgola: 6.4 -> "6,4". */
+export function vote(v: number | null | undefined): string {
+  return v == null ? '' : v.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}

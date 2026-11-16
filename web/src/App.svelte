@@ -5,6 +5,7 @@
   import InArrivo from './screens/InArrivo.svelte';
   import Registrazioni from './screens/Registrazioni.svelte';
   import Impostazioni from './screens/Impostazioni.svelte';
+  import Guida from './screens/Guida.svelte';
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -57,7 +58,7 @@
     {#if router.route === 'stasera'}
       <InArrivo title="Stasera" text="La mia serata in TV, le proposte per oggi e domani, le registrazioni in corso." />
     {:else if router.route === 'guida'}
-      <InArrivo title="Guida TV" text="Griglia per canale e ora con anteprima muta; senza IPTV, elenco su tutti i giorni." />
+      <Guida />
     {:else if router.route === 'libreria'}
       <InArrivo title="Libreria" text="Liste personali e di famiglia, film, serie e registrazioni, con il voto a stelle." />
     {:else if router.route === 'registrazioni'}

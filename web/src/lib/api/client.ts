@@ -19,6 +19,8 @@ export type ScheduledRecording = S['ScheduledRecording'];
 export type ImportResult = S['ImportResult'];
 export type BackupInfo = S['BackupInfo'];
 export type RatingSettings = S['RatingSettings'];
+export type GuideProgramme = S['GuideProgramme'];
+export type GuideStatus = S['GuideStatus'];
 export type RatingSettingsPatch = S['RatingSettingsPatch'];
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */
@@ -67,6 +69,21 @@ export const api = {
   channels: () => call<Channel[]>('GET', '/channels'),
   streams: (channelId: number) => call<Stream[]>('GET', `/channels/${channelId}/streams`),
   allStreams: () => call<Stream[]>('GET', '/streams'),
+
+  guide: (q: { from: Date; to: Date; channelId?: number; text?: string; group?: string; sub?: string; minRating?: number; onlyRecordable?: boolean; max?: number }) => {
+    const p = new URLSearchParams({ from: q.from.toISOString(), to: q.to.toISOString() });
+    if (q.channelId) p.set('channelId', String(q.channelId));
+    if (q.text) p.set('text', q.text);
+    if (q.group) p.set('group', q.group);
+    if (q.sub) p.set('sub', q.sub);
+    if (q.minRating) p.set('minRating', String(q.minRating));
+    if (q.onlyRecordable) p.set('onlyRecordable', 'true');
+    if (q.max) p.set('max', String(q.max));
+    return call<GuideProgramme[]>('GET', '/guide?' + p.toString());
+  },
+  guideProgramme: (id: number) => call<GuideProgramme>('GET', `/guide/programmes/${id}`),
+  guideStatus: () => call<GuideStatus>('GET', '/guide/status'),
+  refreshGuide: () => call<void>('POST', '/guide/refresh'),
 
   ratingSettings: () => call<RatingSettings>('GET', '/settings/ratings'),
   updateRatingSettings: (p: RatingSettingsPatch) => call<RatingSettings>('PUT', '/settings/ratings', p),
