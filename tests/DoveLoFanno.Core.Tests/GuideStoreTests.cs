@@ -103,6 +103,34 @@ public sealed class GuideStoreTests : IDisposable
         Assert.Equal(1L, cmd.ExecuteScalar());
     }
 
+    /// <summary>La guida vera (epgshare01, scaricata dalla CI per l'oracolo): salvataggio completo e tempi.</summary>
+    [Fact]
+    public void GuidaVeraNelDatabase()
+    {
+        string? file = null;
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+        {
+            string p = Path.Combine(d.FullName, "tools", "oracle", "data", "guide.xml.gz");
+            if (File.Exists(p)) { file = p; break; }
+        }
+        if (file == null) return;   // senza la guida scaricata non c'è nulla da controllare
+        var guide = XmltvReader.Load(file, DateTime.Now);
+        var store = new GuideStore(Db);
+        long g = store.AddSource(file);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int saved = store.Save(g, guide, DateTimeOffset.UtcNow);
+        double saveS = sw.Elapsed.TotalSeconds;
+        sw.Restart();
+        var evening = store.Query(new GuideQuery(DateTimeOffset.Now, DateTimeOffset.Now.AddHours(6)));
+        double queryS = sw.Elapsed.TotalSeconds;
+        Console.WriteLine($"guida vera: {guide.ProgrammeCount} programmi letti, {saved} salvati in {saveS:0.00} s; 6 ore = {evening.Count} programmi in {queryS:0.000} s");
+        // (canale, inizio, titolo) doppi si salvano una volta sola
+        Assert.InRange(saved, guide.ProgrammeCount * 0.95, guide.ProgrammeCount);
+        Assert.True(saveS < 30, $"salvataggio lento: {saveS:0.0} s");
+        Assert.True(queryS < 2, $"interrogazione lenta: {queryS:0.00} s");
+        Assert.NotEmpty(evening);
+    }
+
     [Fact]
     public void ProgrammaInProgrammaSeUnaRegistrazioneNeCopreMeta()
     {
