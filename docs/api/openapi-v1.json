@@ -461,6 +461,223 @@
         }
       }
     },
+    "/api/v1/profiles": {
+      "get": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Profili della famiglia (gli adulti prima)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Crea un profilo con la sua lista «La mia serata in TV»; PIN facoltativo (4-8 cifre) solo per gli adulti",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}": {
+      "patch": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Modifica nome, colore, tipo o PIN di un profilo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRow"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Elimina un profilo con le sue liste, preferenze e avvisi (non l'ultimo adulto)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/unlock": {
+      "post": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Controlla il PIN di un profilo prima di entrarci",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinCheck"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -657,6 +874,35 @@
           }
         }
       },
+      "NewProfile": {
+        "required": [
+          "name",
+          "isChild",
+          "avatar",
+          "pin"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isChild": {
+            "type": "boolean"
+          },
+          "avatar": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "NewRecording": {
         "required": [
           "channelId",
@@ -768,6 +1014,94 @@
           },
           "exitReason": {
             "type": "string"
+          }
+        }
+      },
+      "PinCheck": {
+        "required": [
+          "pin"
+        ],
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProfilePatch": {
+        "required": [
+          "name",
+          "isChild",
+          "avatar",
+          "pin",
+          "clearPin"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isChild": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "avatar": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clearPin": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "ProfileRow": {
+        "required": [
+          "id",
+          "name",
+          "isChild",
+          "avatar",
+          "hasPin",
+          "inheritsSubscriptions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isChild": {
+            "type": "boolean"
+          },
+          "avatar": {
+            "type": "string"
+          },
+          "hasPin": {
+            "type": "boolean"
+          },
+          "inheritsSubscriptions": {
+            "type": "boolean"
           }
         }
       },
@@ -1088,6 +1422,9 @@
     },
     {
       "name": "Registrazioni"
+    },
+    {
+      "name": "Profili"
     }
   ]
 }
