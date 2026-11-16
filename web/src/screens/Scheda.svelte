@@ -203,7 +203,7 @@
   .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 56px var(--gutter) 36px; max-width: 1240px; }
   .poster { flex: 0 0 220px; aspect-ratio: 2 / 3; border-radius: 14px; background: #2b3d63; overflow: hidden; display: flex; align-items: flex-end; padding: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); position: relative; }
   .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ptitle { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+  .ptitle { position: relative; min-width: 0; font-family: var(--font-display); font-size: 22px; line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; hyphens: auto; }
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .back { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--link); font-size: 14px; cursor: pointer; }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1; letter-spacing: -0.02em; }
@@ -231,5 +231,5 @@
   .wrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .wrow:last-child { border-bottom: 0; }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-  @media (max-width: 720px) { .poster { flex-basis: 140px; } .hero-in { gap: 20px; padding-top: 24px; } }
+  @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .ptitle { font-size: 16px; } .hero-in { gap: 20px; padding-top: 24px; } }
 </style>
