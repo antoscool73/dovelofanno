@@ -62,6 +62,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
     {
         output.WriteLine($"stato {o.State}, file {o.Output}, spezzoni {o.Parts.Count}, persi {o.LostMinutes} min");
         if (File.Exists(o.Log)) output.WriteLine(File.ReadAllText(o.Log));
+        string logs = Path.Combine(work, "logs");
+        if (Directory.Exists(logs))
+            foreach (string f in Directory.GetFiles(logs, "*_ffmpeg_*.log").Concat(Directory.GetFiles(logs, "*_unione.log")))
+                output.WriteLine($"--- {Path.GetFileName(f)}\n{File.ReadAllText(f)}");
     }
 
     [Fact]
