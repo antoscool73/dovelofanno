@@ -4,6 +4,6 @@ obj/
 *.user
 TestResults/
 artifacts/
-data/
+/data/
 .claude/settings.local.json
 tools/oracle/data/
