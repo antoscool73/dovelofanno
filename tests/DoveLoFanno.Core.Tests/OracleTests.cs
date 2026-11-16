@@ -11,6 +11,9 @@ namespace DoveLoFanno.Tests;
 /// </summary>
 public class OracleTests(ITestOutputHelper output)
 {
+    const string Fmt = "yyyy-MM-ddTHH:mm:ss";
+    static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
     static string? DataDir()
     {
         for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
@@ -32,40 +35,51 @@ public class OracleTests(ITestOutputHelper output)
             output.WriteLine("Dati dell'oracolo assenti: lanciare tools/oracle/Export-OracleGuide.ps1");
             return;
         }
-        var inv = CultureInfo.InvariantCulture;
         var lines = File.ReadAllLines(Path.Combine(dir, "guide-oracle.tsv"));
-        var now = DateTime.ParseExact(lines[0].Split('\t')[1], "yyyy-MM-ddTHH:mm:ss", inv);
-        var expected = lines.Skip(1).ToList();
+        var head = lines[0].Split('\t');
+        var before = DateTime.ParseExact(head[1], Fmt, Inv);
+        var after = head.Length > 2 ? DateTime.ParseExact(head[2], Fmt, Inv) : before;
 
-        var g = XmltvReader.Load(Path.Combine(dir, "guide.xml.gz"), now);
+        var g = XmltvReader.Load(Path.Combine(dir, "guide.xml.gz"), before);
         var actual = new List<string>();
-        foreach (string id in g.ChannelIds.Order(StringComparer.OrdinalIgnoreCase))
+        foreach (string id in g.ChannelIds)
             foreach (var p in g.Programmes(id))
                 actual.Add(string.Join('\t',
-                    p.Channel, p.Start.ToString("yyyy-MM-ddTHH:mm:ss", inv), p.Stop.ToString("yyyy-MM-ddTHH:mm:ss", inv),
+                    p.Channel, p.Start.ToString(Fmt, Inv), p.Stop.ToString(Fmt, Inv),
                     Clean(p.Title), Clean(p.SubTitle), p.Group, Clean(p.Sub), p.GroupGuessed ? "True" : "False",
-                    p.Year.ToString(inv), Clean(p.Episode), Clean(p.WorkKey), p.Desc.Length.ToString(inv)));
+                    p.Year.ToString(Inv), Clean(p.Episode), Clean(p.WorkKey), p.Desc.Length.ToString(Inv)));
 
-        // si confronta per canale (l'ordine dei canali di Sort-Object può differire) e, dentro il canale,
-        // ignorando l'ordine tra programmi con lo stesso inizio: RegistraTV li ordinava con List.Sort, non stabile
-        static Dictionary<string, List<string>> ByChannel(IEnumerable<string> rows) =>
-            rows.GroupBy(l => l.Split('\t')[0]).ToDictionary(x => x.Key, x => x.OrderBy(l => l.Split('\t')[1], StringComparer.Ordinal).ThenBy(l => l, StringComparer.Ordinal).ToList());
-        var exp = ByChannel(expected);
-        var act = ByChannel(actual);
-        var diffs = new List<string>();
-        foreach (var ch in exp.Keys.Union(act.Keys))
+        // programmi che finiscono mentre RegistraTV leggeva: scartati o no a seconda dell'istante esatto
+        bool Edge(string row)
         {
-            var e = exp.GetValueOrDefault(ch) ?? [];
-            var a = act.GetValueOrDefault(ch) ?? [];
-            for (int i = 0; i < Math.Max(e.Count, a.Count); i++)
-            {
-                string? x = i < e.Count ? e[i] : null, y = i < a.Count ? a[i] : null;
-                if (x != y) diffs.Add($"atteso: {x}\n  avuto: {y}");
-            }
+            var stop = DateTime.ParseExact(row.Split('\t')[2], Fmt, Inv);
+            return stop >= before.AddDays(-1) && stop <= after.AddDays(-1);
         }
-        output.WriteLine($"Programmi: {expected.Count} attesi, {actual.Count} letti, {diffs.Count} differenze");
-        foreach (var d in diffs.Take(20)) output.WriteLine(d);
-        Assert.Equal(expected.Count, actual.Count);
-        Assert.Empty(diffs);
+        var expected = lines.Skip(1).Where(r => !Edge(r)).ToList();
+        actual = actual.Where(r => !Edge(r)).ToList();
+
+        // confronto come multiinsiemi: l'ordine dei canali (Sort-Object) e quello tra programmi con lo stesso
+        // inizio (List.Sort di RegistraTV non è stabile) non contano
+        var missing = Minus(expected, actual);
+        var extra = Minus(actual, expected);
+        output.WriteLine($"Programmi: {expected.Count} attesi, {actual.Count} letti; mancanti {missing.Count}, in più {extra.Count}");
+        foreach (var r in missing.Take(10)) output.WriteLine("mancante: " + r);
+        foreach (var r in extra.Take(10)) output.WriteLine("in più:   " + r);
+        Assert.True(expected.Count > 1000, "oracolo con troppo pochi programmi");
+        Assert.Empty(missing);
+        Assert.Empty(extra);
+    }
+
+    static List<string> Minus(List<string> a, List<string> b)
+    {
+        var count = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var r in b) count[r] = count.GetValueOrDefault(r) + 1;
+        var res = new List<string>();
+        foreach (var r in a)
+        {
+            if (count.GetValueOrDefault(r) > 0) count[r]--;
+            else res.Add(r);
+        }
+        return res;
     }
 }

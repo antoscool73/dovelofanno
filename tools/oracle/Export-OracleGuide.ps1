@@ -7,7 +7,8 @@
 # Senza -RegistraTV usa legacy\RegistraTV.EpgSource.cs (il sorgente al tag registratv-v1.0); con -RegistraTV
 # prende la stringa $EpgSource da quello script. -Out predefinito: data\ accanto a questo script.
 # Scrive nella cartella: la copia della guida (guide.xml.gz) e guide-oracle.tsv. La prima riga del TSV è
-# "#now<TAB>yyyy-MM-ddTHH:mm:ss": l'istante usato per scartare i programmi finiti, da ripetere nel test.
+# "#now<TAB>prima<TAB>dopo" (yyyy-MM-ddTHH:mm:ss): l'ora prima e dopo la lettura, con cui RegistraTV
+# ha scartato i programmi finiti da più di un giorno.
 param(
     [Parameter(Mandatory)] [string]$Guide,
     [string]$Out = (Join-Path $PSScriptRoot 'data'),
@@ -40,12 +41,15 @@ $g = New-Object RegistraTV.EpgGuide('', $copy, [double]1e9)
 $g.Start()
 while (-not $g.Done) { Start-Sleep -Milliseconds 50 }
 if ($g.Error) { throw "lettura della guida: $($g.Error)" }
+# RegistraTV scarta i programmi finiti prima di "adesso - 1 giorno" con l'ora del momento della lettura:
+# il test ignora quelli che finiscono tra le due ore
+$after = Get-Date
 
 $byId = $g.GetType().GetField('byId', [System.Reflection.BindingFlags]'NonPublic,Instance').GetValue($g)
 $inv = [System.Globalization.CultureInfo]::InvariantCulture
 $clean = { param($s) ($s -replace "[`t`r`n]", ' ') }
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("#now`t" + $now.ToString('yyyy-MM-ddTHH:mm:ss', $inv))
+$lines.Add("#now`t" + $now.ToString('yyyy-MM-ddTHH:mm:ss', $inv) + "`t" + $after.AddSeconds(1).ToString('yyyy-MM-ddTHH:mm:ss', $inv))
 foreach ($id in ($byId.Keys | Sort-Object)) {
     foreach ($p in $byId[$id]) {
         $lines.Add((@(
