@@ -152,7 +152,7 @@
         {#if hero.actors || hero.directors}<p class="credits">{hero.actors ? `Con ${hero.actors}` : ''}{hero.actors && hero.directors ? ' · ' : ''}{hero.directors ? `Regia di ${hero.directors}` : ''}</p>{/if}
         <div class="actions">
           {#if recordable(hero)}<RecordButton scheduled={hero.scheduled} busy={busy === hero.id} onclick={() => quickRecord(hero)} />{/if}
-          <Button variant="soft" size="l" onclick={() => (open = hero)}>Dettagli</Button>
+          <Button variant="soft" size="l" onclick={() => (hero.workId != null ? router.go(`/opera/${hero.workId}`) : (open = hero))}>Dettagli</Button>
         </div>
       </div>
     </section>

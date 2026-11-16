@@ -94,6 +94,9 @@
       {:else}
         <p class="muted">Il programma è finito.</p>
       {/if}
+      {#if p.workId != null}
+        <Button variant="soft" onclick={() => { onclose(); router.go(`/opera/${p.workId}`); }}>Apri la scheda</Button>
+      {/if}
       {#if inTonight !== null}
         <Button variant="soft" pressed={inTonight} onclick={toggleTonight}>{inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
       {/if}

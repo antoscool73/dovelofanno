@@ -22,6 +22,7 @@ export type RatingSettings = S['RatingSettings'];
 export type GuideProgramme = S['GuideProgramme'];
 export type GuideStatus = S['GuideStatus'];
 export type TonightItem = S['TonightItem'];
+export type WorkDetail = S['WorkDetail'];
 export type RatingSettingsPatch = S['RatingSettingsPatch'];
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */
@@ -63,6 +64,8 @@ export const api = {
   tonight: (profileId: number) => call<TonightItem[]>('GET', `/profiles/${profileId}/tonight`),
   addTonight: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/tonight`, { workId }),
   removeTonight: (profileId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/tonight/${workId}`),
+  setStars: (profileId: number, workId: number, stars: number | null) => call<void>('PUT', `/profiles/${profileId}/works/${workId}/stars`, { stars }),
+  work: (id: number, profileId?: number) => call<WorkDetail>('GET', `/works/${id}` + (profileId ? `?profileId=${profileId}` : '')),
   watched: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/watched`, { workId }),
 
   sources: () => call<Source[]>('GET', '/sources'),

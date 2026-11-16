@@ -78,6 +78,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/works/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scheda di un'opera: dati, dettagli TMDB, passaggi in TV, file in casa, dove lo vedo, stato del profilo */
+        get: {
+            parameters: {
+                query?: {
+                    profileId?: number;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources": {
         parameters: {
             query?: never;
@@ -1027,6 +1074,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/{id}/works/{workId}/stars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Voto personale del profilo, da 1 a 5 stelle (null lo toglie) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    workId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StarsBody"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guide": {
         parameters: {
             query?: never;
@@ -1674,6 +1778,10 @@ export interface components {
             lastCheckedAt: null | string;
             lastError: string;
         };
+        StarsBody: {
+            /** Format: int32 */
+            stars: null | number;
+        };
         StreamRow: {
             /** Format: int64 */
             id: number;
@@ -1709,6 +1817,56 @@ export interface components {
             /** Format: date-time */
             addedAt: string;
             next: null | components["schemas"]["GuideProgramme"];
+        };
+        WorkAvailability: {
+            platform: string;
+            kind: string;
+            link: string;
+            /** Format: date-time */
+            checkedAt: string;
+        };
+        WorkDetail: {
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            title: string;
+            originalTitle: string;
+            /** Format: int32 */
+            year: number;
+            /** Format: double */
+            rating: null | number;
+            ratingSource: string;
+            /** Format: int32 */
+            ratingVotes: number;
+            /** Format: int64 */
+            tmdbId: null | number;
+            imdbId: string;
+            overview: string;
+            poster: string;
+            backdrop: string;
+            /** Format: int32 */
+            runtimeMin: null | number;
+            trailer: string;
+            /** Format: date-time */
+            detailsAt: null | string;
+            airings: components["schemas"]["GuideProgramme"][];
+            inHouse: components["schemas"]["WorkFile"][];
+            availability: components["schemas"]["WorkAvailability"][];
+            inTonight: boolean;
+            watched: boolean;
+            /** Format: int32 */
+            stars: null | number;
+        };
+        WorkFile: {
+            /** Format: int64 */
+            recordingId: number;
+            file: string;
+            /** Format: date-time */
+            start: string;
+            channelName: string;
+            state: string;
+            /** Format: int32 */
+            lostMinutes: number;
         };
         WorkRef: {
             /** Format: int64 */

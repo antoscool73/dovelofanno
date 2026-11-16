@@ -1,7 +1,7 @@
 // Router minimo con indirizzi veri (/guida, /registrazioni...): il server rimanda a index.html ogni
 // indirizzo che non è un file né /api. Nessuna dipendenza esterna.
 
-export type Route = 'stasera' | 'profili' | 'guida' | 'libreria' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
+export type Route = 'stasera' | 'opera' | 'profili' | 'guida' | 'libreria' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
 
 const paths: Record<string, Route> = {
   '/': 'stasera',
@@ -16,12 +16,15 @@ const paths: Record<string, Route> = {
 
 export function routeOf(pathname: string): Route {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (/^\/opera\/\d+$/.test(p)) return 'opera';
   return paths[p] ?? 'non-trovata';
 }
 
 class Router {
   path = $state(window.location.pathname);
   route = $derived(routeOf(this.path));
+  /** Id dell'opera per /opera/{id}. */
+  workId = $derived(Number(this.path.match(/^\/opera\/(\d+)/)?.[1] ?? 0));
 
   constructor() {
     window.addEventListener('popstate', () => { this.path = window.location.pathname; });
