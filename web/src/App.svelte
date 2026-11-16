@@ -6,6 +6,7 @@
   import Registrazioni from './screens/Registrazioni.svelte';
   import Impostazioni from './screens/Impostazioni.svelte';
   import Guida from './screens/Guida.svelte';
+  import Stasera from './screens/Stasera.svelte';
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -56,7 +57,7 @@
   <AppHeader />
   <main>
     {#if router.route === 'stasera'}
-      <InArrivo title="Stasera" text="La mia serata in TV, le proposte per oggi e domani, le registrazioni in corso." />
+      <Stasera />
     {:else if router.route === 'guida'}
       <Guida />
     {:else if router.route === 'libreria'}

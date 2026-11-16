@@ -21,6 +21,7 @@ export type BackupInfo = S['BackupInfo'];
 export type RatingSettings = S['RatingSettings'];
 export type GuideProgramme = S['GuideProgramme'];
 export type GuideStatus = S['GuideStatus'];
+export type TonightItem = S['TonightItem'];
 export type RatingSettingsPatch = S['RatingSettingsPatch'];
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */
@@ -59,6 +60,10 @@ export const api = {
   updateProfile: (id: number, p: ProfilePatch) => call<Profile>('PATCH', `/profiles/${id}`, p),
   deleteProfile: (id: number) => call<void>('DELETE', `/profiles/${id}`),
   unlockProfile: (id: number, pin: string | null) => call<void>('POST', `/profiles/${id}/unlock`, { pin }),
+  tonight: (profileId: number) => call<TonightItem[]>('GET', `/profiles/${profileId}/tonight`),
+  addTonight: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/tonight`, { workId }),
+  removeTonight: (profileId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/tonight/${workId}`),
+  watched: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/watched`, { workId }),
 
   sources: () => call<Source[]>('GET', '/sources'),
   addSource: (name: string, url: string) => call<ImportResult>('POST', '/sources', { name, url }),

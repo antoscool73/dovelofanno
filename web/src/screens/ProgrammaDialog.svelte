@@ -6,6 +6,7 @@
   import { api, ApiError, type GuideProgramme } from '../lib/api/client';
   import { day, minutes, between, range, vote } from '../lib/format';
   import { router } from '../lib/router.svelte';
+  import { session } from '../lib/session.svelte';
 
   let { p, onclose, onchange }: { p: GuideProgramme; onclose: () => void; onchange: () => void } = $props();
 
@@ -16,6 +17,26 @@
   let error = $state('');
   let warnings = $state<string[]>([]);
   const ended = $derived(new Date(p.stop).getTime() <= Date.now());
+
+  // "Aggiungi alla mia serata": si sa se c'è già leggendo la lista del profilo
+  let inTonight = $state<boolean | null>(null);
+  $effect(() => {
+    const prof = session.profile;
+    if (!prof || p.workId == null) return;
+    api.tonight(prof.id).then((items) => (inTonight = items.some((i) => i.workId === p.workId))).catch(() => (inTonight = null));
+  });
+  async function toggleTonight() {
+    const prof = session.profile;
+    if (!prof || p.workId == null || inTonight === null) return;
+    try {
+      if (inTonight) await api.removeTonight(prof.id, p.workId);
+      else await api.addTonight(prof.id, p.workId);
+      inTonight = !inTonight;
+      onchange();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Lista non aggiornata';
+    }
+  }
 
   function dialog(node: HTMLDialogElement) {
     node.showModal();
@@ -72,6 +93,9 @@
         <p class="muted">Questo canale non è in nessuna delle tue playlist: non si può registrare. Gli avvisi («Avvisami») arrivano con le prossime schermate.</p>
       {:else}
         <p class="muted">Il programma è finito.</p>
+      {/if}
+      {#if inTonight !== null}
+        <Button variant="soft" pressed={inTonight} onclick={toggleTonight}>{inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
       {/if}
       <span class="grow"></span>
       <Button variant="secondary" onclick={onclose}>Chiudi</Button>
