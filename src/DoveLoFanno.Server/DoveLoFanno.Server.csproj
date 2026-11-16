@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="..\DoveLoFanno.Core\DoveLoFanno.Core.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
   </ItemGroup>
 </Project>

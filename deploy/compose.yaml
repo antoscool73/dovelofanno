@@ -1,0 +1,16 @@
+# DoveLoFanno con docker compose (Synology Container Manager: Progetto > Crea, incollando questo file).
+# Le cartelle a sinistra dei due punti sono sul NAS: cambiarle a piacere.
+# L'utente del container ha uid 1654: le due cartelle devono essere scrivibili da lui
+# (oppure aggiungere "user: <uid>:<gid>" con l'utente del NAS proprietario delle cartelle).
+services:
+  dovelofanno:
+    image: ghcr.io/antoscool73/dovelofanno:edge
+    container_name: dovelofanno
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data                    # database, log, backup, copie delle guide
+      - ./registrazioni:/recordings     # registrazioni (anche una cartella vista da Jellyfin/Plex)
+    environment:
+      TZ: Europe/Rome

@@ -21,6 +21,7 @@ public sealed class ServerContext : IDisposable
     public StreamResolver Resolver { get; }
     public StreamProber Prober { get; }
     public RecordingScheduler Scheduler { get; }
+    public Backup Backups { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -46,6 +47,7 @@ public sealed class ServerContext : IDisposable
         keepAwake = OperatingSystem.IsWindows() ? new WindowsKeepAwake() : NoKeepAwake.Instance;
         var recorder = new Recorder(Tools, Resolver, Clock, recorderOptions, keepAwake);
         Scheduler = new RecordingScheduler(Recordings, Sources, recorder, Http, Clock, new SchedulerOptions(RecordingsDir, LogDir));
+        Backups = new Backup(DbPath, Path.Combine(DataDir, "backup"));
     }
 
     static string Full(string? configured, string fallback) =>

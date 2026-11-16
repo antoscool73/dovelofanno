@@ -3,19 +3,25 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['wave-*', 'v*']
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
   test:
-    # Windows: l'oracolo è il codice C# di RegistraTV, che si compila con Windows PowerShell 5.1
-    runs-on: windows-latest
-    env:
-      DOTNET_NOLOGO: 1
-      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,21 +29,28 @@ jobs:
         with:
           global-json-file: global.json
 
+      # l'oracolo è il codice C# di RegistraTV, che si compila con Windows PowerShell 5.1: solo su Windows
       - name: Guida di oggi per l'oracolo
         id: guide
+        if: runner.os == 'Windows'
         continue-on-error: true
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri 'https://epgshare01.online/epgshare01/epg_ripper_IT1.xml.gz' -OutFile "$env:RUNNER_TEMP\guide.xml.gz" -TimeoutSec 120
 
       - name: Oracolo (RegistraTV, Windows PowerShell 5.1)
-        if: steps.guide.outcome == 'success'
+        if: runner.os == 'Windows' && steps.guide.outcome == 'success'
         shell: powershell
         run: |
           .\tools\oracle\Export-OracleGuide.ps1 -Guide "$env:RUNNER_TEMP\guide.xml.gz"
 
-      - name: ffmpeg per i collaudi del registratore
+      - name: ffmpeg (Windows)
+        if: runner.os == 'Windows'
         run: choco install ffmpeg -y --no-progress
+
+      - name: ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
 
       - name: Compilazione
         run: dotnet build DoveLoFanno.slnx -c Release
@@ -45,4 +58,77 @@ jobs:
       - name: Test
         env:
           DLF_REQUIRE_FFMPEG: "1"
+          DLF_API_SNAPSHOT_OUT: ${{ runner.temp }}/openapi-v1.json
         run: dotnet test DoveLoFanno.slnx -c Release --no-build --logger "console;verbosity=normal"
+
+      - name: Documento OpenAPI generato
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-v1
+          path: ${{ runner.temp }}/openapi-v1.json
+          if-no-files-found: ignore
+
+  docker:
+    name: Immagine Docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Immagine per amd64 e arm64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Immagine amd64 per il collaudo
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: dovelofanno:test
+          cache-from: type=gha
+
+      - name: Collaudo del container (installazione, registrazione, riavvio, backup)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          bash tools/ci/docker-smoke.sh dovelofanno:test
+
+      - name: Pubblicazione su GitHub Container Registry
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          tag="edge"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then tag="${GITHUB_REF#refs/tags/}"; fi
+          docker buildx build --platform linux/amd64,linux/arm64 --cache-from type=gha \
+            -t "ghcr.io/${GITHUB_REPOSITORY,,}:${tag}" --push .
+
+  windows-service:
+    name: Servizio Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: ffmpeg
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Pacchetto per Windows
+        shell: pwsh
+        run: dotnet publish src/DoveLoFanno.Server -c Release -r win-x64 --self-contained -o "$env:RUNNER_TEMP\pkg"
+
+      - name: Collaudo (installazione, aggiornamento, disinstallazione)
+        shell: powershell
+        run: .\tools\ci\windows-service-smoke.ps1 -Package "$env:RUNNER_TEMP\pkg"

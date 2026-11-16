@@ -61,16 +61,46 @@ public sealed class ProbeHost(ServerContext ctx, ILogger<ProbeHost> log) : Backg
         }
     }
 
-    async Task NightlyAsync(CancellationToken ct)
+    Task NightlyAsync(CancellationToken ct) => Daily.RunAsync(ctx.Clock, 4, () => Enqueue(null), ct);
+}
+
+/// <summary>Copia del database ogni notte alle 3 (e all'avvio se l'ultima ha più di un giorno).</summary>
+public sealed class BackupHost(ServerContext ctx, ILogger<BackupHost> log) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken ct)
+    {
+        var last = ctx.Backups.List().FirstOrDefault();
+        if (last is null || ctx.Clock.GetUtcNow() - last.CreatedAt > TimeSpan.FromDays(1)) Run();
+        return Daily.RunAsync(ctx.Clock, 3, Run, ct);
+    }
+
+    void Run()
+    {
+        try
+        {
+            var b = ctx.Backups.Create(ctx.Clock.GetLocalNow());
+            log.LogInformation("Backup del database: {Name} ({Bytes} byte)", b.Name, b.Bytes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            log.LogError(ex, "Backup del database non riuscito");
+        }
+    }
+}
+
+static class Daily
+{
+    /// <summary>Esegue <paramref name="action"/> ogni giorno all'ora indicata (ora locale) finché non si chiude.</summary>
+    public static async Task RunAsync(TimeProvider clock, int hour, Action action, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
-            var now = ctx.Clock.GetLocalNow();
-            var next = new DateTimeOffset(now.Date.AddHours(4), now.Offset);
+            var now = clock.GetLocalNow();
+            var next = new DateTimeOffset(now.Date.AddHours(hour), now.Offset);
             if (next <= now) next = next.AddDays(1);
-            try { await Task.Delay(next - now, ctx.Clock, ct); }
+            try { await Task.Delay(next - now, clock, ct); }
             catch (OperationCanceledException) { return; }
-            Enqueue(null);
+            action();
         }
     }
 }
