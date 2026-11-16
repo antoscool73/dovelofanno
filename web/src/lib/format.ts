@@ -77,3 +77,26 @@ export function midnight(d: Date): Date {
 export function vote(v: number | null | undefined): string {
   return v == null ? '' : v.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
+
+/** Ordine dei canali: quello della playlist (come RegistraTV), poi per numero del digitale terrestre e nome. */
+export function byChannelOrder(
+  a: { order?: number | null; number?: number | null; name: string },
+  b: { order?: number | null; number?: number | null; name: string },
+): number {
+  // prima l'ordine della playlist (dal server, come RegistraTV); i canali della sola guida dopo, per numero e nome
+  const oa = a.order ?? null;
+  const ob = b.order ?? null;
+  if (oa !== ob) {
+    if (oa == null) return 1;
+    if (ob == null) return -1;
+    return oa - ob;
+  }
+  const na = a.number ?? null;
+  const nb = b.number ?? null;
+  if (na !== nb) {
+    if (na == null) return 1;
+    if (nb == null) return -1;
+    return na - nb;
+  }
+  return a.name.localeCompare(b.name, 'it', { numeric: true });
+}

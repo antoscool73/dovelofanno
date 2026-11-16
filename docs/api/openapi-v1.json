@@ -1386,6 +1386,18 @@
           "streamsOk": {
             "type": "integer",
             "format": "int32"
+          },
+          "number": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "order": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -1509,6 +1521,20 @@
           },
           "scheduled": {
             "type": "boolean"
+          },
+          "channelNumber": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "channelOrder": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

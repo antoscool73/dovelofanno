@@ -3,7 +3,7 @@
   import Button from '../lib/components/Button.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
   import { api, ApiError, type GuideProgramme, type GuideStatus } from '../lib/api/client';
-  import { day, dayChip, midnight, range, time, vote } from '../lib/format';
+  import { byChannelOrder, day, dayChip, midnight, range, time, vote } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
 
   const PX_PER_MIN = 4;              // un'ora = 240 px, come nel prototipo
@@ -74,16 +74,17 @@
 
   // righe della griglia: un canale per riga; con IPTV solo quelli delle playlist (registrabili)
   const rows = $derived.by(() => {
-    const m = new Map<string, { name: string; items: GuideProgramme[] }>();
+    const m = new Map<string, { name: string; order: number | null; number: number | null; items: GuideProgramme[] }>();
     for (const p of programmes) {
       if (recordable && p.channelId == null) continue;
       const key = p.channelId != null ? 'c' + p.channelId : 'g' + p.guideChannelId;
       const name = p.channelName || p.guideChannelName;
       const r = m.get(key);
       if (r) r.items.push(p);
-      else m.set(key, { name, items: [p] });
+      else m.set(key, { name, order: p.channelOrder ?? null, number: p.channelNumber ?? null, items: [p] });
     }
-    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, 'it', { numeric: true }));
+    // nell'ordine della playlist, come RegistraTV
+    return [...m.values()].sort(byChannelOrder);
   });
 
   function left(p: GuideProgramme) {
@@ -193,7 +194,7 @@
         </div>
         {#each rows as r (r.name)}
           <div class="row" style:height="{ROW}px">
-            <div class="chname" style:width="{CH}px">{r.name}</div>
+            <div class="chname" style:width="{CH}px">{#if r.number != null}<span class="chnum">{r.number}</span>{/if}{r.name}</div>
             {#each r.items as p (p.id)}
               <button type="button" class="prog" class:dim={!matches(p)} class:rec={p.scheduled} class:past={new Date(p.stop) <= now}
                 style:left="{CH + left(p)}px" style:width="{width(p)}px" onclick={() => (open = p)}
@@ -276,6 +277,7 @@
     position: sticky; left: 0; z-index: 2; height: 100%; display: flex; align-items: center; padding: 0 16px;
     font-size: 14px; font-weight: 600; background: var(--surface); box-shadow: 1px 0 0 var(--line);
   }
+  .chnum { min-width: 28px; margin-right: 8px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
   .prog {
     position: absolute; top: 6px; bottom: 6px; display: flex; flex-direction: column; justify-content: center; gap: 3px;
     padding: 6px 10px; border-radius: var(--radius-s); border: 1px solid var(--line-strong); background: #1a1f28;

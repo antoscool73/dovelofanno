@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using DoveLoFanno.Epg;
+using DoveLoFanno.Sources;
 using Microsoft.Data.Sqlite;
 
 namespace DoveLoFanno.Data;
@@ -14,7 +15,8 @@ public sealed record GuideProgramme(
     long Id, long GuideChannelId, string GuideChannelName, long? ChannelId, string ChannelName,
     DateTimeOffset Start, DateTimeOffset Stop, string Title, string Subtitle, string Description,
     IReadOnlyList<string> Categories, string Group, string Sub, int Year, string Country, string Directors, string Actors,
-    string Episode, string Icon, long? WorkId, string WorkKey, double? Rating, string RatingSource, bool Scheduled);
+    string Episode, string Icon, long? WorkId, string WorkKey, double? Rating, string RatingSource, bool Scheduled,
+    int? ChannelNumber = null, int? ChannelOrder = null);
 
 /// <summary>Filtri della guida: finestra di tempo obbligatoria, il resto facoltativo.</summary>
 public sealed record GuideQuery(DateTimeOffset From, DateTimeOffset To)
@@ -196,7 +198,7 @@ public sealed class GuideStore(string dbPath)
         var rows = Db.Query(c, """
             SELECT p.id, gc.id, gc.name, ch.id, coalesce(ch.name, ''), p.start, p.stop, p.title, p.subtitle, p.description, p.categories,
                    p.group_name, p.sub_genre, p.year, p.country, p.directors, p.actors, p.episode, p.icon, p.work_id, coalesce(w.work_key, ''),
-                   w.rating, coalesce(w.rating_source, '')
+                   w.rating, coalesce(w.rating_source, ''), coalesce(ch.key, ''), gc.xmltv_id
             FROM programmes p
             JOIN guide_channels gc ON gc.id = p.guide_channel_id
             JOIN guide_sources gs ON gs.id = gc.guide_source_id AND gs.enabled = 1
@@ -221,10 +223,17 @@ public sealed class GuideStore(string dbPath)
                 return new GuideProgramme(r.GetInt64(0), r.GetInt64(1), r.GetString(2), chId, r.GetString(4), Db.FromUnix(a), Db.FromUnix(b),
                     r.GetString(7), r.GetString(8), r.GetString(9), cats, r.GetString(11), r.GetString(12), r.GetInt32(13), r.GetString(14),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18), Db.NLong(r, 19), r.GetString(20),
-                    r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled);
+                    r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled,
+                    chId != null ? ChannelNumbers.For(r.GetString(23), r.GetString(4)) : ChannelNumbers.For(r.GetString(24), r.GetString(2)));
             },
             ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$ch", q.ChannelId), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),
             ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating), ("$rec", q.OnlyRecordable ? 1 : 0));
+
+        // a parità di inizio, i canali nell'ordine della playlist (ChannelOrder, come RegistraTV); quelli della sola
+        // guida dopo, per numero del digitale terrestre e nome
+        var order = SourceStore.QueryChannels(c).ToDictionary(x => x.Id, x => x.Order);
+        rows = [.. rows.Select(p => p.ChannelId is long id && order.TryGetValue(id, out int o) ? p with { ChannelOrder = o } : p)
+            .OrderBy(p => p.Start).ThenBy(p => p, Comparer<GuideProgramme>.Create(CompareChannels)).ThenBy(p => p.Id)];
 
         if (!string.IsNullOrWhiteSpace(q.Text))
         {
@@ -233,6 +242,18 @@ public sealed class GuideStore(string dbPath)
         }
         if (q.Max > 0 && rows.Count > q.Max) rows.RemoveRange(q.Max, rows.Count - q.Max);
         return rows;
+    }
+
+    static int CompareChannels(GuideProgramme x, GuideProgramme y)
+    {
+        if (x.ChannelOrder != y.ChannelOrder)
+        {
+            if (x.ChannelOrder == null) return 1;
+            if (y.ChannelOrder == null) return -1;
+            return x.ChannelOrder.Value.CompareTo(y.ChannelOrder.Value);
+        }
+        return ChannelNumbers.Compare(x.ChannelNumber, x.ChannelId != null ? x.ChannelName : x.GuideChannelName,
+                                      y.ChannelNumber, y.ChannelId != null ? y.ChannelName : y.GuideChannelName);
     }
 
     public GuideProgramme? Programme(long id)

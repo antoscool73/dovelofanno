@@ -3,7 +3,7 @@
   // quelli predefiniti del server; il flusso si sceglie al momento di registrare.
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type Channel, type Stream } from '../lib/api/client';
-  import { at, dateInput, timeInput } from '../lib/format';
+  import { at, byChannelOrder, dateInput, timeInput } from '../lib/format';
 
   let { onclose, ondone }: { onclose: () => void; ondone: (warnings: string[]) => void } = $props();
 
@@ -22,8 +22,8 @@
 
   let streams = $state<Stream[]>([]);
 
-  // stato del canale dai suoi flussi: i soli DRM non si registrano e non compaiono;
-  // prima quelli che funzionano, poi quelli da controllare, poi quelli con problemi
+  // stato del canale dai suoi flussi: i soli DRM non si registrano e non compaiono; gli altri nell'ordine della
+  // playlist (come RegistraTV), con il numero davanti e una nota se non sono ancora controllati o hanno problemi
   const rank = (c: Channel) => {
     const l = streams.filter((s) => s.channelId === c.id);
     if (l.some((s) => s.state === 'ok')) return 0;
@@ -36,8 +36,8 @@
     channels
       .map((c) => ({ c, r: rank(c) }))
       .filter((x) => x.r < 3)
-      .sort((a, b) => a.r - b.r || a.c.name.localeCompare(b.c.name, 'it'))
-      .map((x) => ({ ...x.c, label: x.c.name + suffix[x.r] })),
+      .sort((a, b) => byChannelOrder(a.c, b.c))
+      .map((x) => ({ ...x.c, label: (x.c.number != null ? x.c.number + ' · ' : '') + x.c.name + suffix[x.r] })),
   );
 
   async function loadChannels() {

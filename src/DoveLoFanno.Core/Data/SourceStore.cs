@@ -6,7 +6,10 @@ namespace DoveLoFanno.Data;
 
 public sealed record SourceRow(long Id, string Name, string Url, string XmltvUrl, int? MaxConnections, bool Enabled, int Priority, DateTimeOffset? LastCheckedAt, string LastError);
 
-public sealed record ChannelRow(long Id, string Key, string Name, string Logo, string Group, bool Excluded, int Streams, int StreamsOk);
+/// <param name="Number">Numero del digitale terrestre (LCN nazionale), null se il canale non ne ha uno: solo un'etichetta.</param>
+/// <param name="Order">Posto del canale negli elenchi (0 = primo): l'ordine della playlist, come in RegistraTV.</param>
+public sealed record ChannelRow(long Id, string Key, string Name, string Logo, string Group, bool Excluded, int Streams, int StreamsOk,
+    int? Number = null, int Order = 0);
 
 public sealed record StreamRow(long Id, long ChannelId, long SourceId, string Url, string Kind, string State, int Priority, int? Width, int? Height, string VideoCodec, string AudioCodec, string UserAgent, DateTimeOffset? LastCheckedAt);
 
@@ -63,10 +66,11 @@ public sealed class SourceStore(string dbPath)
     {
         using var c = Open();
         using var tx = c.BeginTransaction();
-        int added = 0, drm = 0;
+        int added = 0, drm = 0, position = -1;
         var keep = new HashSet<long>();
         foreach (var e in playlist.Entries)
         {
+            position++;
             string key = ChannelKey(e);
             if (key is "id:" or "name:") continue;
             long? ch = Db.ScalarLong(c, "SELECT id FROM channels WHERE key = $k", ("$k", key));
@@ -77,11 +81,11 @@ public sealed class SourceStore(string dbPath)
             long? st = Db.ScalarLong(c, "SELECT id FROM streams WHERE source_id = $s AND channel_id = $c AND url = $u", ("$s", sourceId), ("$c", ch), ("$u", e.Url));
             if (st == null)
             {
-                st = Db.Insert(c, "INSERT INTO streams (channel_id, source_id, url, kind, state, user_agent, referrer) VALUES ($c, $s, $u, $k, $st, $ua, $r)",
-                    ("$c", ch), ("$s", sourceId), ("$u", e.Url), ("$k", kind), ("$st", e.Drm ? StreamState.Drm : StreamState.Unchecked), ("$ua", e.UserAgent), ("$r", e.Referrer));
+                st = Db.Insert(c, "INSERT INTO streams (channel_id, source_id, url, kind, state, user_agent, referrer, position) VALUES ($c, $s, $u, $k, $st, $ua, $r, $p)",
+                    ("$c", ch), ("$s", sourceId), ("$u", e.Url), ("$k", kind), ("$st", e.Drm ? StreamState.Drm : StreamState.Unchecked), ("$ua", e.UserAgent), ("$r", e.Referrer), ("$p", position));
                 added++;
             }
-            else Db.Exec(c, "UPDATE streams SET user_agent = $ua, referrer = $r WHERE id = $id", ("$ua", e.UserAgent), ("$r", e.Referrer), ("$id", st));
+            else Db.Exec(c, "UPDATE streams SET user_agent = $ua, referrer = $r, position = $p WHERE id = $id", ("$ua", e.UserAgent), ("$r", e.Referrer), ("$p", position), ("$id", st));
             if (e.Drm) drm++;
             keep.Add(st.Value);
         }
@@ -98,16 +102,35 @@ public sealed class SourceStore(string dbPath)
         return (added, removed, drm);
     }
 
+    /// <summary>
+    /// Canali nell'ordine della playlist, come RegistraTV: prima la playlist principale (priorità più bassa), nella sua
+    /// sequenza; un canale in più playlist prende il posto migliore. Poi i canali che nessuna playlist attiva ha più,
+    /// per numero del digitale terrestre e nome.
+    /// </summary>
     public List<ChannelRow> Channels()
     {
         using var c = Open();
-        return Db.Query(c, """
+        return QueryChannels(c);
+    }
+
+    internal static List<ChannelRow> QueryChannels(SqliteConnection c)
+    {
+        var rows = Db.Query(c, """
             SELECT ch.id, ch.key, ch.name, ch.logo, ch.group_title, ch.excluded,
-                   count(st.id), sum(CASE WHEN st.state = 'ok' THEN 1 ELSE 0 END)
+                   count(st.id), sum(CASE WHEN st.state = 'ok' THEN 1 ELSE 0 END),
+                   min(CASE WHEN so.id IS NOT NULL THEN so.priority * 1000000 + st.position END)
             FROM channels ch LEFT JOIN streams st ON st.channel_id = ch.id
-            GROUP BY ch.id ORDER BY ch.name COLLATE NOCASE
+            LEFT JOIN sources so ON so.id = st.source_id AND so.enabled = 1
+            GROUP BY ch.id
             """,
-            r => new ChannelRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5) == 1, r.GetInt32(6), r.IsDBNull(7) ? 0 : r.GetInt32(7)));
+            r => (Row: new ChannelRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5) == 1, r.GetInt32(6),
+                    r.IsDBNull(7) ? 0 : r.GetInt32(7), ChannelNumbers.For(r.GetString(1), r.GetString(2))),
+                  Pos: r.IsDBNull(8) ? (long?)null : r.GetInt64(8)));
+        rows.Sort((a, b) =>
+            a.Pos != b.Pos && a.Pos != null && b.Pos != null ? a.Pos.Value.CompareTo(b.Pos.Value)
+            : a.Pos == null != (b.Pos == null) ? (a.Pos == null ? 1 : -1)
+            : ChannelNumbers.Compare(a.Row.Number, a.Row.Name, b.Row.Number, b.Row.Name));
+        return rows.Select((x, i) => x.Row with { Order = i }).ToList();
     }
 
     public List<StreamRow> Streams(long? channelId = null, long? sourceId = null)

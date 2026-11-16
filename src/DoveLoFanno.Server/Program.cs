@@ -39,11 +39,17 @@ var app = builder.Build();
 app.MapOpenApi("/api/{documentName}/openapi.json");
 Api.Map(app);
 // interfaccia web (wwwroot, prodotta da web/ con npm run build); gli indirizzi dell'app che non sono file
-// tornano a index.html, quelli dell'API sconosciuti restano 404
+// tornano a index.html, quelli dell'API sconosciuti restano 404. index.html si ricontrolla sempre (dopo un
+// aggiornamento il browser prende subito l'interfaccia nuova); i file in assets/ hanno l'hash nel nome e restano in cache.
+var staticFiles = new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl =
+        ctx.Context.Request.Path.StartsWithSegments("/assets") ? "public, max-age=31536000, immutable" : "no-cache",
+};
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(staticFiles);
 app.MapFallback("/api/{**rest}", () => Results.NotFound());
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", staticFiles);
 await app.RunAsync();
 return 0;
 

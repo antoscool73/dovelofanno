@@ -1544,6 +1544,13 @@ export interface components {
             streams: number;
             /** Format: int32 */
             streamsOk: number;
+            /** Format: int32 */
+            number?: null | number;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            order: number;
         };
         GuideProgramme: {
             /** Format: int64 */
@@ -1578,6 +1585,10 @@ export interface components {
             rating: null | number;
             ratingSource: string;
             scheduled: boolean;
+            /** Format: int32 */
+            channelNumber?: null | number;
+            /** Format: int32 */
+            channelOrder?: null | number;
         };
         GuideSourceRow: {
             /** Format: int64 */
