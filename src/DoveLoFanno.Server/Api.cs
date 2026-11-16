@@ -18,6 +18,7 @@ public sealed record NewProfile(string Name, bool IsChild, string? Avatar, strin
 public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin);
 public sealed record PinCheck(string? Pin);
 public sealed record WorkRef(long WorkId);
+public sealed record StarsBody(int? Stars);
 
 /// <summary>
 /// API v1. Congelata con la wave 3 (16/11/2026): il documento docs/api/openapi-v1.json è quello approvato e un test
@@ -236,6 +237,30 @@ public static class Api
             })
             .WithSummary("Segna un'opera come vista dal profilo e la toglie dalla mia serata")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
+
+        prof.MapPut("/{id:long}/works/{workId:long}/stars", IResult (long id, long workId, StarsBody body, ServerContext ctx) =>
+            ctx.Works.SetStars(id, workId, body.Stars, ctx.Clock.GetUtcNow()) ? Results.NoContent()
+            : body.Stars is < 1 or > 5 ? Results.BadRequest(new ApiError("voto da 1 a 5 stelle")) : Results.NotFound())
+            .WithSummary("Voto personale del profilo, da 1 a 5 stelle (null lo toglie)")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
+
+        // ---------------------------------------------------------------- opere (aggiunta della wave 5)
+        api.MapGet("/works/{id:long}", async Task<IResult> (long id, long? profileId, ServerContext ctx, CancellationToken ct) =>
+        {
+            var now = ctx.Clock.GetUtcNow();
+            // dettagli da TMDB (trama, immagini, trailer, piattaforme) se mancano o hanno più di un giorno
+            string key = ctx.Settings.Get("TmdbKey");
+            if (key.Length > 0 && ctx.Works.DetailsToRefresh(id, now) is long tmdbId)
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(8));
+                try { ctx.Works.SaveDetails(id, await new DoveLoFanno.Ratings.TmdbClient(ctx.Http, key).MovieDetailsAsync((int)tmdbId, cts.Token), now); }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or DoveLoFanno.Ratings.TmdbKeyException or System.Text.Json.JsonException) { }
+            }
+            return ctx.Works.Detail(id, profileId, now) is { } w ? Results.Ok(w) : Results.NotFound();
+        })
+            .WithTags("Opere").WithSummary("Scheda di un'opera: dati, dettagli TMDB, passaggi in TV, file in casa, dove lo vedo, stato del profilo")
+            .Produces<WorkDetail>().Produces(StatusCodes.Status404NotFound);
 
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");

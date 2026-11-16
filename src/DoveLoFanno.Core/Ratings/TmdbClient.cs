@@ -5,6 +5,12 @@ using System.Text.Json;
 
 namespace DoveLoFanno.Ratings;
 
+/// <summary>Una piattaforma per un film in Italia: kind = subscription, free, rent o buy (dati JustWatch tramite TMDB).</summary>
+public sealed record Provider(string Name, string Kind, string LogoPath);
+
+/// <summary>Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg).</summary>
+public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers);
+
 /// <summary>
 /// Client TMDB con la chiave dell'utente: chiave v3 (32 caratteri) come parametro api_key, token v4 (lungo) come
 /// Bearer. Ritenta due volte su 429, errori 5xx e di rete; 401 = <see cref="TmdbKeyException"/>.
@@ -31,6 +37,43 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch
     {
         using var doc = await GetAsync("movie/" + tmdbId.ToString(CultureInfo.InvariantCulture) + "/external_ids", "", ct);
         return Str(doc.RootElement, "imdb_id");
+    }
+
+    /// <summary>Trama in italiano, immagini, durata, trailer e piattaforme in Italia, in una sola chiamata.</summary>
+    public async Task<MovieDetails> MovieDetailsAsync(int tmdbId, CancellationToken ct)
+    {
+        using var doc = await GetAsync("movie/" + tmdbId.ToString(CultureInfo.InvariantCulture),
+            "language=it-IT&append_to_response=videos,watch/providers&include_video_language=it,en", ct);
+        return ParseDetails(doc.RootElement);
+    }
+
+    internal static MovieDetails ParseDetails(JsonElement m)
+    {
+        string trailer = "";
+        if (m.TryGetProperty("videos", out var v) && v.TryGetProperty("results", out var vids) && vids.ValueKind == JsonValueKind.Array)
+        {
+            var yt = vids.EnumerateArray()
+                .Where(x => Str(x, "site") == "YouTube" && Str(x, "type") == "Trailer" && Str(x, "key").Length > 0)
+                .OrderBy(x => Str(x, "iso_639_1") == "it" ? 0 : 1)
+                .ThenBy(x => x.TryGetProperty("official", out var o) && o.ValueKind == JsonValueKind.True ? 0 : 1)
+                .FirstOrDefault();
+            if (yt.ValueKind == JsonValueKind.Object) trailer = "https://www.youtube.com/watch?v=" + Str(yt, "key");
+        }
+        var providers = new List<Provider>();
+        string link = "";
+        if (m.TryGetProperty("watch/providers", out var wp) && wp.TryGetProperty("results", out var res) && res.TryGetProperty("IT", out var it))
+        {
+            link = Str(it, "link");
+            foreach (var (key, kind) in new[] { ("flatrate", "subscription"), ("free", "free"), ("ads", "free"), ("rent", "rent"), ("buy", "buy") })
+                if (it.TryGetProperty(key, out var arr) && arr.ValueKind == JsonValueKind.Array)
+                    foreach (var p in arr.EnumerateArray())
+                    {
+                        string name = Str(p, "provider_name");
+                        if (name.Length > 0 && !providers.Any(x => x.Name == name && x.Kind == kind)) providers.Add(new Provider(name, kind, Str(p, "logo_path")));
+                    }
+        }
+        return new MovieDetails(Str(m, "overview"), Str(m, "poster_path"), Str(m, "backdrop_path"), (int)Num(m, "runtime"),
+            Str(m, "original_title"), trailer, link, providers);
     }
 
     /// <summary>"" se la chiave funziona, altrimenti il motivo.</summary>
