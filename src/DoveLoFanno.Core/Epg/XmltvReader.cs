@@ -91,9 +91,11 @@ public static partial class XmltvReader
         var keys = new Dictionary<string, string>();
         int count = 0;
         DateTime last = DateTime.MinValue;
-        foreach (var (id, l) in progs)
+        foreach (var id in progs.Keys.ToList())
         {
-            l.Sort((a, b) => a.Start.CompareTo(b.Start));
+            // ordinamento stabile: a parità di inizio resta l'ordine del file
+            // (RegistraTV usava List.Sort, che tra i pari dava un ordine casuale)
+            var l = progs[id] = [.. progs[id].OrderBy(p => p.Start)];
             for (int i = 0; i < l.Count; i++)
             {
                 // "stop" è facoltativo in XMLTV: finisce quando inizia il successivo

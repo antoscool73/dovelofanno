@@ -46,9 +46,12 @@ public class OracleTests(ITestOutputHelper output)
                     Clean(p.Title), Clean(p.SubTitle), p.Group, Clean(p.Sub), p.GroupGuessed ? "True" : "False",
                     p.Year.ToString(inv), Clean(p.Episode), Clean(p.WorkKey), p.Desc.Length.ToString(inv)));
 
-        // l'ordine dei canali di PowerShell (Sort-Object) può differire: si confronta per canale
-        var exp = expected.GroupBy(l => l.Split('\t')[0]).ToDictionary(x => x.Key, x => x.ToList());
-        var act = actual.GroupBy(l => l.Split('\t')[0]).ToDictionary(x => x.Key, x => x.ToList());
+        // si confronta per canale (l'ordine dei canali di Sort-Object può differire) e, dentro il canale,
+        // ignorando l'ordine tra programmi con lo stesso inizio: RegistraTV li ordinava con List.Sort, non stabile
+        static Dictionary<string, List<string>> ByChannel(IEnumerable<string> rows) =>
+            rows.GroupBy(l => l.Split('\t')[0]).ToDictionary(x => x.Key, x => x.OrderBy(l => l.Split('\t')[1], StringComparer.Ordinal).ThenBy(l => l, StringComparer.Ordinal).ToList());
+        var exp = ByChannel(expected);
+        var act = ByChannel(actual);
         var diffs = new List<string>();
         foreach (var ch in exp.Keys.Union(act.Keys))
         {
