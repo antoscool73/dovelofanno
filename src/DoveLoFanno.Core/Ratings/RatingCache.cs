@@ -58,10 +58,11 @@ public sealed class RatingCache
     /// <summary>Chiave della cache: titolo normalizzato e anno della guida ("padrino|1972").</summary>
     public static string KeyOf(string title, int year) => Titles.TitleKey(title) + "|" + year.ToString(Inv);
 
-    public RatingInfo? Lookup(string title, int year)
+    /// <param name="useImdb">false = solo voti TMDB (il file IMDb è facoltativo: licenza solo personale)</param>
+    public RatingInfo? Lookup(string title, int year, bool useImdb = true)
     {
         if (!Entries.TryGetValue(KeyOf(title, year), out var e) || !e.Found) return null;
-        if (e.ImdbVote > 0) return new(e.ImdbVote, "IMDb", e.ImdbVotes, e.ImdbId, e.TmdbId, e.OriginalTitle, e.Year);
+        if (useImdb && e.ImdbVote > 0) return new(e.ImdbVote, "IMDb", e.ImdbVotes, e.ImdbId, e.TmdbId, e.OriginalTitle, e.Year);
         if (e.TmdbVote > 0 && e.TmdbCount >= 20) return new(e.TmdbVote, "TMDB", e.TmdbCount, e.ImdbId, e.TmdbId, e.OriginalTitle, e.Year);
         return null;
     }

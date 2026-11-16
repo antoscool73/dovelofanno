@@ -38,6 +38,12 @@ public sealed class RatingService
     public string Status { get; private set; } = "";
     public string Error { get; private set; } = "";
 
+    /// <summary>
+    /// Voti IMDb dal file ufficiale. Facoltativi e spenti di base nel server: la licenza del file è solo personale e non
+    /// commerciale. Spenti, si mostra il voto TMDB (con almeno 20 voti).
+    /// </summary>
+    public bool UseImdb { get; init; } = true;
+
     /// <summary>Delay tra due ricerche, per non pesare su TMDB (RegistraTV: 120 ms).</summary>
     public TimeSpan Pace { get; init; } = TimeSpan.FromMilliseconds(120);
 
@@ -45,9 +51,12 @@ public sealed class RatingService
 
     public int Pending { get { lock (sync) return queue.Count; } }
 
+    /// <summary>Film cercati e trovati nella cache.</summary>
+    public (int Searched, int Found) Counts { get { lock (sync) return (cache.Entries.Count, cache.Entries.Values.Count(e => e.Found)); } }
+
     public RatingInfo? Lookup(EpgProgramme p)
     {
-        lock (sync) return cache.Lookup(p.Title, p.Year);
+        lock (sync) return cache.Lookup(p.Title, p.Year, UseImdb);
     }
 
     public double RatingOf(EpgProgramme p) => Lookup(p)?.Value ?? 0;
@@ -104,7 +113,7 @@ public sealed class RatingService
                 if (Pace > TimeSpan.Zero) await Task.Delay(Pace, clock, ct);
             }
             Error = "";
-            await UpdateImdbAsync(ct);
+            if (UseImdb) await UpdateImdbAsync(ct);
         }
         catch (Exception ex) when (ex is TmdbKeyException or HttpRequestException or IOException or InvalidDataException)
         {

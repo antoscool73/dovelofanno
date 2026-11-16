@@ -10,6 +10,8 @@ public sealed record SourcePatch(string? Name, int? MaxConnections, bool? ClearM
 public sealed record ImportResult(long SourceId, int Channels, int Added, int Removed, int Drm, string EpgUrl);
 public sealed record NewRecording(long ChannelId, string Title, DateTimeOffset Start, DateTimeOffset Stop, int? BeforeMin, int? AfterMin, string? Format, long? ProgrammeId = null);
 public sealed record NewGuideSource(string Url);
+public sealed record RatingSettings(bool HasTmdbKey, string KeyHint, bool ImdbEnabled, string Status, string Error, int FilmsSearched, int FilmsFound);
+public sealed record RatingSettingsPatch(string? TmdbKey, bool? ClearTmdbKey, bool? ImdbEnabled);
 public sealed record ScheduledRecording(long Id, IReadOnlyList<string> Warnings);
 public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartRow> Parts);
 public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
@@ -248,6 +250,29 @@ public static class Api
             .WithSummary("Toglie una guida con i suoi programmi (una guida indicata da una playlist torna al prossimo controllo)")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
 
+        // ---------------------------------------------------------------- voti dei film (aggiunta della wave 5)
+        var set = api.MapGroup("/settings").WithTags("Impostazioni");
+
+        set.MapGet("/ratings", (ServerContext ctx, RatingsHost ratings) => RatingInfoOf(ctx, ratings))
+            .WithSummary("Chiave TMDB (solo se c'è e le ultime 4 cifre, mai la chiave), voti IMDb, stato della ricerca");
+
+        set.MapPut("/ratings", async Task<IResult> (RatingSettingsPatch body, ServerContext ctx, RatingsHost ratings, CancellationToken ct) =>
+        {
+            if (body.ClearTmdbKey == true) ctx.Settings.Set("TmdbKey", "");
+            else if (!string.IsNullOrWhiteSpace(body.TmdbKey))
+            {
+                string key = body.TmdbKey.Trim();
+                string why = await new DoveLoFanno.Ratings.TmdbClient(ctx.Http, key).TestKeyAsync(ct);
+                if (why.Length > 0) return Results.BadRequest(new ApiError(why));
+                ctx.Settings.Set("TmdbKey", key);
+            }
+            if (body.ImdbEnabled is bool imdb) ctx.Settings.Set("ImdbRatings", imdb ? "1" : "0");
+            ratings.Reset();
+            return Results.Ok(RatingInfoOf(ctx, ratings));
+        })
+            .WithSummary("Salva la chiave TMDB dopo averla provata con TMDB, o la toglie; attiva o spegne i voti IMDb (licenza solo personale)")
+            .Produces<RatingSettings>().Produces<ApiError>(StatusCodes.Status400BadRequest);
+
         // ---------------------------------------------------------------- backup
         var bak = api.MapGroup("/backups").WithTags("Sistema");
         bak.MapGet("", (ServerContext ctx) => ctx.Backups.List()).WithSummary("Copie del database (ogni notte alle 3, si tengono le ultime 7)");
@@ -271,6 +296,14 @@ public static class Api
         }
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
         return w;
+    }
+
+    static RatingSettings RatingInfoOf(ServerContext ctx, RatingsHost ratings)
+    {
+        string key = ctx.Settings.Get("TmdbKey");
+        var (searched, found) = ratings.Counts;
+        return new RatingSettings(key.Length > 0, key.Length >= 4 ? key[^4..] : "", ctx.Settings.Get("ImdbRatings") == "1",
+            ratings.Status, ratings.Error, searched, found);
     }
 
     static IResult ProfileError(ProfileResult r) => r switch

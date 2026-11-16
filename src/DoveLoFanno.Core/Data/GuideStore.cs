@@ -243,6 +243,32 @@ public sealed class GuideStore(string dbPath)
         return Query(new GuideQuery(Db.FromUnix(p[0].A), Db.FromUnix(p[0].B + 1)) { Max = 0 }).FirstOrDefault(x => x.Id == id);
     }
 
+    /// <summary>Opere film con almeno un passaggio non ancora finito: quelle di cui cercare il voto.</summary>
+    public List<(long WorkId, string Title, int Year)> FilmWorks(DateTimeOffset now)
+    {
+        using var c = Open();
+        return Db.Query(c, """
+            SELECT w.id, w.title, w.year FROM works w
+            WHERE w.kind = 'film' AND EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND p.stop > $now)
+            ORDER BY w.id
+            """, r => (r.GetInt64(0), r.GetString(1), r.GetInt32(2)), ("$now", Db.Unix(now)));
+    }
+
+    /// <summary>Scrive (o toglie, con null) il voto di un'opera e i codici TMDB e IMDb.</summary>
+    public void SetRating(long workId, Ratings.RatingInfo? r, DateTimeOffset now)
+    {
+        using var c = Open();
+        if (r == null)
+            Db.Exec(c, "UPDATE works SET rating = NULL, rating_source = '', rating_votes = 0, updated_at = $t WHERE id = $id", ("$t", Db.Unix(now)), ("$id", workId));
+        else
+            Db.Exec(c, """
+                UPDATE works SET rating = $v, rating_source = $s, rating_votes = $n, tmdb_id = $tm, tmdb_kind = 'movie',
+                       imdb_id = $im, original_title = $ot, updated_at = $t WHERE id = $id
+                """,
+                ("$v", r.Value), ("$s", r.Source), ("$n", r.Votes), ("$tm", r.TmdbId == 0 ? null : r.TmdbId), ("$im", r.ImdbId),
+                ("$ot", r.OriginalTitle), ("$t", Db.Unix(now)), ("$id", workId));
+    }
+
     static bool Has(string s, string t) =>
         CultureInfo.InvariantCulture.CompareInfo.IndexOf(s, t, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
 }

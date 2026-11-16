@@ -20,6 +20,8 @@ builder.Services.AddSingleton<ProbeHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProbeHost>());
 builder.Services.AddHostedService<SchedulerHost>();
 builder.Services.AddHostedService<BackupHost>();
+builder.Services.AddSingleton<RatingsHost>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RatingsHost>());
 builder.Services.AddSingleton<GuideHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GuideHost>());
 builder.Services.AddOpenApi("v1", o => o.AddDocumentTransformer((doc, _, _) =>

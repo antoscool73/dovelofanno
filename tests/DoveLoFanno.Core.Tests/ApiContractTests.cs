@@ -91,6 +91,19 @@ public sealed class ApiContractTests(ITestOutputHelper output) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ImpostazioniDeiVoti_ChiaveMaiRestituitaEImdbSpentoDiBase()
+    {
+        if (factory == null) { output.WriteLine("ffmpeg non trovato: test saltato"); return; }
+        var http = factory.CreateClient();
+        var s = await http.GetFromJsonAsync<JsonElement>("/api/v1/settings/ratings");
+        Assert.False(s.GetProperty("hasTmdbKey").GetBoolean());
+        Assert.False(s.GetProperty("imdbEnabled").GetBoolean());          // licenza IMDb solo personale: spento di base
+        var on = await http.PutAsJsonAsync("/api/v1/settings/ratings", new { imdbEnabled = true });
+        Assert.True((await on.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("imdbEnabled").GetBoolean());
+        Assert.DoesNotContain("tmdbKey\"", (await http.GetStringAsync("/api/v1/settings/ratings")).Replace("hasTmdbKey\"", ""));
+    }
+
+    [Fact]
     public void BackupSiTengonoLeUltimeSette()
     {
         string dir = Path.Combine(Path.GetTempPath(), "dlf-bak-" + Guid.NewGuid().ToString("N"));

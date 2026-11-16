@@ -8,7 +8,7 @@ namespace DoveLoFanno.Server;
 /// caricate più di 12 ore fa. Come RegistraTV la copia salvata (data/epg/&lt;id&gt;.xml.gz) si sostituisce solo se il
 /// file nuovo si legge; se lo scaricamento non riesce resta la guida di prima, con l'errore annotato.
 /// </summary>
-public sealed class GuideHost(ServerContext ctx, ILogger<GuideHost> log) : BackgroundService
+public sealed class GuideHost(ServerContext ctx, RatingsHost ratings, ILogger<GuideHost> log) : BackgroundService
 {
     static readonly TimeSpan MaxAge = TimeSpan.FromHours(12);
     readonly SemaphoreSlim wake = new(0);
@@ -58,6 +58,7 @@ public sealed class GuideHost(ServerContext ctx, ILogger<GuideHost> log) : Backg
                 File.Move(tmp, file, overwrite: true);
                 int n = ctx.Guide.Save(g.Id, guide, ctx.Clock.GetUtcNow());
                 log.LogInformation("Guida {Url}: {Channels} canali, {Programmes} programmi", g.Url, guide.ChannelCount, n);
+                ratings.Kick();   // film nuovi: si cercano i voti
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException or System.Xml.XmlException or TaskCanceledException && !ct.IsCancellationRequested)
             {
