@@ -36,16 +36,16 @@ public sealed class RecordingStore(string dbPath)
 
     SqliteConnection Open() => Database.Open(dbPath);
 
-    public long Schedule(long channelId, string title, DateTimeOffset start, DateTimeOffset stop, int beforeMin, int afterMin, string format, DateTimeOffset now, long? workId = null, long? profileId = null)
+    public long Schedule(long channelId, string title, DateTimeOffset start, DateTimeOffset stop, int beforeMin, int afterMin, string format, DateTimeOffset now, long? workId = null, long? profileId = null, long? programmeId = null)
     {
         if (stop <= start) throw new ArgumentException("la fine deve essere dopo l'inizio");
         if (format is not ("mp4" or "mp3")) throw new ArgumentException("formato non valido: " + format);
         using var c = Open();
         return Db.Insert(c, """
-            INSERT INTO recordings (channel_id, work_id, profile_id, title, start, stop, before_min, after_min, format, created_at)
-            VALUES ($c, $w, $p, $t, $s, $e, $b, $a, $f, $now)
+            INSERT INTO recordings (channel_id, work_id, profile_id, programme_id, title, start, stop, before_min, after_min, format, created_at)
+            VALUES ($c, $w, $p, $pg, $t, $s, $e, $b, $a, $f, $now)
             """,
-            ("$c", channelId), ("$w", workId), ("$p", profileId), ("$t", title), ("$s", Db.Unix(start)), ("$e", Db.Unix(stop)),
+            ("$c", channelId), ("$w", workId), ("$p", profileId), ("$pg", programmeId), ("$t", title), ("$s", Db.Unix(start)), ("$e", Db.Unix(stop)),
             ("$b", beforeMin), ("$a", afterMin), ("$f", format), ("$now", Db.Unix(now)));
     }
 

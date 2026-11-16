@@ -8,7 +8,8 @@ public sealed record Health(string Status, string Api, int Database, int Running
 public sealed record NewSource(string Name, string Url);
 public sealed record SourcePatch(string? Name, int? MaxConnections, bool? ClearMaxConnections, bool? Enabled, int? Priority);
 public sealed record ImportResult(long SourceId, int Channels, int Added, int Removed, int Drm, string EpgUrl);
-public sealed record NewRecording(long ChannelId, string Title, DateTimeOffset Start, DateTimeOffset Stop, int? BeforeMin, int? AfterMin, string? Format);
+public sealed record NewRecording(long ChannelId, string Title, DateTimeOffset Start, DateTimeOffset Stop, int? BeforeMin, int? AfterMin, string? Format, long? ProgrammeId = null);
+public sealed record NewGuideSource(string Url);
 public sealed record ScheduledRecording(long Id, IReadOnlyList<string> Warnings);
 public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartRow> Parts);
 public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
@@ -37,7 +38,7 @@ public static class Api
         src.MapGet("", (ServerContext ctx) => ctx.Sources.Sources())
             .WithSummary("Playlist M3U dell'utente");
 
-        src.MapPost("", async Task<IResult> (NewSource body, ServerContext ctx, ProbeHost probe, CancellationToken ct) =>
+        src.MapPost("", async Task<IResult> (NewSource body, ServerContext ctx, ProbeHost probe, GuideHost guide, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Url)) return Results.BadRequest(new ApiError("indirizzo mancante"));
             string url = body.Url.Trim();
@@ -55,6 +56,7 @@ public static class Api
             long id = ctx.Sources.AddSource(name, url, now);
             var (added, removed, drm) = ctx.Sources.Import(id, pl, now);
             probe.Enqueue(id);
+            guide.Kick();
             return Results.Created($"/api/v1/sources/{id}", new ImportResult(id, pl.Entries.Count, added, removed, drm, pl.EpgUrl));
         })
             .WithSummary("Aggiunge una playlist (indirizzo http/https o file sul server), la importa e ne controlla i flussi")
@@ -137,7 +139,13 @@ public static class Api
             var now = ctx.Clock.GetUtcNow();
             if (body.Stop.AddMinutes(after) <= now) return Results.BadRequest(new ApiError("il programma è già finito"));
             var warnings = Warnings(ctx, body.Start.AddMinutes(-before), body.Stop.AddMinutes(after));
-            long id = ctx.Recordings.Schedule(body.ChannelId, body.Title.Trim(), body.Start, body.Stop, before, after, format, now);
+            long? workId = null;
+            if (body.ProgrammeId is long pid)
+            {
+                if (ctx.Guide.Programme(pid) is not { } prog) return Results.BadRequest(new ApiError("programma sconosciuto"));
+                workId = prog.WorkId;
+            }
+            long id = ctx.Recordings.Schedule(body.ChannelId, body.Title.Trim(), body.Start, body.Stop, before, after, format, now, workId, null, body.ProgrammeId);
             return Results.Created($"/api/v1/recordings/{id}", new ScheduledRecording(id, warnings));
         })
             .WithSummary("Programma una registrazione (margini e formato predefiniti se mancano); risponde con gli avvisi")
@@ -194,6 +202,51 @@ public static class Api
             })
             .WithSummary("Controlla il PIN di un profilo prima di entrarci")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status403Forbidden);
+
+        // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
+        var gd = api.MapGroup("/guide").WithTags("Guida");
+
+        gd.MapGet("", (DateTimeOffset from, DateTimeOffset to, long? channelId, string? text, string? group, string? sub, double? minRating, bool? onlyRecordable, int? max, ServerContext ctx) =>
+        {
+            if (to <= from) return Results.BadRequest(new ApiError("to deve essere dopo from"));
+            if (to - from > TimeSpan.FromDays(31)) return Results.BadRequest(new ApiError("al massimo 31 giorni per richiesta"));
+            return Results.Ok(ctx.Guide.Query(new GuideQuery(from, to)
+            {
+                ChannelId = channelId, Text = text, Group = group, Sub = sub, MinRating = minRating ?? 0,
+                OnlyRecordable = onlyRecordable == true, Max = Math.Clamp(max ?? 2000, 1, 5000),
+            }));
+        })
+            .WithSummary("Programmi che si sovrappongono a [from, to): filtri per canale, testo (anche regia e attori), gruppo, sottogenere, voto minimo, solo canali registrabili")
+            .Produces<List<GuideProgramme>>().Produces<ApiError>(StatusCodes.Status400BadRequest);
+
+        gd.MapGet("/programmes/{id:long}", IResult (long id, ServerContext ctx) =>
+            ctx.Guide.Programme(id) is { } p ? Results.Ok(p) : Results.NotFound())
+            .WithSummary("Un programma della guida").Produces<GuideProgramme>().Produces(StatusCodes.Status404NotFound);
+
+        gd.MapGet("/status", (ServerContext ctx) => ctx.Guide.Status())
+            .WithSummary("Fonti della guida, canali collegati, programmi e fino a quando arriva");
+
+        gd.MapPost("/refresh", (GuideHost guide) => { guide.RefreshNow(); return Results.Accepted(); })
+            .WithSummary("Riscarica subito tutte le guide, in background").Produces(StatusCodes.Status202Accepted);
+
+        gd.MapPost("/sources", IResult (NewGuideSource body, ServerContext ctx, GuideHost guide) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Url)) return Results.BadRequest(new ApiError("indirizzo mancante"));
+            long id = ctx.Guide.AddSource(body.Url.Trim());
+            guide.Kick();
+            return Results.Created($"/api/v1/guide/sources/{id}", ctx.Guide.Sources().First(s => s.Id == id));
+        })
+            .WithSummary("Aggiunge una guida XMLTV (indirizzo o file sul server); si carica in background")
+            .Produces<GuideSourceRow>(StatusCodes.Status201Created).Produces<ApiError>(StatusCodes.Status400BadRequest);
+
+        gd.MapDelete("/sources/{id:long}", IResult (long id, ServerContext ctx) =>
+        {
+            if (!ctx.Guide.Sources().Any(s => s.Id == id)) return Results.NotFound();
+            ctx.Guide.DeleteSource(id);
+            return Results.NoContent();
+        })
+            .WithSummary("Toglie una guida con i suoi programmi (una guida indicata da una playlist torna al prossimo controllo)")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
 
         // ---------------------------------------------------------------- backup
         var bak = api.MapGroup("/backups").WithTags("Sistema");

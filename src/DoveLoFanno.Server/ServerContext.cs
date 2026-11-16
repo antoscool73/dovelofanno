@@ -23,6 +23,7 @@ public sealed class ServerContext : IDisposable
     public RecordingScheduler Scheduler { get; }
     public Backup Backups { get; }
     public ProfileStore Profiles { get; }
+    public GuideStore Guide { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -50,6 +51,7 @@ public sealed class ServerContext : IDisposable
         Scheduler = new RecordingScheduler(Recordings, Sources, recorder, Http, Clock, new SchedulerOptions(RecordingsDir, LogDir));
         Backups = new Backup(DbPath, Path.Combine(DataDir, "backup"));
         Profiles = new ProfileStore(DbPath);
+        Guide = new GuideStore(DbPath);
     }
 
     static string Full(string? configured, string fallback) =>

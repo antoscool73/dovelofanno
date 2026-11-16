@@ -21,6 +21,8 @@ public sealed class EpgProgramme
     public string Directors { get; set; } = "";
     public string Actors { get; set; } = "";
     public string Episode { get; set; } = "";
+    /// <summary>Immagine del programma indicata dalla guida (icon src), se c'è.</summary>
+    public string Icon { get; set; } = "";
 
     /// <summary>Gruppo fisso: Film, Serie TV, Documentari, Notizie, Sport, Intrattenimento, Bambini, Altro.</summary>
     public string Group { get; set; } = Genres.Other;

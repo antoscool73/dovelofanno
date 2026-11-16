@@ -19,8 +19,12 @@ public sealed class EpgGuide
     readonly Dictionary<string, List<EpgProgramme>> byId;
     readonly Dictionary<string, string> byKey;
 
-    internal EpgGuide(Dictionary<string, List<EpgProgramme>> byId, Dictionary<string, string> byKey, DateTime lastStop)
+    readonly Dictionary<string, string> names;
+
+    internal EpgGuide(Dictionary<string, List<EpgProgramme>> byId, Dictionary<string, string> byKey, DateTime lastStop,
+        Dictionary<string, string>? names = null)
     {
+        this.names = names ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         this.byId = byId;
         this.byKey = byKey;
         LastStop = lastStop;
@@ -31,6 +35,9 @@ public sealed class EpgGuide
     public int ChannelCount => byId.Count;
     public int ProgrammeCount { get; }
     public IEnumerable<string> ChannelIds => byId.Keys;
+
+    /// <summary>Nome del canale come lo scrive la guida (primo display-name), altrimenti l'id.</summary>
+    public string ChannelName(string id) => names.TryGetValue(id, out var n) ? n : id;
 
     /// <summary>Voto di un film (0 = nessuno); facoltativo, lo collega il servizio dei voti.</summary>
     public Func<EpgProgramme, double>? Ratings { get; set; }

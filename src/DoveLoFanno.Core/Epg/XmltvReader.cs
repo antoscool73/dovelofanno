@@ -83,6 +83,7 @@ public static partial class XmltvReader
                     p.Actors = Join(cr.Elements("actor"), 6);
                 }
                 p.Episode = Episode(e);
+                p.Icon = (string?)e.Element("icon")?.Attribute("src") ?? "";
                 if (!progs.TryGetValue(ch, out var l)) progs[ch] = l = [];
                 l.Add(p);
             }
@@ -116,7 +117,10 @@ public static partial class XmltvReader
             }
         }
         if (count == 0) throw new InvalidDataException("la guida non contiene programmi");
-        return new EpgGuide(progs, keys, last);
+        var display = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (id, n) in names)
+            if (n.Count > 0 && n[0].Trim().Length > 0) display[id] = n[0].Trim();
+        return new EpgGuide(progs, keys, last, display);
     }
 
     // onscreen vince; xmltv_ns "stagione.episodio.parte" è contato da 0
