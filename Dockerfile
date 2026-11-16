@@ -3,6 +3,14 @@
 # La compilazione gira sull'architettura di chi costruisce (veloce anche per arm64); solo l'immagine finale è per
 # l'architettura di destinazione.
 
+# interfaccia web (Svelte): file statici, uguali per tutte le architetture
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR /src
@@ -14,6 +22,7 @@ RUN RID="linux-$([ "$TARGETARCH" = amd64 ] && echo x64 || echo "$TARGETARCH")" \
     && echo "$RID" > /rid \
     && dotnet restore src/DoveLoFanno.Server/DoveLoFanno.Server.csproj -r "$RID"
 COPY src/ src/
+COPY --from=web /src/src/DoveLoFanno.Server/wwwroot src/DoveLoFanno.Server/wwwroot
 RUN dotnet publish src/DoveLoFanno.Server/DoveLoFanno.Server.csproj -c Release -r "$(cat /rid)" --no-restore \
         --self-contained false -p:UseAppHost=false -o /app
 

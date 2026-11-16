@@ -59,6 +59,11 @@ curl -fsS "$API/health" | tee /dev/stderr | jq -e '.status == "ok" and .api == "
 [ "$(docker exec dlf id -u)" = "1654" ] || fail "il container non gira come utente app"
 docker exec dlf ffmpeg -version | head -1
 
+step "Interfaccia web"
+curl -fsS "http://127.0.0.1:8765/" | grep -q '<div id="app">' || fail "index.html non servito"
+curl -fsS "http://127.0.0.1:8765/profili" | grep -q '<div id="app">' || fail "indirizzo dell'app non servito"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$API/inesistente")" = "404" ] || fail "API sconosciuta non dà 404"
+
 step "Playlist e canali"
 curl -fsS -X POST "$API/sources" -H 'Content-Type: application/json' \
   -d '{"name":"Prova","url":"/data/prova.m3u"}' | tee /dev/stderr | jq -e '.channels == 1' >/dev/null

@@ -7,3 +7,5 @@ artifacts/
 /data/
 .claude/settings.local.json
 tools/oracle/data/
+web/node_modules/
+src/DoveLoFanno.Server/wwwroot/

@@ -69,6 +69,29 @@ jobs:
           path: ${{ runner.temp }}/openapi-v1.json
           if-no-files-found: ignore
 
+  web:
+    name: Interfaccia web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Tipi dell'API allineati a docs/api/openapi-v1.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api/schema.d.ts || { echo "::error::schema.d.ts non aggiornato: lanciare npm run gen:api"; exit 1; }
+      - name: Controllo dei tipi
+        run: npm run check
+      - name: Build
+        run: npm run build
+
   docker:
     name: Immagine Docker
     runs-on: ubuntu-latest
@@ -124,6 +147,16 @@ jobs:
 
       - name: ffmpeg
         run: choco install ffmpeg -y --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Interfaccia web
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
 
       - name: Pacchetto per Windows
         shell: pwsh

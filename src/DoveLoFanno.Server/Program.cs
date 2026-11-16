@@ -34,6 +34,12 @@ builder.Host.UseWindowsService(o => o.ServiceName = "DoveLoFanno");
 var app = builder.Build();
 app.MapOpenApi("/api/{documentName}/openapi.json");
 Api.Map(app);
+// interfaccia web (wwwroot, prodotta da web/ con npm run build); gli indirizzi dell'app che non sono file
+// tornano a index.html, quelli dell'API sconosciuti restano 404
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.MapFallback("/api/{**rest}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
 await app.RunAsync();
 return 0;
 

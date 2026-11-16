@@ -11,6 +11,9 @@ public sealed record ImportResult(long SourceId, int Channels, int Added, int Re
 public sealed record NewRecording(long ChannelId, string Title, DateTimeOffset Start, DateTimeOffset Stop, int? BeforeMin, int? AfterMin, string? Format);
 public sealed record ScheduledRecording(long Id, IReadOnlyList<string> Warnings);
 public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartRow> Parts);
+public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
+public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin);
+public sealed record PinCheck(string? Pin);
 
 /// <summary>
 /// API v1. Congelata con la wave 3 (16/11/2026): il documento docs/api/openapi-v1.json è quello approvato e un test
@@ -149,6 +152,46 @@ public static class Api
             .WithSummary("Annulla una registrazione non ancora partita")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status409Conflict);
 
+        // ---------------------------------------------------------------- profili (aggiunta della wave 5)
+        var prof = api.MapGroup("/profiles").WithTags("Profili");
+
+        prof.MapGet("", (ServerContext ctx) => ctx.Profiles.List())
+            .WithSummary("Profili della famiglia (gli adulti prima)");
+
+        prof.MapPost("", IResult (NewProfile body, ServerContext ctx) =>
+        {
+            var (res, id) = ctx.Profiles.Create(body.Name, body.IsChild, body.Avatar, body.Pin, ctx.Clock.GetUtcNow());
+            return res == ProfileResult.Ok ? Results.Created($"/api/v1/profiles/{id}", ctx.Profiles.Get(id)) : ProfileError(res);
+        })
+            .WithSummary("Crea un profilo con la sua lista «La mia serata in TV»; PIN facoltativo (4-8 cifre) solo per gli adulti")
+            .Produces<ProfileRow>(StatusCodes.Status201Created).Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
+
+        prof.MapPatch("/{id:long}", IResult (long id, ProfilePatch body, ServerContext ctx) =>
+        {
+            var res = ctx.Profiles.Update(id, body.Name, body.IsChild, body.Avatar, body.Pin, body.ClearPin == true);
+            return res == ProfileResult.Ok ? Results.Ok(ctx.Profiles.Get(id)) : ProfileError(res);
+        })
+            .WithSummary("Modifica nome, colore, tipo o PIN di un profilo")
+            .Produces<ProfileRow>().Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
+
+        prof.MapDelete("/{id:long}", IResult (long id, ServerContext ctx) =>
+        {
+            var res = ctx.Profiles.Delete(id);
+            return res == ProfileResult.Ok ? Results.NoContent() : ProfileError(res);
+        })
+            .WithSummary("Elimina un profilo con le sue liste, preferenze e avvisi (non l'ultimo adulto)")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status409Conflict);
+
+        prof.MapPost("/{id:long}/unlock", IResult (long id, PinCheck body, ServerContext ctx) =>
+            ctx.Profiles.Unlock(id, body.Pin) switch
+            {
+                null => Results.NotFound(),
+                true => Results.NoContent(),
+                false => Results.Json(new ApiError("PIN sbagliato"), statusCode: StatusCodes.Status403Forbidden),
+            })
+            .WithSummary("Controlla il PIN di un profilo prima di entrarci")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status403Forbidden);
+
         // ---------------------------------------------------------------- backup
         var bak = api.MapGroup("/backups").WithTags("Sistema");
         bak.MapGet("", (ServerContext ctx) => ctx.Backups.List()).WithSummary("Copie del database (ogni notte alle 3, si tengono le ultime 7)");
@@ -173,6 +216,15 @@ public static class Api
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
         return w;
     }
+
+    static IResult ProfileError(ProfileResult r) => r switch
+    {
+        ProfileResult.NotFound => Results.NotFound(),
+        ProfileResult.NameTaken => Results.Conflict(new ApiError("c'è già un profilo con questo nome")),
+        ProfileResult.LastAdult => Results.Conflict(new ApiError("deve restare almeno un profilo adulto")),
+        ProfileResult.InvalidPin => Results.BadRequest(new ApiError("PIN: da 4 a 8 cifre, solo per i profili adulti")),
+        _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 40 caratteri")),
+    };
 
     static string DefaultName(string url)
     {
