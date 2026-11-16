@@ -110,6 +110,9 @@ public static class Api
         var ch = api.MapGroup("/channels").WithTags("Canali");
         ch.MapGet("", (ServerContext ctx) => ctx.Sources.Channels()).WithSummary("Canali con il numero di flussi e di flussi funzionanti");
         ch.MapGet("/{id:long}/streams", (long id, ServerContext ctx) => ctx.Sources.Streams(channelId: id)).WithSummary("Flussi di un canale con l'esito dell'ultimo controllo");
+        // aggiunta della wave 5: per la pagina Sorgenti (conteggi e canali con problemi) senza una richiesta per canale
+        api.MapGet("/streams", (long? sourceId, ServerContext ctx) => ctx.Sources.Streams(sourceId: sourceId))
+            .WithTags("Canali").WithSummary("Tutti i flussi (o quelli di una playlist) con l'esito dell'ultimo controllo");
 
         // ---------------------------------------------------------------- registrazioni
         var rec = api.MapGroup("/recordings").WithTags("Registrazioni");
