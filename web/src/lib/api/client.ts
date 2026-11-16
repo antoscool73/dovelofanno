@@ -18,6 +18,8 @@ export type NewRecording = S['NewRecording'];
 export type ScheduledRecording = S['ScheduledRecording'];
 export type ImportResult = S['ImportResult'];
 export type BackupInfo = S['BackupInfo'];
+export type RatingSettings = S['RatingSettings'];
+export type RatingSettingsPatch = S['RatingSettingsPatch'];
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */
 export class ApiError extends Error {
@@ -65,6 +67,9 @@ export const api = {
   channels: () => call<Channel[]>('GET', '/channels'),
   streams: (channelId: number) => call<Stream[]>('GET', `/channels/${channelId}/streams`),
   allStreams: () => call<Stream[]>('GET', '/streams'),
+
+  ratingSettings: () => call<RatingSettings>('GET', '/settings/ratings'),
+  updateRatingSettings: (p: RatingSettingsPatch) => call<RatingSettings>('PUT', '/settings/ratings', p),
 
   backups: () => call<BackupInfo[]>('GET', '/backups'),
   createBackup: () => call<BackupInfo>('POST', '/backups'),

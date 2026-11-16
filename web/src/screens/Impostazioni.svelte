@@ -1,6 +1,7 @@
 <script lang="ts">
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
+  import VotiFilm from './VotiFilm.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
@@ -240,6 +241,8 @@
         <p class="muted small">DoveLoFanno non include canali né playlist e non li fornisce: aggiungi solo playlist che hai il diritto di usare. La guida TV, se la playlist la indica, si collega da sola.</p>
         <div><Button variant="primary" type="submit" disabled={busy !== null || newUrl.trim() === ''}>{busy === 'add' ? 'Verifica in corso…' : 'Verifica e aggiungi'}</Button></div>
       </form>
+    {:else if tab === 'voti'}
+      <VotiFilm />
     {:else if tab === 'backup'}
       <div class="head"><h2>Backup</h2></div>
       <p class="muted">Una copia del database ogni notte alle 3; si tengono le ultime 7. Le registrazioni restano nella loro cartella.</p>

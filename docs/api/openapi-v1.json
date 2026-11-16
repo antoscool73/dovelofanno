@@ -950,6 +950,64 @@
         }
       }
     },
+    "/api/v1/settings/ratings": {
+      "get": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Chiave TMDB (solo se c'è e le ultime 4 cifre, mai la chiave), voti IMDb, stato della ricerca",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Salva la chiave TMDB dopo averla provata con TMDB, o la toglie; attiva o spegne i voti IMDb (licenza solo personale)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -1617,6 +1675,71 @@
           }
         }
       },
+      "RatingSettings": {
+        "required": [
+          "hasTmdbKey",
+          "keyHint",
+          "imdbEnabled",
+          "status",
+          "error",
+          "filmsSearched",
+          "filmsFound"
+        ],
+        "type": "object",
+        "properties": {
+          "hasTmdbKey": {
+            "type": "boolean"
+          },
+          "keyHint": {
+            "type": "string"
+          },
+          "imdbEnabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "filmsSearched": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "filmsFound": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RatingSettingsPatch": {
+        "required": [
+          "tmdbKey",
+          "clearTmdbKey",
+          "imdbEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "tmdbKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clearTmdbKey": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "imdbEnabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "RecordingDetail": {
         "required": [
           "recording",
@@ -1940,6 +2063,9 @@
     },
     {
       "name": "Guida"
+    },
+    {
+      "name": "Impostazioni"
     }
   ]
 }

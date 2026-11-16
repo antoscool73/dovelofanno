@@ -1104,6 +1104,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chiave TMDB (solo se c'è e le ultime 4 cifre, mai la chiave), voti IMDb, stato della ricerca */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RatingSettings"];
+                    };
+                };
+            };
+        };
+        /** Salva la chiave TMDB dopo averla provata con TMDB, o la toglie; attiva o spegne i voti IMDb (licenza solo personale) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RatingSettingsPatch"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RatingSettings"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backups": {
         parameters: {
             query?: never;
@@ -1339,6 +1408,22 @@ export interface components {
             avatar: string;
             hasPin: boolean;
             inheritsSubscriptions: boolean;
+        };
+        RatingSettings: {
+            hasTmdbKey: boolean;
+            keyHint: string;
+            imdbEnabled: boolean;
+            status: string;
+            error: string;
+            /** Format: int32 */
+            filmsSearched: number;
+            /** Format: int32 */
+            filmsFound: number;
+        };
+        RatingSettingsPatch: {
+            tmdbKey: null | string;
+            clearTmdbKey: null | boolean;
+            imdbEnabled: null | boolean;
         };
         RecordingDetail: {
             recording: components["schemas"]["RecordingRow"];
