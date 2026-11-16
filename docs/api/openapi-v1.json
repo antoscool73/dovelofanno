@@ -26,6 +26,39 @@
         }
       }
     },
+    "/api/v1/streams": {
+      "get": {
+        "tags": [
+          "Canali"
+        ],
+        "summary": "Tutti i flussi (o quelli di una playlist) con l'esito dell'ultimo controllo",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StreamRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources": {
       "get": {
         "tags": [
@@ -1415,10 +1448,10 @@
       "name": "Sistema"
     },
     {
-      "name": "Sorgenti"
+      "name": "Canali"
     },
     {
-      "name": "Canali"
+      "name": "Sorgenti"
     },
     {
       "name": "Registrazioni"

@@ -1,0 +1,247 @@
+<script lang="ts">
+  import Badge from '../lib/components/Badge.svelte';
+  import Button from '../lib/components/Button.svelte';
+  import NuovaRegistrazione from './NuovaRegistrazione.svelte';
+  import { api, ApiError, type Recording } from '../lib/api/client';
+  import { between, day, fileName, minutes, range, time } from '../lib/format';
+
+  type Filter = 'tutte' | 'scheduled' | 'completed' | 'incomplete' | 'failed';
+  const filters: { id: Filter; label: string }[] = [
+    { id: 'tutte', label: 'Tutte' },
+    { id: 'scheduled', label: 'In programma' },
+    { id: 'completed', label: 'Completate' },
+    { id: 'incomplete', label: 'Incomplete' },
+    { id: 'failed', label: 'Non riuscite' },
+  ];
+  const states: Record<string, { label: string; tone: 'blue' | 'green' | 'orange' | 'red' | 'neutral' }> = {
+    scheduled: { label: 'In programma', tone: 'blue' },
+    recording: { label: 'In registrazione', tone: 'red' },
+    merging: { label: 'Unione in corso', tone: 'neutral' },
+    completed: { label: 'Completata', tone: 'green' },
+    incomplete: { label: 'Incompleta', tone: 'orange' },
+    stopped: { label: 'Fermata', tone: 'neutral' },
+    failed: { label: 'Non riuscita', tone: 'red' },
+    cancelled: { label: 'Annullata', tone: 'neutral' },
+  };
+
+  let all = $state<Recording[]>([]);
+  let loaded = $state(false);
+  let error = $state('');
+  let filter = $state<Filter>('tutte');
+  let adding = $state(false);
+  let notice = $state<{ text: string; warnings: string[] } | null>(null);
+  let now = $state(new Date());
+  let busyId = $state<number | null>(null);
+
+  async function load() {
+    try {
+      all = await api.recordings();
+      error = '';
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Registrazioni non lette';
+    } finally {
+      loaded = true;
+    }
+  }
+  load();
+
+  // aggiornamento: ogni 5 s se qualcosa è in corso o sta per partire, altrimenti ogni minuto
+  const active = $derived(all.filter((r) => r.state === 'recording' || r.state === 'merging'));
+  $effect(() => {
+    const soon = all.some((r) => r.state === 'scheduled' && new Date(r.recordFrom).getTime() - Date.now() < 5 * 60_000);
+    const ms = active.length > 0 || soon ? 5000 : 60_000;
+    const t = setInterval(() => { now = new Date(); load(); }, ms);
+    return () => clearInterval(t);
+  });
+
+  const count = (f: Filter) =>
+    f === 'tutte' ? all.filter((r) => r.state !== 'cancelled').length
+    : f === 'failed' ? all.filter((r) => r.state === 'failed').length
+    : f === 'completed' ? all.filter((r) => r.state === 'completed' || r.state === 'stopped').length
+    : all.filter((r) => r.state === f).length;
+
+  const scheduled = $derived(all.filter((r) => r.state === 'scheduled').sort((a, b) => a.recordFrom.localeCompare(b.recordFrom)));
+  // le più recenti prima, qualunque ordine arrivi dal server
+  const finished = $derived(
+    all.filter((r) => ['completed', 'incomplete', 'stopped', 'failed'].includes(r.state)).sort((a, b) => b.start.localeCompare(a.start)),
+  );
+  const shownFinished = $derived(
+    filter === 'tutte' ? finished
+    : filter === 'completed' ? finished.filter((r) => r.state === 'completed' || r.state === 'stopped')
+    : finished.filter((r) => r.state === filter),
+  );
+
+  function progress(r: Recording): number {
+    const total = between(r.recordFrom, r.recordTo);
+    const done = (now.getTime() - new Date(r.recordFrom).getTime()) / 60_000;
+    return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+  }
+
+  function meta(r: Recording): string {
+    const parts = [r.channelName, r.format === 'mp3' ? 'solo audio MP3' : 'MP4'];
+    if (r.beforeMin || r.afterMin) parts.push(`con margini ${range(r.recordFrom, r.recordTo)}`);
+    if (r.file) parts.push(fileName(r.file));
+    return parts.join(' · ');
+  }
+
+  function note(r: Recording): string {
+    if (r.state === 'incomplete' && r.lostMinutes > 0) {
+      const ranges = r.lostRanges.map((x) => `${time(x.from)}–${time(x.to)}`).join(', ');
+      return `Mancano ${minutes(r.lostMinutes)}${ranges ? `: PC in sospensione o partito in ritardo (${ranges})` : ''}.`;
+    }
+    // per le non riuscite il server scrive il motivo; altrimenti è il percorso del log
+    if (r.state === 'failed' && r.log && !/\.log$/i.test(r.log)) return r.log.charAt(0).toUpperCase() + r.log.slice(1) + '.';
+    return '';
+  }
+
+  async function stop(r: Recording) {
+    busyId = r.id;
+    try { await api.stopRecording(r.id); await load(); }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non fermata'; }
+    finally { busyId = null; }
+  }
+
+  async function cancel(r: Recording) {
+    busyId = r.id;
+    try { await api.cancelRecording(r.id); await load(); }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non annullata'; }
+    finally { busyId = null; }
+  }
+
+  function done(warnings: string[]) {
+    adding = false;
+    notice = { text: 'Registrazione programmata.', warnings };
+    load();
+  }
+</script>
+
+<section class="page">
+  <div class="top">
+    <h1>Registrazioni</h1>
+    <Button variant="primary" onclick={() => { adding = true; notice = null; }}>Nuova registrazione</Button>
+  </div>
+
+  {#if notice}
+    <div class="notice" role="status">
+      <strong>{notice.text}</strong>
+      {#each notice.warnings as w (w)}<span class="warn">Attenzione: {w}.</span>{/each}
+    </div>
+  {/if}
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
+
+  <div class="filters" role="group" aria-label="Mostra">
+    {#each filters as f (f.id)}
+      <button type="button" class="chip" class:on={filter === f.id} aria-pressed={filter === f.id} onclick={() => (filter = f.id)}>
+        {f.label}<span class="n">{count(f.id)}</span>
+      </button>
+    {/each}
+  </div>
+
+  {#if !loaded}
+    <p class="muted" role="status">Un momento…</p>
+  {:else if all.length === 0}
+    <div class="empty">
+      <p>Nessuna registrazione, per ora.</p>
+      <p class="muted">Programmane una con «Nuova registrazione»; dalla guida arriverà anche il pulsante Registra su ogni programma.</p>
+    </div>
+  {:else}
+    {#if filter === 'tutte' && active.length > 0}
+      <h2>In corso</h2>
+      {#each active as r (r.id)}
+        <div class="live">
+          <div class="live-body">
+            <div class="meta">{r.channelName} · {range(r.start, r.stop)} · con margini {range(r.recordFrom, r.recordTo)}</div>
+            <div class="live-title">{r.title}</div>
+            {#if r.state === 'recording'}
+              <div class="bar" role="progressbar" aria-label="Avanzamento" aria-valuenow={progress(r)} aria-valuemin="0" aria-valuemax="100"><span style:width="{progress(r)}%"></span></div>
+              <div class="meta">Mancano {minutes(Math.max(0, between(now.toISOString(), r.recordTo)))}</div>
+              <div><Button variant="primary" disabled={busyId === r.id} onclick={() => stop(r)}>Ferma ora</Button></div>
+            {:else}
+              <div class="meta">Unione degli spezzoni: il file sarà pronto tra poco.</div>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    {/if}
+
+    {#if (filter === 'tutte' || filter === 'scheduled') && scheduled.length > 0}
+      <h2>In programma <span class="sub">il flusso si sceglie 2 minuti prima dell'inizio</span></h2>
+      <ul class="list">
+        {#each scheduled as r (r.id)}
+          <li>
+            <div class="when"><span>{day(r.start, now)}</span><span class="muted">{range(r.start, r.stop)}</span></div>
+            <div class="what">
+              <div class="line"><span class="title">{r.title}</span><Badge tone="blue">In programma</Badge></div>
+              <div class="meta">{meta(r)}</div>
+            </div>
+            <div class="acts"><Button size="s" disabled={busyId === r.id} onclick={() => cancel(r)}>Annulla</Button></div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if filter !== 'scheduled' && shownFinished.length > 0}
+      <h2>{filter === 'tutte' ? 'Finite' : filters.find((f) => f.id === filter)?.label}</h2>
+      <ul class="list">
+        {#each shownFinished as r (r.id)}
+          {@const s = states[r.state]}
+          <li class={r.state}>
+            <div class="when"><span>{day(r.start, now)}</span><span class="muted">{range(r.start, r.stop)}</span></div>
+            <div class="what">
+              <div class="line"><span class="title">{r.title}</span>{#if s}<Badge tone={s.tone}>{s.label}{r.state === 'incomplete' ? ` −${minutes(r.lostMinutes)}` : ''}</Badge>{/if}</div>
+              <div class="meta">{meta(r)}</div>
+              {#if note(r)}<div class="note">{note(r)}</div>{/if}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {:else if filter !== 'scheduled' && filter !== 'tutte'}
+      <p class="muted">Nessuna registrazione in questo elenco.</p>
+    {/if}
+  {/if}
+</section>
+
+{#if adding}
+  <NuovaRegistrazione onclose={() => (adding = false)} ondone={done} />
+{/if}
+
+<style>
+  .page { padding: 28px var(--gutter) 64px; max-width: 1240px; display: flex; flex-direction: column; gap: 18px; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 32px; }
+  h2 { font-size: 20px; margin-top: 8px; }
+  .sub { font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .error { color: var(--rec-text); margin: 0; }
+  .notice { display: flex; flex-direction: column; gap: 4px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
+  .warn { color: var(--orange-text); font-size: 14px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: none; color: var(--text-2); font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .chip.on { background: var(--text); color: var(--bg); border-color: transparent; }
+  .n { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 7px; background: var(--raised); }
+  .chip.on .n { background: rgba(13, 16, 21, 0.12); }
+  .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 24px; }
+  .empty p { margin: 0 0 6px; }
+  .live { display: flex; flex-wrap: wrap; gap: 20px; background: var(--card); border: 1px solid #3a2a2e; border-radius: var(--radius-l); padding: 16px; }
+  .live-body { flex: 1 1 380px; display: flex; flex-direction: column; gap: 10px; }
+  .live-title { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+  .bar { height: 8px; border-radius: 999px; background: #262c37; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--rec); }
+  .list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); overflow: hidden; }
+  .list li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); }
+  .list li:last-child { border-bottom: 0; }
+  .list li.incomplete { box-shadow: inset 3px 0 0 var(--orange); }
+  .list li.failed { box-shadow: inset 3px 0 0 var(--rec); }
+  .when { flex: 0 0 120px; display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+  .when .muted { font-weight: 400; font-size: 13px; }
+  .what { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .title { font-size: 16px; font-weight: 600; }
+  .meta { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  .note { font-size: 13px; color: var(--orange-text); }
+  .failed .note { color: var(--rec-text); }
+  .acts { display: flex; gap: 8px; }
+</style>

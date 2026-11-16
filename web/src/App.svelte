@@ -3,6 +3,8 @@
   import Button from './lib/components/Button.svelte';
   import Profili from './screens/Profili.svelte';
   import InArrivo from './screens/InArrivo.svelte';
+  import Registrazioni from './screens/Registrazioni.svelte';
+  import Impostazioni from './screens/Impostazioni.svelte';
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -59,11 +61,11 @@
     {:else if router.route === 'libreria'}
       <InArrivo title="Libreria" text="Liste personali e di famiglia, film, serie e registrazioni, con il voto a stelle." />
     {:else if router.route === 'registrazioni'}
-      <InArrivo title="Registrazioni" text="In corso, in programma, completate, incomplete con i minuti persi." />
+      <Registrazioni />
     {:else if router.route === 'preferenze'}
       <InArrivo title="Preferenze" text="Proposte, avvisi, abbonamenti, notifiche e registrazione predefinita." />
     {:else if router.route === 'impostazioni'}
-      <InArrivo title="Impostazioni" text="Sorgenti e stato dei canali, cartelle, profili, voti dei film, limiti, backup." />
+      <Impostazioni />
     {:else}
       <InArrivo title="Pagina non trovata" text="L'indirizzo non corrisponde a nessuna schermata." />
     {/if}

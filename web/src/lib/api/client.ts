@@ -8,10 +8,12 @@ export type Profile = S['ProfileRow'];
 export type NewProfile = S['NewProfile'];
 export type ProfilePatch = S['ProfilePatch'];
 export type Source = S['SourceRow'];
+export type SourcePatch = S['SourcePatch'];
 export type Channel = S['ChannelRow'];
 export type Stream = S['StreamRow'];
-export type Recording = S['RecordingRow'];
-export type RecordingDetail = S['RecordingDetail'];
+// recordFrom e recordTo (orari con i margini) sono calcolati dal server e arrivano sempre, ma OpenAPI li segna facoltativi
+export type Recording = S['RecordingRow'] & { recordFrom: string; recordTo: string };
+export type RecordingDetail = Omit<S['RecordingDetail'], 'recording'> & { recording: Recording };
 export type NewRecording = S['NewRecording'];
 export type ScheduledRecording = S['ScheduledRecording'];
 export type ImportResult = S['ImportResult'];
@@ -55,8 +57,17 @@ export const api = {
   unlockProfile: (id: number, pin: string | null) => call<void>('POST', `/profiles/${id}/unlock`, { pin }),
 
   sources: () => call<Source[]>('GET', '/sources'),
+  addSource: (name: string, url: string) => call<ImportResult>('POST', '/sources', { name, url }),
+  updateSource: (id: number, p: SourcePatch) => call<Source>('PATCH', `/sources/${id}`, p),
+  deleteSource: (id: number) => call<void>('DELETE', `/sources/${id}`),
+  refreshSource: (id: number) => call<ImportResult>('POST', `/sources/${id}/refresh`),
+  checkSource: (id: number) => call<void>('POST', `/sources/${id}/check`),
   channels: () => call<Channel[]>('GET', '/channels'),
   streams: (channelId: number) => call<Stream[]>('GET', `/channels/${channelId}/streams`),
+  allStreams: () => call<Stream[]>('GET', '/streams'),
+
+  backups: () => call<BackupInfo[]>('GET', '/backups'),
+  createBackup: () => call<BackupInfo>('POST', '/backups'),
 
   recordings: () => call<Recording[]>('GET', '/recordings'),
   recording: (id: number) => call<RecordingDetail>('GET', `/recordings/${id}`),
