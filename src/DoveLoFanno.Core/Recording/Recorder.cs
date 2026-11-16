@@ -247,7 +247,9 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
         if (c.Referrer.Length > 0) a.AddRange(["-referer", c.Referrer]);
         if (src.Format.Length > 0) a.AddRange(["-f", src.Format]);
         a.AddRange(["-i", src.Url]);
-        if (job.AudioOnly) a.AddRange(["-map", "0:a:0", "-vn"]);
+        // solo audio: senza flush ffmpeg scrive a blocchi da 256 KB, cioè ogni 15-30 s a 64-128 kbit/s; il controllo
+        // "file fermo" resterebbe cieco e un'interruzione perderebbe l'ultimo blocco (trovato nel collaudo del 16/11)
+        if (job.AudioOnly) a.AddRange(["-map", "0:a:0", "-vn", "-flush_packets", "1"]);
         a.AddRange(["-sn", "-dn", "-c", "copy", "-t", (remaining + 300).ToString(CultureInfo.InvariantCulture), "-f", "mpegts", part]);
         return a;
     }
