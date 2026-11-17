@@ -20,10 +20,10 @@ public sealed class ProfilesTests : IDisposable
     [Fact]
     public void CreazioneConListaFissa()
     {
-        var (res, id) = store.Create("Antonio", false, null, "1234", Now);
+        var (res, id) = store.Create("Anna", false, null, "1234", Now);
         Assert.Equal(ProfileResult.Ok, res);
         var p = store.Get(id)!;
-        Assert.Equal(("Antonio", false, true, "#6E9BFF"), (p.Name, p.IsChild, p.HasPin, p.Avatar));
+        Assert.Equal(("Anna", false, true, "#6E9BFF"), (p.Name, p.IsChild, p.HasPin, p.Avatar));
         using var c = Database.Open(Path.Combine(dir, "dlf.db"));
         using var cmd = c.CreateCommand();
         cmd.CommandText = "SELECT name FROM lists WHERE profile_id = $p AND is_tonight = 1";
@@ -39,19 +39,19 @@ public sealed class ProfilesTests : IDisposable
     [Fact]
     public void RegoleSuNomiEPin()
     {
-        store.Create("Antonio", false, null, null, Now);
-        Assert.Equal(ProfileResult.NameTaken, store.Create("antonio", false, null, null, Now).Result);
+        store.Create("Anna", false, null, null, Now);
+        Assert.Equal(ProfileResult.NameTaken, store.Create("anna", false, null, null, Now).Result);
         Assert.Equal(ProfileResult.InvalidName, store.Create("  ", false, null, null, Now).Result);
         Assert.Equal(ProfileResult.InvalidPin, store.Create("Bimbi", true, null, "1234", Now).Result);   // niente PIN ai bambini
         Assert.Equal(ProfileResult.InvalidPin, store.Create("Mamma", false, null, "12a4", Now).Result);
         Assert.Equal(ProfileResult.Ok, store.Create("Bambini", true, null, null, Now).Result);
-        Assert.Equal(["Antonio", "Bambini"], store.List().Select(p => p.Name));                // adulti prima
+        Assert.Equal(["Anna", "Bambini"], store.List().Select(p => p.Name));                // adulti prima
     }
 
     [Fact]
     public void PinEUltimoAdulto()
     {
-        long a = store.Create("Antonio", false, null, "4321", Now).Id;
+        long a = store.Create("Anna", false, null, "4321", Now).Id;
         long b = store.Create("Bambini", true, null, null, Now).Id;
         Assert.True(store.Unlock(a, "4321"));
         Assert.False(store.Unlock(a, "0000"));
@@ -61,9 +61,9 @@ public sealed class ProfilesTests : IDisposable
 
         Assert.Equal(ProfileResult.LastAdult, store.Delete(a));
         Assert.Equal(ProfileResult.LastAdult, store.Update(a, null, true, null, null, false));
-        Assert.Equal(ProfileResult.Ok, store.Update(a, "Antonio S.", null, "#34C77B", null, true));
+        Assert.Equal(ProfileResult.Ok, store.Update(a, "Anna S.", null, "#34C77B", null, true));
         var p = store.Get(a)!;
-        Assert.Equal(("Antonio S.", "#34C77B", false), (p.Name, p.Avatar, p.HasPin));
+        Assert.Equal(("Anna S.", "#34C77B", false), (p.Name, p.Avatar, p.HasPin));
         Assert.Equal(ProfileResult.Ok, store.Delete(b));
         Assert.Single(store.List());
     }

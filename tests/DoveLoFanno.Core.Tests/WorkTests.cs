@@ -50,14 +50,14 @@ public sealed class WorkTests : IDisposable
         Assert.StartsWith("https://www.themoviedb.org/", d.WatchLink);
     }
 
-    (WorkStore Works, long Antonio, long Padrino, long Ch) Setup()
+    (WorkStore Works, long Anna, long Padrino, long Ch) Setup()
     {
         var src = new SourceStore(Db);
         long s = src.AddSource("Prova", "https://example.org/x.m3u", Now);
         src.Import(s, M3uParser.Parse("#EXTM3U\n#EXTINF:-1 tvg-id=\"Canale5.it\",Canale 5\nhttp://x/c5.m3u8\n"), Now);
         var guide = new GuideStore(Db);
         guide.Save(guide.AddSource("https://example.org/g.xml"), XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(GuideStoreTests.Xmltv(Now))), Now.LocalDateTime), Now);
-        long a = new ProfileStore(Db).Create("Antonio", false, null, null, Now).Id;
+        long a = new ProfileStore(Db).Create("Anna", false, null, null, Now).Id;
         var film = guide.Query(new GuideQuery(Now, Now.AddHours(6))).Single(p => p.Title == "Il Padrino");
         return (new WorkStore(Db, guide), a, film.WorkId!.Value, film.ChannelId!.Value);
     }

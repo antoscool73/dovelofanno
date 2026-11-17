@@ -86,13 +86,13 @@ public sealed class DatabaseTests : IDisposable
     public void AggiornamentoConCopiaDiSicurezzaEDatiConservati()
     {
         using (var c = Database.Open(DbPath))
-            Exec(c, "INSERT INTO profiles (name, created_at) VALUES ('Antonio', 0)");
+            Exec(c, "INSERT INTO profiles (name, created_at) VALUES ('Anna', 0)");
         int v = Database.LatestVersion;
         var more = Database.Migrations.Append(Extra(v + 1, "ALTER TABLE profiles ADD COLUMN color TEXT NOT NULL DEFAULT '';")).ToList();
         using (var c = Database.Open(DbPath, more))
         {
             Assert.Equal(v + 1, Database.UserVersion(c));
-            Assert.Equal(1, Scalar(c, "SELECT count(*) FROM profiles WHERE name = 'Antonio' AND color = ''"));
+            Assert.Equal(1, Scalar(c, "SELECT count(*) FROM profiles WHERE name = 'Anna' AND color = ''"));
         }
         string bak = DbPath + ".v" + v + ".bak";
         Assert.True(File.Exists(bak));
@@ -106,7 +106,7 @@ public sealed class DatabaseTests : IDisposable
     public void MigrazioneFallitaVieneAnnullata()
     {
         using (var c = Database.Open(DbPath))
-            Exec(c, "INSERT INTO profiles (name, created_at) VALUES ('Antonio', 0)");
+            Exec(c, "INSERT INTO profiles (name, created_at) VALUES ('Anna', 0)");
         int v = Database.LatestVersion;
         var bad = Database.Migrations.Append(Extra(v + 1, "ALTER TABLE profiles ADD COLUMN color TEXT; SELECT * FROM tabella_inesistente;")).ToList();
         Assert.Throws<SqliteException>(() => Database.Open(DbPath, bad));
@@ -131,7 +131,7 @@ public sealed class DatabaseTests : IDisposable
     public void Vincoli()
     {
         using var c = Database.Open(DbPath);
-        Exec(c, "INSERT INTO profiles (id, name, created_at) VALUES (1, 'Antonio', 0), (2, 'Bimbo', 0)");
+        Exec(c, "INSERT INTO profiles (id, name, created_at) VALUES (1, 'Anna', 0), (2, 'Bimbo', 0)");
 
         // chiavi esterne attive
         Assert.Throws<SqliteException>(() => Exec(c, "INSERT INTO lists (profile_id, name, created_at) VALUES (99, 'x', 0)"));

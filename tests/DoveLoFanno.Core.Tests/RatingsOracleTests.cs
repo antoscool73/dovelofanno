@@ -26,9 +26,26 @@ public class RatingsOracleTests(ITestOutputHelper output)
         public Task<string> ImdbIdAsync(int tmdbId, CancellationToken ct) => Task.FromResult(imdb(tmdbId));
     }
 
-    static List<Case> LoadCases()
+    /// <summary>
+    /// Le risposte TMDB registrate non si possono ridistribuire: stanno in tools/oracle/data (fuori da git), dove la CI
+    /// le scarica da un repository privato. Senza file il test non controlla nulla e lo dice, a meno che
+    /// DLF_REQUIRE_ORACLE=1 (CI del repository principale): allora il dato manca e il test fallisce.
+    /// </summary>
+    static string? OraclePath()
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "tmdb-oracle.json");
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+        {
+            string p = Path.Combine(d.FullName, "tools", "oracle", "data", "tmdb-oracle.json");
+            if (File.Exists(p)) return p;
+        }
+        Assert.False(Environment.GetEnvironmentVariable("DLF_REQUIRE_ORACLE") == "1", "tools/oracle/data/tmdb-oracle.json mancante");
+        return null;
+    }
+
+    static List<Case>? LoadCases()
+    {
+        string? path = OraclePath();
+        if (path == null) return null;
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var cases = new List<Case>();
         foreach (var c in doc.RootElement.GetProperty("cases").EnumerateArray())
@@ -47,6 +64,11 @@ public class RatingsOracleTests(ITestOutputHelper output)
     public async Task StessiFilmScelti()
     {
         var cases = LoadCases();
+        if (cases == null)
+        {
+            output.WriteLine("Oracolo dei voti assente (tools/oracle/data/tmdb-oracle.json): nessun controllo");
+            return;
+        }
         var diffs = new List<string>();
         foreach (var c in cases)
         {
@@ -68,7 +90,9 @@ public class RatingsOracleTests(ITestOutputHelper output)
     [InlineData("Chase", 2022, 961484)]        // "Chase - Scomparsa", non un "Chase" da 1 voto
     public async Task CasiDelCollaudoDel14Novembre(string title, int year, int expectedTmdbId)
     {
-        var c = LoadCases().Single(x => x.Title == title && x.Year == year);
+        var all = LoadCases();
+        if (all == null) return;
+        var c = all.Single(x => x.Title == title && x.Year == year);
         var r = await TitleMatcher.ResolveAsync(new RecordedTmdb(c.WithYear, c.WithoutYear, c.Year, _ => ""), c.Title, c.Year);
         Assert.Equal(expectedTmdbId, r.Movie?.Id);
     }

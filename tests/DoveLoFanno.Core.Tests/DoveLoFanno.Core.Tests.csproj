@@ -15,7 +15,4 @@
     <ProjectReference Include="..\..\src\DoveLoFanno.Core\DoveLoFanno.Core.csproj" />
     <ProjectReference Include="..\..\src\DoveLoFanno.Server\DoveLoFanno.Server.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 </Project>

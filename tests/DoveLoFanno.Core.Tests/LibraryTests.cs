@@ -355,27 +355,27 @@ public sealed class LibraryScanTests(ITestOutputHelper output) : IDisposable
 
         // ripresa e visto per profilo; la serie diventa vista quando lo sono tutti gli episodi
         var profiles = new ProfileStore(Db);
-        long antonio = profiles.Create("Antonio", false, null, null, Now).Id;
+        long anna = profiles.Create("Anna", false, null, null, Now).Id;
         long bimbi = profiles.Create("Bimbi", true, null, null, Now).Id;
-        new TonightStore(Db, guide).Add(antonio, show.WorkId.Value, Now);
+        new TonightStore(Db, guide).Add(anna, show.WorkId.Value, Now);
         long ep1 = detail.Files[0].ItemId, ep2 = detail.Files[1].ItemId;
-        Assert.Equal(ProgressResult.Saved, lib.Progress(antonio, ep1, 2, 0, Now));
-        Assert.Equal(2, lib.Item(ep1, antonio)!.PositionS);
+        Assert.Equal(ProgressResult.Saved, lib.Progress(anna, ep1, 2, 0, Now));
+        Assert.Equal(2, lib.Item(ep1, anna)!.PositionS);
         Assert.Equal(0, lib.Item(ep1, bimbi)!.PositionS);
-        Assert.Equal(ep2, lib.Item(ep1, antonio)!.NextItemId);
-        Assert.Equal(ProgressResult.Watched, lib.Progress(antonio, ep1, 4, 0, Now));
-        Assert.False(lib.Entries("series", antonio, "added", null).Single().Watched);
-        Assert.True(lib.MarkWatched(antonio, ep2, Now));
-        var seen = lib.Entries("series", antonio, "added", null).Single();
+        Assert.Equal(ep2, lib.Item(ep1, anna)!.NextItemId);
+        Assert.Equal(ProgressResult.Watched, lib.Progress(anna, ep1, 4, 0, Now));
+        Assert.False(lib.Entries("series", anna, "added", null).Single().Watched);
+        Assert.True(lib.MarkWatched(anna, ep2, Now));
+        var seen = lib.Entries("series", anna, "added", null).Single();
         Assert.True(seen.Watched);
-        Assert.Empty(new TonightStore(Db, guide).Items(antonio, Now)!);          // vista: fuori dalla mia serata
+        Assert.Empty(new TonightStore(Db, guide).Items(anna, Now)!);          // vista: fuori dalla mia serata
         Assert.Empty(lib.Entries("series", bimbi, "added", null));                 // un dramma: non per il profilo bambino
         Assert.False(lib.Item(ep2, bimbi)!.Watched);                               // il visto è per profilo
         Assert.Equal(ProgressResult.NotFound, lib.Progress(999, ep1, 1, 0, Now));
 
         // visti e votati: la serie vista, il film votato senza averlo visto
-        new WorkStore(Db, guide).SetStars(antonio, padrinoGuida, 5, Now);
-        Assert.Equal(["Il Padrino", "Breaking Bad"], lib.Entries("watched", antonio, "stars", null).Select(e => e.Title));
+        new WorkStore(Db, guide).SetStars(anna, padrinoGuida, 5, Now);
+        Assert.Equal(["Il Padrino", "Breaking Bad"], lib.Entries("watched", anna, "stars", null).Select(e => e.Title));
         Assert.Empty(lib.Entries("watched", bimbi, "added", null));
 
         // abbinamento a mano del file da sistemare, a un cartone animato (genere TMDB 16)
@@ -445,7 +445,7 @@ public sealed class ListTests : IDisposable
         var progs = guide.Query(new GuideQuery(Now, Now.AddHours(6)));
         long padrino = progs.Single(p => p.Title == "Il Padrino").WorkId!.Value;
         var profiles = new ProfileStore(Db);
-        long a = profiles.Create("Antonio", false, null, null, Now).Id;
+        long a = profiles.Create("Anna", false, null, null, Now).Id;
         long b = profiles.Create("Bimbi", true, null, null, Now).Id;
         var lists = new ListStore(Db, guide);
 
@@ -563,7 +563,7 @@ public sealed class LibraryApiTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, (await http.PostAsync($"/api/v1/library/items/{item}/prepare", null)).StatusCode);
 
         // ripresa del profilo e "visto" oltre il 90%
-        var prof = await (await http.PostAsJsonAsync("/api/v1/profiles", new { name = "Antonio", isChild = false })).Content.ReadFromJsonAsync<JsonElement>();
+        var prof = await (await http.PostAsJsonAsync("/api/v1/profiles", new { name = "Anna", isChild = false })).Content.ReadFromJsonAsync<JsonElement>();
         long p = prof.GetProperty("id").GetInt64();
         var saved = await (await http.PutAsJsonAsync($"/api/v1/profiles/{p}/items/{item}/progress", new { positionS = 2, durationS = 6 })).Content.ReadFromJsonAsync<ProgressReply>(Json);
         Assert.False(saved!.Watched);

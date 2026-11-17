@@ -4,7 +4,7 @@
 # (oppure aggiungere "user: <uid>:<gid>" con l'utente del NAS proprietario delle cartelle).
 services:
   dovelofanno:
-    image: ghcr.io/antoscool73/dovelofanno:edge
+    image: ghcr.io/antoscool73/dovelofanno:latest
     container_name: dovelofanno
     restart: unless-stopped
     ports:

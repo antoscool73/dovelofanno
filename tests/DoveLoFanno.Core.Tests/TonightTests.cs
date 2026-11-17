@@ -18,7 +18,7 @@ public sealed class TonightTests : IDisposable
         if (Directory.Exists(dir)) Directory.Delete(dir, true);
     }
 
-    (TonightStore Tonight, GuideStore Guide, long Antonio, long Bimbi, long Padrino) Setup()
+    (TonightStore Tonight, GuideStore Guide, long Anna, long Bimbi, long Padrino) Setup()
     {
         var src = new SourceStore(Db);
         long s = src.AddSource("Prova", "https://example.org/x.m3u", Now);
@@ -26,7 +26,7 @@ public sealed class TonightTests : IDisposable
         var guide = new GuideStore(Db);
         guide.Save(guide.AddSource("https://example.org/g.xml"), XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(GuideStoreTests.Xmltv(Now))), Now.LocalDateTime), Now);
         var profiles = new ProfileStore(Db);
-        long a = profiles.Create("Antonio", false, null, null, Now).Id;
+        long a = profiles.Create("Anna", false, null, null, Now).Id;
         long b = profiles.Create("Bambini", true, null, null, Now).Id;
         long padrino = guide.Query(new GuideQuery(Now, Now.AddHours(6))).Single(p => p.Title == "Il Padrino").WorkId!.Value;
         return (new TonightStore(Db, guide), guide, a, b, padrino);

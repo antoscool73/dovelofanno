@@ -22,8 +22,21 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # le PR da fork non vedono i segreti: per loro l'oracolo dei voti si salta, per il repository è obbligatorio
+      DLF_REQUIRE_ORACLE: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
+
+      # risposte TMDB registrate (non ridistribuibili): repository privato, chiave di sola lettura
+      - name: Dati di prova privati
+        if: env.DLF_REQUIRE_ORACLE == '1'
+        uses: actions/checkout@v4
+        with:
+          repository: antoscool73/dovelofanno-testdata
+          ssh-key: ${{ secrets.TESTDATA_DEPLOY_KEY }}
+          path: tools/oracle/data
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -130,10 +143,30 @@ jobs:
         if: github.event_name == 'push'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          tag="edge"
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then tag="${GITHUB_REF#refs/tags/}"; fi
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tags=(-t "${image}:edge")
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            tags=(-t "${image}:${version}" -t "${image}:latest")
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tags=(-t "${image}:${GITHUB_REF#refs/tags/}")
+          fi
           docker buildx build --platform linux/amd64,linux/arm64 --cache-from type=gha \
-            -t "ghcr.io/${GITHUB_REPOSITORY,,}:${tag}" --push .
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.licenses=GPL-3.0-or-later" \
+            "${tags[@]}" --push .
+
+  secrets-scan:
+    name: Segreti (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks su tutta la cronologia
+        run: |
+          docker run --rm -v "$PWD:/repo" --entrypoint sh ghcr.io/gitleaks/gitleaks:v8.28.0 \
+            -c 'git config --global --add safe.directory /repo && gitleaks git /repo --redact --verbose'
 
   windows-service:
     name: Servizio Windows

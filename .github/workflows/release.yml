@@ -1,0 +1,129 @@
+name: Rilascio
+
+# Un tag vX.Y.Z produce il pacchetto Windows e la pagina del rilascio; l'immagine Docker X.Y.Z e latest la pubblica ci.yml
+# sullo stesso tag. Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
+# Firma: quando SignPath approva il progetto, il pacchetto "unsigned" va firmato tra il job windows e il job release
+# (azione signpath/github-action-submit-signing-request, con approvazione manuale su SignPath). Vedi CODE_SIGNING.md.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  windows:
+    name: Pacchetto Windows
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versione dal tag
+        id: version
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".Substring(1)
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "tag non valido: ${{ github.ref_name }} (atteso vX.Y.Z)" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Interfaccia web
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Compilazione
+        shell: pwsh
+        run: >
+          dotnet publish src/DoveLoFanno.Server -c Release -r win-x64 --self-contained
+          -p:Version=${{ steps.version.outputs.version }} -o "$env:RUNNER_TEMP\pkg\app"
+
+      - name: Metadati dei binari
+        shell: pwsh
+        run: |
+          $v = "${{ steps.version.outputs.version }}"
+          $bad = Get-ChildItem "$env:RUNNER_TEMP\pkg\app" -Include 'DoveLoFanno*.dll','DoveLoFanno*.exe' -Recurse | ForEach-Object {
+            $i = $_.VersionInfo
+            "{0}: ProductName={1} ProductVersion={2}" -f $_.Name, $i.ProductName, $i.ProductVersion | Write-Host
+            if ($i.ProductName -ne 'DoveLoFanno' -or $i.ProductVersion -ne $v) { $_.Name }
+          }
+          if ($bad) { throw "metadati sbagliati: $bad" }
+
+      - name: ffmpeg
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Collaudo del pacchetto (installazione, aggiornamento, disinstallazione)
+        shell: powershell
+        run: .\tools\ci\windows-service-smoke.ps1 -Package "$env:RUNNER_TEMP\pkg\app"
+
+      - name: Archivio
+        shell: pwsh
+        run: |
+          $pkg = "$env:RUNNER_TEMP\pkg"
+          Copy-Item deploy\windows\*.ps1, LICENSE, THIRD-PARTY-NOTICES.md, README.md, CODE_SIGNING.md -Destination $pkg
+          Push-Location $pkg
+          Get-ChildItem -File -Recurse | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object FullName | ForEach-Object {
+            $rel = $_.FullName.Substring($pkg.Length + 1).Replace('\', '/')
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $rel
+          } | Set-Content -Encoding utf8NoBOM SHA256SUMS.txt
+          Pop-Location
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Path "$pkg\*" -DestinationPath "out\DoveLoFanno-${{ steps.version.outputs.version }}-win-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoveLoFanno-win-x64-unsigned
+          path: out/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Pagina del rilascio
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: DoveLoFanno-win-x64-unsigned
+          path: out
+
+      - name: Rilascio su GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          pre=""
+          if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then pre="--prerelease"; fi
+          ( cd out && sha256sum *.zip > SHA256SUMS-zip.txt )
+          cat > notes.md <<EOF
+          ## Installazione
+
+          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\` — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
+          - **Windows** (servizio): \`DoveLoFanno-${VERSION}-win-x64.zip\`, poi \`Install-DoveLoFanno.ps1\` come amministratore. Serve ffmpeg (\`winget install Gyan.FFmpeg\`).
+
+          > Questa versione per Windows **non è firmata**: SmartScreen può mostrare un avviso e Smart App Control la blocca.
+          > Vedi [CODE_SIGNING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CODE_SIGNING.md).
+
+          EOF
+          gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS-zip.txt $pre \
+            --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
