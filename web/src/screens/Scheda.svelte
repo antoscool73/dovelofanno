@@ -3,9 +3,9 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
-  import { api, ApiError, type GuideProgramme, type WorkDetail } from '../lib/api/client';
-  import { day, fileName, minutes, between, range, time, vote } from '../lib/format';
-  import { router } from '../lib/router.svelte';
+  import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
+  import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
+  import { router, navigate } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
   let { id }: { id: number } = $props();
@@ -76,6 +76,36 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non segnato'; }
   }
 
+  // file in casa: si riprende quello iniziato, altrimenti il primo non visto (per le serie, in ordine di episodio)
+  const playFile = $derived.by(() => {
+    const f = w?.files ?? [];
+    return f.find((x) => x.positionS > 0 && !x.watched) ?? f.find((x) => !x.watched) ?? f[0] ?? null;
+  });
+  const episodes = $derived((w?.files ?? []).some((f) => f.episode != null));
+
+  // liste: si leggono quando si apre il menu
+  let listsOpen = $state(false);
+  let allLists = $state<ListSummary[]>([]);
+  async function openLists() {
+    const prof = session.profile;
+    if (!prof) return;
+    listsOpen = !listsOpen;
+    if (listsOpen) {
+      try { allLists = (await api.lists(prof.id)).filter((l) => l.canEdit); }
+      catch (e) { error = e instanceof ApiError ? e.message : 'Liste non lette'; }
+    }
+  }
+  async function toggleList(l: ListSummary) {
+    const prof = session.profile;
+    if (!prof || !w) return;
+    const inside = w.lists.some((x) => x.id === l.id);
+    try {
+      if (inside) await api.removeFromList(prof.id, l.id, w.id);
+      else await api.addToList(prof.id, l.id, w.id);
+      w = await api.work(w.id, prof.id);
+    } catch (e) { error = e instanceof ApiError ? e.message : 'Lista non aggiornata'; }
+  }
+
   const kinds: Record<string, string> = { subscription: 'In abbonamento', free: 'Gratis', rent: 'A noleggio', buy: 'In vendita' };
   const byKind = $derived.by(() => {
     const m = new Map<string, string[]>();
@@ -103,6 +133,7 @@
       </div>
       <div class="info">
         <button type="button" class="back" onclick={() => history.back()}>← Indietro</button>
+        {#if w.parentId}<a class="parent" href="/opera/{w.parentId}" onclick={navigate}>{w.parentTitle}</a>{/if}
         <h1>{w.title}</h1>
         {#if w.originalTitle && w.originalTitle !== w.title}<div class="orig">{w.originalTitle}</div>{/if}
         <div class="facts">
@@ -127,13 +158,29 @@
           </div>
         {/if}
         <div class="actions">
+          {#if playFile}
+            <Button variant="primary" size="l" href="/guarda/{playFile.itemId}" onclick={navigate}>▶ {playFile.positionS > 0 && !playFile.watched ? `Riprendi da ${clock(playFile.positionS)}` : episodes && playFile.episode != null ? `Guarda S${playFile.season}E${String(playFile.episode).padStart(2, '0')}` : 'Guarda'}</Button>
+          {/if}
           {#if nextRecordable}<RecordButton scheduled={nextRecordable.scheduled} busy={busy === nextRecordable.id} label={recordLabel(nextRecordable)} onclick={() => record(nextRecordable)} />{/if}
           {#if w.trailer}<Button variant="soft" size="l" href={w.trailer}>▶ Trailer</Button>{/if}
           {#if session.profile}
             <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}>{w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
             {#if !w.watched}<Button variant="soft" size="l" onclick={markSeen}>✓ Già visto</Button>{/if}
+            <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
           {/if}
         </div>
+        {#if listsOpen}
+          <div class="listmenu" role="group" aria-label="Liste">
+            {#each allLists.filter((l) => !l.isTonight) as l (l.id)}
+              <label class="lcheck"><input type="checkbox" checked={w.lists.some((x) => x.id === l.id)} onchange={() => toggleList(l)} />{l.name}{#if l.family}<span class="muted small"> · famiglia</span>{/if}</label>
+            {:else}
+              <span class="muted small">Nessuna lista: creale in <a href="/libreria" onclick={navigate}>Libreria</a>.</span>
+            {/each}
+          </div>
+        {/if}
+        {#if w.lists.filter((l) => !l.isTonight).length > 0}
+          <p class="muted small">Nelle liste: {w.lists.filter((l) => !l.isTonight).map((l) => l.name).join(', ')}</p>
+        {/if}
         {#if notice}<p class="ok" role="status">{notice}</p>{/if}
         {#if error}<p class="error" role="alert">{error}</p>{/if}
         {#if nextRecordable && !nextRecordable.scheduled}<p class="muted small">Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.</p>{/if}
@@ -145,7 +192,20 @@
     <div class="main">
       <section>
         <h2>In casa</h2>
-        {#if w.inHouse.length === 0}
+        {#if w.files.length > 0}
+          <ul class="rows">
+            {#each w.files as f (f.itemId)}
+              <li>
+                <span class="r-main">
+                  <strong>{f.episode != null ? `S${f.season}E${String(f.episode).padStart(2, '0')}${f.episodeTitle ? ' · ' + f.episodeTitle : ''}` : f.name}</strong>
+                  <span class="muted small">{[f.durationS ? clock(f.durationS) : '', f.width && f.height ? `${f.width}×${f.height}` : '', f.origin === 'recorded' ? 'registrazione' : 'dal NAS', f.positionS > 0 && !f.watched ? `fermo a ${clock(f.positionS)}` : ''].filter(Boolean).join(' · ')}</span>
+                </span>
+                {#if f.watched}<Badge tone="green">Visto</Badge>{/if}
+                <Button size="s" variant={f.playable ? 'primary' : 'secondary'} href="/guarda/{f.itemId}" onclick={navigate}>{f.playable ? (f.positionS > 0 && !f.watched ? '▶ Riprendi' : '▶ Guarda') : 'Prepara e guarda'}</Button>
+              </li>
+            {/each}
+          </ul>
+        {:else if w.inHouse.length === 0}
           <p class="box muted">Non c'è ancora nelle tue registrazioni.{nextRecordable ? ' Dopo la registrazione lo trovi qui.' : ''}</p>
         {:else}
           <ul class="rows">
@@ -154,7 +214,7 @@
                 {#if f.state === 'incomplete'}<Badge tone="orange">Incompleta</Badge>{:else if f.state === 'stopped'}<Badge tone="neutral">Fermata</Badge>{:else}<Badge tone="green">In casa</Badge>{/if}</li>
             {/each}
           </ul>
-          <p class="muted small">Il player arriva con la libreria; intanto il file è nella cartella delle registrazioni.</p>
+          <p class="muted small">La registrazione entra nella libreria tra poco: poi la guardi da qui.</p>
         {/if}
       </section>
 
@@ -205,6 +265,10 @@
   .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .ptitle { position: relative; min-width: 0; font-family: var(--font-display); font-size: 22px; line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; hyphens: auto; }
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }
+  .listmenu { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
+  .lcheck { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 15px; cursor: pointer; }
+  .lcheck input { width: 18px; height: 18px; accent-color: var(--blue); }
   .back { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--link); font-size: 14px; cursor: pointer; }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1; letter-spacing: -0.02em; }
   .orig { color: var(--muted); font-size: 16px; }

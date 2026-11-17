@@ -1,7 +1,7 @@
 // Router minimo con indirizzi veri (/guida, /registrazioni...): il server rimanda a index.html ogni
 // indirizzo che non è un file né /api. Nessuna dipendenza esterna.
 
-export type Route = 'stasera' | 'opera' | 'profili' | 'guida' | 'libreria' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
+export type Route = 'stasera' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
 
 const paths: Record<string, Route> = {
   '/': 'stasera',
@@ -17,6 +17,8 @@ const paths: Record<string, Route> = {
 export function routeOf(pathname: string): Route {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   if (/^\/opera\/\d+$/.test(p)) return 'opera';
+  if (/^\/guarda\/\d+$/.test(p)) return 'guarda';
+  if (/^\/libreria\/[a-z-]+(\/\d+)?$/.test(p)) return 'libreria';
   return paths[p] ?? 'non-trovata';
 }
 
@@ -25,6 +27,11 @@ class Router {
   route = $derived(routeOf(this.path));
   /** Id dell'opera per /opera/{id}. */
   workId = $derived(Number(this.path.match(/^\/opera\/(\d+)/)?.[1] ?? 0));
+  /** Id del file per /guarda/{id} (player). */
+  itemId = $derived(Number(this.path.match(/^\/guarda\/(\d+)/)?.[1] ?? 0));
+  /** Sezione della libreria: /libreria/film, /libreria/liste/12 ... */
+  librarySection = $derived(this.path.match(/^\/libreria\/([a-z-]+)/)?.[1] ?? 'liste');
+  libraryListId = $derived(Number(this.path.match(/^\/libreria\/liste\/(\d+)/)?.[1] ?? 0));
 
   constructor() {
     window.addEventListener('popstate', () => { this.path = window.location.pathname; });

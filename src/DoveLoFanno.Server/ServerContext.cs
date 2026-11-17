@@ -26,6 +26,8 @@ public sealed class ServerContext : IDisposable
     public GuideStore Guide { get; }
     public TonightStore Tonight { get; }
     public WorkStore Works { get; }
+    public LibraryStore Library { get; }
+    public ListStore Lists { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -56,6 +58,8 @@ public sealed class ServerContext : IDisposable
         Guide = new GuideStore(DbPath);
         Tonight = new TonightStore(DbPath, Guide);
         Works = new WorkStore(DbPath, Guide);
+        Library = new LibraryStore(DbPath);
+        Lists = new ListStore(DbPath, Guide);
     }
 
     static string Full(string? configured, string fallback) =>

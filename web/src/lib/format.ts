@@ -100,3 +100,12 @@ export function byChannelOrder(
   }
   return a.name.localeCompare(b.name, 'it', { numeric: true });
 }
+
+/** Durata di un video: 6435 -> "1:47:15", 95 -> "1:35". */
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`;
+}

@@ -14,7 +14,7 @@ public sealed record WorkDetail(
     long Id, string Kind, string Title, string OriginalTitle, int Year, double? Rating, string RatingSource, int RatingVotes,
     long? TmdbId, string ImdbId, string Overview, string Poster, string Backdrop, int? RuntimeMin, string Trailer, DateTimeOffset? DetailsAt,
     IReadOnlyList<GuideProgramme> Airings, IReadOnlyList<WorkFile> InHouse, IReadOnlyList<WorkAvailability> Availability,
-    bool InTonight, bool Watched, int? Stars);
+    bool InTonight, bool Watched, int? Stars, IReadOnlyList<LibraryFile> Files, IReadOnlyList<WorkListRef> Lists, long? ParentId, string ParentTitle);
 
 /// <summary>Opere: scheda completa, dettagli da TMDB, voto personale a stelle.</summary>
 public sealed class WorkStore(string dbPath, GuideStore guide)
@@ -27,14 +27,14 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
     {
         using var c = Open();
         var w = Db.Query(c, """
-            SELECT id, kind, title, original_title, year, rating, rating_source, rating_votes, tmdb_id, imdb_id, overview, poster, backdrop,
-                   runtime_min, trailer, details_at
-            FROM works WHERE id = $id
+            SELECT w.id, w.kind, w.title, w.original_title, w.year, w.rating, w.rating_source, w.rating_votes, w.tmdb_id, w.imdb_id, w.overview,
+                   w.poster, w.backdrop, w.runtime_min, w.trailer, w.details_at, w.parent_id, coalesce(p.title, '')
+            FROM works w LEFT JOIN works p ON p.id = w.parent_id WHERE w.id = $id
             """,
             r => (Id: r.GetInt64(0), Kind: r.GetString(1), Title: r.GetString(2), Orig: r.GetString(3), Year: r.GetInt32(4),
                 Rating: r.IsDBNull(5) ? (double?)null : r.GetDouble(5), Src: r.GetString(6), Votes: r.GetInt32(7), Tmdb: Db.NLong(r, 8),
                 Imdb: r.GetString(9), Overview: r.GetString(10), Poster: r.GetString(11), Backdrop: r.GetString(12), Runtime: Db.NInt(r, 13),
-                Trailer: r.GetString(14), DetailsAt: Db.NTime(r, 15)),
+                Trailer: r.GetString(14), DetailsAt: Db.NTime(r, 15), Parent: Db.NLong(r, 16), ParentTitle: r.GetString(17)),
             ("$id", workId)).FirstOrDefault();
         if (w.Id == 0) return null;
 
@@ -61,18 +61,29 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         }
         c.Dispose();
         var airings = progIds.Select(guide.Programme).Where(p => p != null).Select(p => p!).ToList();
+        var libraryFiles = new LibraryStore(dbPath).Files(workId, profileId);
+        var lists = profileId is long lp ? new ListStore(dbPath, guide).ListsOf(lp, workId) : [];
         return new WorkDetail(w.Id, w.Kind, w.Title, w.Orig, w.Year, w.Rating, w.Src, w.Votes, w.Tmdb, w.Imdb, w.Overview,
-            Image(w.Poster, "w500"), Image(w.Backdrop, "w1280"), w.Runtime, w.Trailer, w.DetailsAt, airings, files, avail, inTonight, watched, stars);
+            ImageUrl(w.Poster, "w500"), ImageUrl(w.Backdrop, "w1280"), w.Runtime, w.Trailer, w.DetailsAt, airings, files, avail, inTonight, watched, stars,
+            libraryFiles, lists, w.Parent, w.ParentTitle);
     }
 
-    static string Image(string path, string size) => path.Length == 0 || path.StartsWith("http", StringComparison.Ordinal) ? path : ImageBase + size + path;
+    /// <summary>Indirizzo completo di un'immagine TMDB (/abc.jpg) nella misura chiesta; gli indirizzi completi restano come sono.</summary>
+    public static string ImageUrl(string path, string size) => path.Length == 0 || path.StartsWith("http", StringComparison.Ordinal) ? path : ImageBase + size + path;
 
-    /// <summary>Film con codice TMDB i cui dettagli mancano o hanno più di un giorno: il codice TMDB, altrimenti null.</summary>
-    public long? DetailsToRefresh(long workId, DateTimeOffset now)
+    /// <summary>
+    /// Film e serie con codice TMDB i cui dettagli mancano o hanno più di un giorno: codice e tipo (movie o tv), altrimenti null.
+    /// </summary>
+    public (long TmdbId, string Kind)? DetailsToRefresh(long workId, DateTimeOffset now)
     {
         using var c = Open();
-        return Db.ScalarLong(c, "SELECT tmdb_id FROM works WHERE id = $w AND kind = 'film' AND tmdb_id IS NOT NULL AND (details_at IS NULL OR details_at < $old)",
-            ("$w", workId), ("$old", Db.Unix(now.AddDays(-1))));
+        var r = Db.Query(c, """
+            SELECT tmdb_id, coalesce(tmdb_kind, 'movie') FROM works WHERE id = $w AND tmdb_id IS NOT NULL
+              AND (tmdb_kind IN ('movie', 'tv') OR (tmdb_kind IS NULL AND kind = 'film'))
+              AND kind IN ('film', 'series', 'documentary') AND (details_at IS NULL OR details_at < $old)
+            """,
+            x => (x.GetInt64(0), x.GetString(1)), ("$w", workId), ("$old", Db.Unix(now.AddDays(-1))));
+        return r.Count == 0 ? null : r[0];
     }
 
     public void SaveDetails(long workId, MovieDetails d, DateTimeOffset now)

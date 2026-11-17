@@ -24,6 +24,18 @@ export type GuideStatus = S['GuideStatus'];
 export type TonightItem = S['TonightItem'];
 export type WorkDetail = S['WorkDetail'];
 export type RatingSettingsPatch = S['RatingSettingsPatch'];
+export type LibraryEntry = S['LibraryEntry'];
+export type LibraryFile = S['LibraryFile'];
+export type LibraryItem = S['LibraryItemDetail'];
+export type LibraryStatus = S['LibraryStatus'];
+export type LibraryFolder = S['LibraryFolderRow'];
+export type ListSummary = S['ListSummary'];
+export type ListDetail = S['ListDetail'];
+export type ListEntry = S['ListEntry'];
+export type MatchCandidate = S['MatchCandidate'];
+export type MatchBody = S['MatchBody'];
+export type LibrarySection = 'all' | 'films' | 'series' | 'documentaries' | 'programmes' | 'recordings' | 'unmatched';
+export type LibrarySort = 'added' | 'title' | 'rating' | 'stars';
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */
 export class ApiError extends Error {
@@ -95,6 +107,45 @@ export const api = {
 
   ratingSettings: () => call<RatingSettings>('GET', '/settings/ratings'),
   updateRatingSettings: (p: RatingSettingsPatch) => call<RatingSettings>('PUT', '/settings/ratings', p),
+
+  library: (section: LibrarySection, profileId?: number, sort: LibrarySort = 'added', text = '') => {
+    const p = new URLSearchParams({ section, sort });
+    if (profileId) p.set('profileId', String(profileId));
+    if (text) p.set('text', text);
+    return call<LibraryEntry[]>('GET', '/library?' + p.toString());
+  },
+  libraryStatus: () => call<LibraryStatus>('GET', '/library/status'),
+  scanLibrary: () => call<void>('POST', '/library/scan'),
+  addFolder: (path: string, kind: string) => call<LibraryFolder>('POST', '/library/folders', { path, kind }),
+  updateFolder: (id: number, p: { kind?: string | null; enabled?: boolean | null }) => call<LibraryFolder>('PATCH', `/library/folders/${id}`, { kind: p.kind ?? null, enabled: p.enabled ?? null }),
+  deleteFolder: (id: number) => call<void>('DELETE', `/library/folders/${id}`),
+  libraryItem: (id: number, profileId?: number) => call<LibraryItem>('GET', `/library/items/${id}` + (profileId ? `?profileId=${profileId}` : '')),
+  prepareItem: (id: number) => call<void>('POST', `/library/items/${id}/prepare`),
+  matchItem: (id: number, body: MatchBody) => call<LibraryItem>('PUT', `/library/items/${id}/match`, body),
+  removeItem: (id: number, deleteFile: boolean) => call<void>('DELETE', `/library/items/${id}?deleteFile=${deleteFile}`),
+  searchMatch: (q: string, kind: 'movie' | 'tv', year?: number) => {
+    const p = new URLSearchParams({ q, kind });
+    if (year) p.set('year', String(year));
+    return call<MatchCandidate[]>('GET', '/library/match?' + p.toString());
+  },
+  streamUrl: (id: number) => `/api/v1/library/items/${id}/stream`,
+  subtitleUrl: (id: number, track: string) => `/api/v1/library/items/${id}/subtitles/${track}`,
+  saveProgress: (profileId: number, itemId: number, positionS: number, durationS: number, keepalive = false) =>
+    fetch(`/api/v1/profiles/${profileId}/items/${itemId}/progress`, {
+      method: 'PUT', keepalive, headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ positionS: Math.floor(positionS), durationS: Math.floor(durationS) }),
+    }).then((r) => (r.ok ? (r.json() as Promise<{ watched: boolean }>) : { watched: false })).catch(() => ({ watched: false })),
+  itemWatched: (profileId: number, itemId: number) => call<void>('POST', `/profiles/${profileId}/items/${itemId}/watched`),
+  continueWatching: (profileId: number) => call<LibraryItem[]>('GET', `/profiles/${profileId}/continue`),
+
+  lists: (profileId: number) => call<ListSummary[]>('GET', `/profiles/${profileId}/lists`),
+  list: (profileId: number, listId: number, sort: LibrarySort = 'added') => call<ListDetail>('GET', `/profiles/${profileId}/lists/${listId}?sort=${sort}`),
+  createList: (profileId: number, name: string, family: boolean) => call<ListSummary>('POST', `/profiles/${profileId}/lists`, { name, family }),
+  updateList: (profileId: number, listId: number, p: { name?: string | null; family?: boolean | null }) =>
+    call<ListSummary>('PATCH', `/profiles/${profileId}/lists/${listId}`, { name: p.name ?? null, family: p.family ?? null }),
+  deleteList: (profileId: number, listId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}`),
+  addToList: (profileId: number, listId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/lists/${listId}/items`, { workId }),
+  removeFromList: (profileId: number, listId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}/items/${workId}`),
 
   backups: () => call<BackupInfo[]>('GET', '/backups'),
   createBackup: () => call<BackupInfo>('POST', '/backups'),

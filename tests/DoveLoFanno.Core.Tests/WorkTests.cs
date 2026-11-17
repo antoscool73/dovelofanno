@@ -119,9 +119,9 @@ public sealed class WorkTests : IDisposable
             cmd.Parameters.AddWithValue("$w", padrino);
             cmd.ExecuteNonQuery();
         }
-        Assert.Equal(238, works.DetailsToRefresh(padrino, Now));
+        Assert.Equal(238L, works.DetailsToRefresh(padrino, Now)?.TmdbId);
         using (var doc = JsonDocument.Parse(DetailsJson)) works.SaveDetails(padrino, TmdbClient.ParseDetails(doc.RootElement), Now);
         Assert.Null(works.DetailsToRefresh(padrino, Now.AddHours(12)));
-        Assert.Equal(238, works.DetailsToRefresh(padrino, Now.AddDays(2)));
+        Assert.Equal(238L, works.DetailsToRefresh(padrino, Now.AddDays(2))?.TmdbId);
     }
 }

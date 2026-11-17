@@ -4,6 +4,11 @@ namespace DoveLoFanno.Ratings;
 public sealed record TmdbMovie(int Id, string Title, string OriginalTitle, string ReleaseDate, double VoteAverage, int VoteCount)
 {
     public int Year => ReleaseDate.Length >= 4 && int.TryParse(ReleaseDate.AsSpan(0, 4), out int y) ? y : 0;
+
+    /// <summary>Generi TMDB (99 = documentario); vuoto nelle risposte registrate dei test.</summary>
+    public IReadOnlyList<int> GenreIds { get; init; } = [];
+
+    public bool IsDocumentary => GenreIds.Contains(99);
 }
 
 /// <summary>Accesso a TMDB; il servizio reale è <see cref="TmdbClient"/>, i test usano risposte registrate.</summary>

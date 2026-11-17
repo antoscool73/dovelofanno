@@ -250,17 +250,21 @@ public static class Api
             var now = ctx.Clock.GetUtcNow();
             // dettagli da TMDB (trama, immagini, trailer, piattaforme) se mancano o hanno più di un giorno
             string key = ctx.Settings.Get("TmdbKey");
-            if (key.Length > 0 && ctx.Works.DetailsToRefresh(id, now) is long tmdbId)
+            if (key.Length > 0 && ctx.Works.DetailsToRefresh(id, now) is { } t)
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 cts.CancelAfter(TimeSpan.FromSeconds(8));
-                try { ctx.Works.SaveDetails(id, await new DoveLoFanno.Ratings.TmdbClient(ctx.Http, key).MovieDetailsAsync((int)tmdbId, cts.Token), now); }
+                var tmdb = new DoveLoFanno.Ratings.TmdbClient(ctx.Http, key);
+                try { ctx.Works.SaveDetails(id, t.Kind == "tv" ? await tmdb.TvDetailsAsync((int)t.TmdbId, cts.Token) : await tmdb.MovieDetailsAsync((int)t.TmdbId, cts.Token), now); }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or DoveLoFanno.Ratings.TmdbKeyException or System.Text.Json.JsonException) { }
             }
             return ctx.Works.Detail(id, profileId, now) is { } w ? Results.Ok(w) : Results.NotFound();
         })
             .WithTags("Opere").WithSummary("Scheda di un'opera: dati, dettagli TMDB, passaggi in TV, file in casa, dove lo vedo, stato del profilo")
             .Produces<WorkDetail>().Produces(StatusCodes.Status404NotFound);
+
+        // ---------------------------------------------------------------- libreria, player e liste (aggiunta della wave 6)
+        LibraryApi.Map(api);
 
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");

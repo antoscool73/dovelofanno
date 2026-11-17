@@ -8,6 +8,8 @@
   import Guida from './screens/Guida.svelte';
   import Stasera from './screens/Stasera.svelte';
   import Scheda from './screens/Scheda.svelte';
+  import Libreria from './screens/Libreria.svelte';
+  import Player from './screens/Player.svelte';
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -34,7 +36,7 @@
   load();
 
   const titles: Record<string, string> = {
-    stasera: 'Stasera', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', registrazioni: 'Registrazioni',
+    stasera: 'Stasera', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
     preferenze: 'Preferenze', impostazioni: 'Impostazioni', profili: 'Chi guarda?', 'non-trovata': 'Pagina non trovata',
   };
 
@@ -54,6 +56,8 @@
   </div>
 {:else if showProfiles}
   <Profili {profiles} onchange={load} />
+{:else if router.route === 'guarda'}
+  <Player id={router.itemId} />
 {:else}
   <AppHeader />
   <main>
@@ -64,7 +68,7 @@
     {:else if router.route === 'guida'}
       <Guida />
     {:else if router.route === 'libreria'}
-      <InArrivo title="Libreria" text="Liste personali e di famiglia, film, serie e registrazioni, con il voto a stelle." />
+      <Libreria />
     {:else if router.route === 'registrazioni'}
       <Registrazioni />
     {:else if router.route === 'preferenze'}

@@ -1131,6 +1131,1162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched) con lo stato del profilo */
+        get: {
+            parameters: {
+                query?: {
+                    section?: string;
+                    profileId?: number;
+                    sort?: string;
+                    text?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryEntry"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stato della libreria: scansione, numeri, cartelle, copie per il browser */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rilegge subito le cartelle della libreria */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cartelle della libreria */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryFolderRow"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Aggiunge una cartella del server (Film, Serie...) e la scansiona */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewLibraryFolder"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryFolderRow"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Toglie la cartella dalla libreria (i file sul disco restano) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Cambia il tipo di una cartella o la sospende */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LibraryFolderPatch"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryFolderRow"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/library/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un file per il player: titolo, durata, tracce, sottotitoli, ripresa del profilo, episodio successivo */
+        get: {
+            parameters: {
+                query?: {
+                    profileId?: number;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryItemDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Toglie un file dalla libreria; con deleteFile=true lo cancella anche dal disco (con il suo .nfo) */
+        delete: {
+            parameters: {
+                query?: {
+                    deleteFile?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/items/{id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Il video per il browser, con richieste a intervalli (per saltare avanti e indietro) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Partial Content */
+                206: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/items/{id}/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepara la copia per il browser (MKV, TS, audio AC3, HEVC...): 202 in coda, 204 se si guarda già così */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/items/{id}/subtitles/{track}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sottotitoli in WebVTT: s0, s1... dentro il file; f0, f1... file .srt o .vtt accanto */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    track: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/items/{id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Abbinamento a mano di un file: a un risultato TMDB (tmdbId) o solo con titolo e anno */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MatchBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryItemDetail"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cerca su TMDB per l'abbinamento a mano (kind = movie o tv) */
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                    year?: number;
+                    kind?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchCandidate"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/items/{itemId}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Punto di ripresa del profilo; oltre il 90% il titolo diventa visto ed esce dalla mia serata */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    itemId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProgressBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgressReply"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/items/{itemId}/watched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Segna un file (e la sua opera) come visto dal profilo */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    itemId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Continua a guardare: i file iniziati e non finiti dal profilo */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LibraryItemDetail"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste che il profilo vede: la mia serata, le sue, quelle di famiglia */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListSummary"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /** Nuova lista del profilo o della famiglia (solo gli adulti) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewList"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListSummary"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** I titoli di una lista con voto, stelle del profilo, file in casa e prossimo passaggio (sort = added, title, rating, stars) */
+        get: {
+            parameters: {
+                query?: {
+                    sort?: string;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListDetail"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Cancella una lista (non la mia serata) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Rinomina una lista o la sposta in famiglia */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ListPatch"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListSummary"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/lists/{listId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aggiunge un'opera a una lista (se c'è già non cambia nulla) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WorkRef"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/lists/{listId}/items/{workId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Toglie un'opera da una lista */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                    workId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guide": {
         parameters: {
             query?: never;
@@ -1640,14 +2796,220 @@ export interface components {
             drm: number;
             epgUrl: string;
         };
+        LibraryCounts: {
+            /** Format: int32 */
+            files: number;
+            /** Format: int32 */
+            matched: number;
+            /** Format: int32 */
+            unmatched: number;
+            /** Format: int32 */
+            missing: number;
+            /** Format: int32 */
+            copiesWaiting: number;
+            /** Format: int32 */
+            copiesFailed: number;
+        };
+        LibraryEntry: {
+            /** Format: int64 */
+            workId: null | number;
+            /** Format: int64 */
+            itemId: null | number;
+            kind: string;
+            title: string;
+            /** Format: int32 */
+            year: number;
+            poster: string;
+            /** Format: double */
+            rating: null | number;
+            ratingSource: string;
+            /** Format: int32 */
+            stars: null | number;
+            watched: boolean;
+            /** Format: int32 */
+            files: number;
+            /** Format: int32 */
+            episodes: number;
+            /** Format: date-time */
+            addedAt: string;
+            /** Format: int64 */
+            playItemId: null | number;
+            /** Format: int32 */
+            positionS: number;
+            /** Format: int32 */
+            durationS: number;
+            recorded: boolean;
+        };
+        LibraryFile: {
+            /** Format: int64 */
+            itemId: number;
+            name: string;
+            origin: string;
+            /** Format: int32 */
+            season: null | number;
+            /** Format: int32 */
+            episode: null | number;
+            episodeTitle: string;
+            /** Format: int32 */
+            durationS: number;
+            /** Format: int32 */
+            width: null | number;
+            /** Format: int32 */
+            height: null | number;
+            playable: boolean;
+            copyState: string;
+            /** Format: int32 */
+            positionS: number;
+            watched: boolean;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        LibraryFolderPatch: {
+            kind: null | string;
+            enabled: null | boolean;
+        };
+        LibraryFolderRow: {
+            /** Format: int64 */
+            id: number;
+            path: string;
+            kind: string;
+            enabled: boolean;
+            /** Format: date-time */
+            lastScannedAt: null | string;
+            lastError: string;
+            /** Format: int32 */
+            files: number;
+        };
+        LibraryItemDetail: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            workId: null | number;
+            title: string;
+            subtitle: string;
+            fileName: string;
+            origin: string;
+            /** Format: int32 */
+            durationS: number;
+            /** Format: int32 */
+            width: null | number;
+            /** Format: int32 */
+            height: null | number;
+            videoCodec: string;
+            audioCodec: string;
+            playable: boolean;
+            copyState: string;
+            /** Format: int32 */
+            positionS: number;
+            watched: boolean;
+            audioTracks: components["schemas"]["TrackInfo"][];
+            subtitles: components["schemas"]["SubtitleTrack"][];
+            /** Format: int64 */
+            nextItemId: null | number;
+            matchState: string;
+            titleGuess: string;
+            /** Format: int32 */
+            yearGuess: number;
+            /** Format: int32 */
+            season: null | number;
+            /** Format: int32 */
+            episode: null | number;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        LibraryStatus: {
+            scanning: boolean;
+            status: string;
+            /** Format: date-time */
+            lastScanAt: null | string;
+            lastReport: null | components["schemas"]["ScanReport"];
+            counts: components["schemas"]["LibraryCounts"];
+            hasTmdbKey: boolean;
+            copyStatus: string;
+            folders: components["schemas"]["LibraryFolderRow"][];
+        };
+        ListDetail: {
+            list: components["schemas"]["ListSummary"];
+            items: components["schemas"]["ListEntry"][];
+        };
+        ListEntry: {
+            /** Format: int64 */
+            workId: number;
+            kind: string;
+            title: string;
+            /** Format: int32 */
+            year: number;
+            poster: string;
+            /** Format: double */
+            rating: null | number;
+            ratingSource: string;
+            /** Format: int32 */
+            stars: null | number;
+            watched: boolean;
+            /** Format: date-time */
+            addedAt: string;
+            /** Format: int64 */
+            playItemId: null | number;
+            next: null | components["schemas"]["GuideProgramme"];
+            country: string;
+            credits: string;
+        };
+        ListPatch: {
+            name: null | string;
+            family: null | boolean;
+        };
+        ListSummary: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            family: boolean;
+            isTonight: boolean;
+            /** Format: int32 */
+            count: number;
+            posters: string[];
+            canEdit: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
         LostRange: {
             /** Format: date-time */
             from: string;
             /** Format: date-time */
             to: string;
         };
+        MatchBody: {
+            title: string;
+            /** Format: int32 */
+            year: number;
+            kind: string;
+            /** Format: int32 */
+            tmdbId: null | number;
+            /** Format: int32 */
+            season: null | number;
+            /** Format: int32 */
+            episode: null | number;
+        };
+        MatchCandidate: {
+            /** Format: int32 */
+            tmdbId: number;
+            kind: string;
+            title: string;
+            originalTitle: string;
+            /** Format: int32 */
+            year: number;
+            /** Format: int32 */
+            votes: number;
+        };
         NewGuideSource: {
             url: string;
+        };
+        NewLibraryFolder: {
+            path: string;
+            kind: null | string;
+        };
+        NewList: {
+            name: string;
+            family: boolean;
         };
         NewProfile: {
             name: string;
@@ -1709,6 +3071,15 @@ export interface components {
             hasPin: boolean;
             inheritsSubscriptions: boolean;
         };
+        ProgressBody: {
+            /** Format: int32 */
+            positionS: number;
+            /** Format: int32 */
+            durationS: null | number;
+        };
+        ProgressReply: {
+            watched: boolean;
+        };
         RatingSettings: {
             hasTmdbKey: boolean;
             keyHint: string;
@@ -1759,6 +3130,25 @@ export interface components {
             recordFrom?: string;
             /** Format: date-time */
             recordTo?: string;
+        };
+        ScanReport: {
+            /** Format: int32 */
+            folders: number;
+            /** Format: int32 */
+            files: number;
+            /** Format: int32 */
+            new: number;
+            /** Format: int32 */
+            missing: number;
+            /** Format: int32 */
+            probed: number;
+            /** Format: int32 */
+            matched: number;
+            /** Format: int32 */
+            unmatched: number;
+            /** Format: int32 */
+            recordings: number;
+            error: string;
         };
         ScheduledRecording: {
             /** Format: int64 */
@@ -1815,6 +3205,11 @@ export interface components {
             /** Format: date-time */
             lastCheckedAt: null | string;
         };
+        SubtitleTrack: {
+            id: string;
+            label: string;
+            language: string;
+        };
         TonightItem: {
             /** Format: int64 */
             workId: number;
@@ -1828,6 +3223,13 @@ export interface components {
             /** Format: date-time */
             addedAt: string;
             next: null | components["schemas"]["GuideProgramme"];
+        };
+        TrackInfo: {
+            /** Format: int32 */
+            index: number;
+            codec: string;
+            language: string;
+            title: string;
         };
         WorkAvailability: {
             platform: string;
@@ -1867,6 +3269,11 @@ export interface components {
             watched: boolean;
             /** Format: int32 */
             stars: null | number;
+            files: components["schemas"]["LibraryFile"][];
+            lists: components["schemas"]["WorkListRef"][];
+            /** Format: int64 */
+            parentId: null | number;
+            parentTitle: string;
         };
         WorkFile: {
             /** Format: int64 */
@@ -1878,6 +3285,13 @@ export interface components {
             state: string;
             /** Format: int32 */
             lostMinutes: number;
+        };
+        WorkListRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            family: boolean;
+            isTonight: boolean;
         };
         WorkRef: {
             /** Format: int64 */

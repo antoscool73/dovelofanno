@@ -2,6 +2,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import VotiFilm from './VotiFilm.svelte';
+  import CartelleLibreria from './CartelleLibreria.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
@@ -243,6 +244,8 @@
       </form>
     {:else if tab === 'voti'}
       <VotiFilm />
+    {:else if tab === 'cartelle'}
+      <CartelleLibreria />
     {:else if tab === 'backup'}
       <div class="head"><h2>Backup</h2></div>
       <p class="muted">Una copia del database ogni notte alle 3; si tengono le ultime 7. Le registrazioni restano nella loro cartella.</p>
@@ -257,7 +260,7 @@
       <p class="muted small">Ripristino: a server fermo, si rimette la copia al posto di dlf.db (istruzioni nella guida di installazione).</p>
     {:else}
       <div class="head"><h2>{tabs.find((t) => t.id === tab)?.label}</h2></div>
-      <p class="muted">In preparazione: arriva con le prossime schermate della wave 5.</p>
+      <p class="muted">In preparazione: arriva con le prossime wave.</p>
     {/if}
   </div>
 </div>
