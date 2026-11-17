@@ -20,6 +20,14 @@ public sealed record WorkDetail(
 public sealed class WorkStore(string dbPath, GuideStore guide)
 {
     public const string ImageBase = "https://image.tmdb.org/t/p/";
+
+    /// <summary>
+    /// SQL: l'opera <paramref name="alias"/> è adatta a un profilo bambino: in guida tra i "Bambini", oppure con un genere
+    /// TMDB di animazione (16), famiglia (10751) o per bambini (10762).
+    /// </summary>
+    public static string ChildSafe(string alias) =>
+        $"(EXISTS (SELECT 1 FROM programmes cp WHERE cp.work_id = {alias}.id AND cp.group_name = 'Bambini')" +
+        $" OR EXISTS (SELECT 1 FROM json_each({alias}.genres) cg WHERE cg.value IN (16, 10751, 10762)))";
     SqliteConnection Open() => Database.Open(dbPath);
 
     /// <summary>null se l'opera non esiste. <paramref name="profileId"/> facoltativo: senza, lo stato del profilo è vuoto.</summary>
@@ -94,9 +102,9 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
             UPDATE works SET overview = CASE WHEN $o <> '' THEN $o ELSE overview END, poster = $p, backdrop = $b,
                    runtime_min = CASE WHEN $r > 0 THEN $r ELSE runtime_min END,
                    original_title = CASE WHEN original_title = '' THEN $ot ELSE original_title END,
-                   trailer = $t, details_at = $now WHERE id = $id
+                   trailer = $t, details_at = $now, genres = CASE WHEN $g <> '[]' THEN $g ELSE genres END WHERE id = $id
             """,
-            ("$o", d.Overview), ("$p", d.PosterPath), ("$b", d.BackdropPath), ("$r", d.Runtime), ("$ot", d.OriginalTitle),
+            ("$g", System.Text.Json.JsonSerializer.Serialize(d.GenreIds ?? [])), ("$o", d.Overview), ("$p", d.PosterPath), ("$b", d.BackdropPath), ("$r", d.Runtime), ("$ot", d.OriginalTitle),
             ("$t", d.Trailer), ("$now", Db.Unix(now)), ("$id", workId));
         Db.Exec(c, "DELETE FROM availability WHERE work_id = $w", ("$w", workId));
         foreach (var p in d.Providers)

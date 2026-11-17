@@ -80,8 +80,10 @@ public sealed class RecordingScheduler(
                 return;
             }
             a.CurrentSource = candidates[0].SourceId;
+            // cartelle e nomi che Jellyfin, Plex ed Emby riconoscono, con il .nfo per film ed episodi
+            var (folder, baseName, info) = LibraryLayout.For(r.Title, r.ChannelName, r.Start, r.Format, recordings.Media(r.Id), options.RecordingsDir);
             var job = new RecordingJob(r.Id, r.Title, r.ChannelName, r.RecordFrom, r.RecordTo, r.Format,
-                options.RecordingsDir, BaseName(r), options.LogDir);
+                Path.Combine(options.RecordingsDir, folder), baseName, options.LogDir, info);
             var outcome = await recorder.RunAsync(job, candidates, new Observer(recordings, r.Id, candidates, a), a.Stop.Token, shutdown.Token);
             recordings.Finish(r.Id, outcome);
             Finished?.Invoke(r.Id, outcome);
@@ -119,9 +121,6 @@ public sealed class RecordingScheduler(
         var inUse = running.Values.Where(x => x.CurrentSource != 0).GroupBy(x => x.CurrentSource).ToDictionary(g => g.Key, g => g.Count());
         return StreamSelector.Order(sources.Candidates(channelId), inUse);
     }
-
-    static string BaseName(RecordingRow r) =>
-        Nfo.SafeName($"{r.Title} {r.Start.ToLocalTime():yyyy-MM-dd HH.mm} {r.ChannelName}");
 
     sealed class Observer(RecordingStore store, long id, List<StreamCandidate> candidates, Active a) : IRecordingObserver
     {

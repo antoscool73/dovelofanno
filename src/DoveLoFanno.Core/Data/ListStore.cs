@@ -140,7 +140,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
 
     /// <summary>
     /// I titoli di una lista per il profilo. sort = added (predefinito), title, rating, stars. Il profilo bambino, nelle
-    /// liste di famiglia, vede solo i titoli che in guida sono per bambini (o senza guida, se non sono film o serie).
+    /// liste di famiglia, vede solo i titoli adatti (<see cref="WorkStore.ChildSafe"/>).
     /// </summary>
     public ListDetail? Detail(long profileId, long listId, string sort, DateTimeOffset now)
     {
@@ -159,9 +159,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
                 "stars" => "ws.stars IS NULL, ws.stars DESC, w.title_key",
                 _ => "li.added_at DESC",
             };
-            string childFilter = child && l.Owner == null
-                ? "AND (EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND p.group_name = 'Bambini'))"
-                : "";
+            string childFilter = child && l.Owner == null ? "AND " + WorkStore.ChildSafe("w") : "";
             rows = Db.Query(c, $"""
                 SELECT w.id, w.kind, w.title, w.year, w.poster, w.rating, w.rating_source, ws.stars, coalesce(ws.watched, 0), li.added_at,
                        (SELECT x.id FROM library_items x JOIN works xw ON xw.id = x.work_id

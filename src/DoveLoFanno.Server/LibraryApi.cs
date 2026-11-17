@@ -21,7 +21,7 @@ public sealed record ListPatch(string? Name, bool? Family);
 /// <summary>API della libreria, del player e delle liste (aggiunte compatibili della wave 6).</summary>
 public static class LibraryApi
 {
-    static readonly string[] Sections = ["all", "films", "series", "documentaries", "programmes", "recordings", "unmatched"];
+    static readonly string[] Sections = ["all", "films", "series", "documentaries", "programmes", "recordings", "unmatched", "watched"];
     static readonly string[] Sorts = ["added", "title", "rating", "stars"];
     static readonly string[] FolderKinds = ["auto", "films", "series"];
     static readonly string[] WorkKinds = ["film", "series", "documentary", "programme"];
@@ -38,7 +38,7 @@ public static class LibraryApi
             if (!Sorts.Contains(sort)) return Results.BadRequest(new ApiError("ordine: " + string.Join(", ", Sorts)));
             return Results.Ok(ctx.Library.Entries(section, profileId, sort, text));
         })
-            .WithSummary("Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched) con lo stato del profilo")
+            .WithSummary("Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti e votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti")
             .Produces<List<LibraryEntry>>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         lib.MapGet("/status", (ServerContext ctx, LibraryHost host) => StatusOf(ctx, host))

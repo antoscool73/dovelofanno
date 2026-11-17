@@ -26,6 +26,16 @@ public sealed class MediaNameTests
     [InlineData("/nas/Film/La vita è bella.mp4", "La vita è bella", 0)]
     [InlineData("/nas/Film/C'era.una.volta.il.West.1968.ITA.ENG.AC3.mkv", "C'era una volta il West", 1968)]
     [InlineData("/nas/Film/Blade Runner 2049 (2017)/Blade Runner 2049 (2017).mkv", "Blade Runner 2049", 2017)]
+    // nomi veri del NAS (17/11/2026)
+    [InlineData("/nas/_FILM/About Time (2013) BDrip XviD ENG-ITA Ac3 subs - Questione Di tempo -Shiv@/time.avi", "About Time", 2013)]
+    [InlineData("/nas/_FILM/Tutta Colpa di Freud (2014) BRRip XviD Ac3 Italian - sub ENG -Shiv@/Tutta colpa di Freud.avi", "Tutta Colpa di Freud", 2014)]
+    [InlineData("/nas/_FILM/Il bambino con il pigiama a righe/Il bambino con il pigiama a righe - CD 1.avi", "Il bambino con il pigiama a righe", 0)]
+    [InlineData("/nas/_FILM/Men In Black III/Men.In.Black.III.2012.iTALiAN.AC3.BRRip.XviD-T4P3.CD2.avi", "Men In Black III", 2012)]
+    [InlineData("/nas/_FILM/Odissea (1968) Franco Rossi/Odissea - 1968 Franco Rossi Disco 2.mkv", "Odissea", 1968)]
+    [InlineData("/nas/_FILM/SuperQuark - Odissea/SuperQuark - Odissea - Parte 1-2.avi", "SuperQuark - Odissea", 0)]
+    [InlineData("/nas/_FILM/Ritorno al futuro/Ritorno al futuro Parte III.H264..ita.eng.sub.ita.iCV-MIRCrew.mkv", "Ritorno al futuro Parte III", 0)]
+    [InlineData("/nas/_FILM/Rocky.Collection.1976-2006.iTALiAN.AC3.Bluray.1080p.x264/Rocky.2.1979.iTALiAN-DSS.mkv", "Rocky 2", 1979)]
+    [InlineData("/nas/_FILM/Gomorra.2008/Gomorra.2008.iTALiAN.DVDRip.XviD-SVD-CD1.avi", "Gomorra", 2008)]
     public void Film(string path, string title, int year)
     {
         var g = MediaName.Parse(path);
@@ -54,9 +64,74 @@ public sealed class MediaNameTests
         Assert.False(MediaName.SkipFile("Sampled (2020).mkv"));
         Assert.True(MediaName.SkipFolder("@eaDir"));
         Assert.True(MediaName.SkipFolder("Extras"));
+        Assert.True(MediaName.SkipFolder("Bonus"));
+        Assert.True(MediaName.Skipped("/nas/_FILM", "/nas/_FILM/Ritorno al futuro/Bonus/Bonus/00300.mkv"));
+        Assert.False(MediaName.Skipped("/nas/_FILM", "/nas/_FILM/Ritorno al futuro/Ritorno al futuro Parte II.mkv"));
         Assert.False(MediaName.SkipFolder("Stagione 01"));
         Assert.True(MediaName.IsVideo("a.MKV"));
         Assert.False(MediaName.IsVideo("a.nfo"));
+    }
+}
+
+/// <summary>Cartelle e nomi delle registrazioni per Jellyfin, Plex ed Emby.</summary>
+public sealed class LibraryLayoutTests
+{
+    static readonly DateTimeOffset Start = new(2026, 11, 17, 20, 30, 0, TimeSpan.Zero);
+
+    static Recording.RecordingMedia M(string kind, string title, int year = 0, string episode = "", string subtitle = "", string group = "") =>
+        new(kind, title, year, kind == "film" ? 238 : null, kind == "film" ? "movie" : "", "tt0068646", "Trama", "", "[\"Film\",\"Drammatico\"]",
+            "Francis Ford Coppola", "Marlon Brando", episode, subtitle, group);
+
+    [Theory]
+    [InlineData("S2 E5", 2, 5)]
+    [InlineData("S02E05", 2, 5)]
+    [InlineData("Stagione 3 Ep. 12", 3, 12)]
+    [InlineData("1x04", 1, 4)]
+    public void Episodi(string text, int season, int episode) =>
+        Assert.Equal((season, episode), Recording.LibraryLayout.ParseEpisode(text)!.Value);
+
+    [Fact]
+    public void SenzaStagioneNonEUnEpisodio()
+    {
+        Assert.Null(Recording.LibraryLayout.ParseEpisode("Ep. 12"));
+        Assert.Null(Recording.LibraryLayout.ParseEpisode(""));
+    }
+
+    [Fact]
+    public void FilmSerieProgrammiAudio()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "dlf-layout-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var (f, b, info) = Recording.LibraryLayout.For("Il Padrino", "Iris", Start, "mp4", M("film", "Il Padrino", 1972), root);
+            Assert.Equal((Path.Combine("Film", "Il Padrino (1972)"), "Il Padrino (1972)"), (f, b));
+            Assert.Equal((238, "tt0068646"), (info!.TmdbId!.Value, info.ImdbId));
+            Assert.Contains("<uniqueid type=\"tmdb\" default=\"true\">238</uniqueid>", Recording.Nfo.Build(info).ToString());
+            // un secondo passaggio dello stesso film: un'altra versione nella stessa cartella
+            Directory.CreateDirectory(Path.Combine(root, f));
+            File.WriteAllText(Path.Combine(root, f, b + ".mp4"), "");
+            var (f2, b2, _) = Recording.LibraryLayout.For("Il Padrino", "Iris", Start, "mp4", M("film", "Il Padrino", 1972), root);
+            Assert.Equal(f, f2);
+            Assert.StartsWith("Il Padrino (1972) - Iris ", b2);
+
+            var (fs, bs, es) = Recording.LibraryLayout.For("Dark", "Rai 4", Start, "mp4", M("episode", "Dark", episode: "S2 E5", subtitle: "Verità", group: "Serie TV"), root);
+            Assert.Equal((Path.Combine("Serie TV", "Dark", "Stagione 02"), "Dark - S02E05 - Verità"), (fs, bs));
+            Assert.True(es!.IsEpisode);
+
+            var (fp, bp, ip) = Recording.LibraryLayout.For("4 Ristoranti", "TV8", Start, "mp4", M("programme", "4 Ristoranti", group: "Intrattenimento"), root);
+            Assert.Equal(Path.Combine("Programmi", "4 Ristoranti"), fp);
+            Assert.StartsWith("4 Ristoranti 2026-11-17 ", bp);
+            Assert.Null(ip);
+
+            var (fa, _, ia) = Recording.LibraryLayout.For("Radio Deejay", "Deejay", Start, "mp3", M("film", "X", 2000), root);
+            Assert.Equal(Path.Combine("Audio", "Radio Deejay"), fa);
+            Assert.Null(ia);
+
+            // registrazione a mano, senza opera né guida
+            var (fm, _, _) = Recording.LibraryLayout.For("Prova", "TV8", Start, "mp4", null, root);
+            Assert.Equal(Path.Combine("Programmi", "Prova"), fm);
+        }
+        finally { try { Directory.Delete(root, true); } catch (IOException) { } }
     }
 }
 
@@ -116,6 +191,36 @@ public sealed class MediaProbeTests
     }
 }
 
+/// <summary>Seguiti numerati in modi diversi tra il nome del file e TMDB.</summary>
+public sealed class SequelTests
+{
+    [Theory]
+    [InlineData("Rocky 1", "Rocky")]
+    [InlineData("Rocky 2", "Rocky II")]
+    [InlineData("Men In Black III", "Men In Black 3")]
+    [InlineData("Matrix 1", "Matrix")]
+    public void Varianti(string q, string expected) => Assert.Contains(expected, LibraryScanner.SequelVariants(q));
+
+    [Fact]
+    public void SenzaNumeroNessunaVariante() => Assert.Empty(LibraryScanner.SequelVariants("Inception"));
+
+    [Fact]
+    public async Task TitoliDiUnaParolaSeguitiEFilmNoti()
+    {
+        var tmdb = new FakeLibraryTmdb();
+        tmdb.Movies["Ribelle"] = [new TmdbMovie(62177, "Ribelle - The Brave", "Brave", "2012-06-21", 7.0, 15000)];
+        tmdb.Movies["Odissea"] = [new TmdbMovie(62, "2001: Odissea nello spazio", "2001: A Space Odyssey", "1968-04-02", 8.1, 12000)];
+        tmdb.Movies["Rocky II"] = [new TmdbMovie(1367, "Rocky II", "Rocky II", "1979-06-15", 6.9, 4500)];
+        tmdb.Movies["Rapunzel"] = [new TmdbMovie(9001, "Rapunzel", "Rapunzel", "1983-01-01", 5.0, 30),
+                                   new TmdbMovie(38757, "Rapunzel - L'intreccio della torre", "Tangled", "2010-11-24", 7.6, 12000)];
+        var scanner = new LibraryScanner(null!, null!, null!, TimeProvider.System) { Pace = TimeSpan.Zero };
+        Assert.Equal(62177, (await scanner.FindMovieAsync(tmdb, "Ribelle", 2012, CancellationToken.None))?.Id);
+        Assert.Null(await scanner.FindMovieAsync(tmdb, "Odissea", 1968, CancellationToken.None));
+        Assert.Equal(1367, (await scanner.FindMovieAsync(tmdb, "Rocky 2", 1979, CancellationToken.None))?.Id);
+        Assert.Equal(38757, (await scanner.FindMovieAsync(tmdb, "Rapunzel", 0, CancellationToken.None))?.Id);
+    }
+}
+
 /// <summary>Risposte di TMDB scritte a mano.</summary>
 sealed class FakeLibraryTmdb : ILibraryTmdb
 {
@@ -140,7 +245,10 @@ sealed class FakeLibraryTmdb : ILibraryTmdb
     public Task<MovieDetails> MovieDetailsAsync(int tmdbId, CancellationToken ct) =>
         Task.FromResult(new MovieDetails("Trama", $"/poster{tmdbId}.jpg", "", 100, "", "", "", []));
     public Task<MovieDetails> TvDetailsAsync(int tmdbId, CancellationToken ct) =>
-        Task.FromResult(new MovieDetails("Trama della serie", $"/tv{tmdbId}.jpg", "", 45, "", "", "", []));
+        Task.FromResult(new MovieDetails("Trama della serie", $"/tv{tmdbId}.jpg", "", 45, "", "", "", [], [18]));
+    public readonly Dictionary<(int, int), Dictionary<int, string>> Seasons = [];
+    public Task<IReadOnlyDictionary<int, string>> SeasonAsync(int tmdbId, int season, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<int, string>>(Seasons.TryGetValue((tmdbId, season), out var d) ? d : new Dictionary<int, string>());
 }
 
 /// <summary>Scansione di una cartella vera con file fatti da ffmpeg, abbinamento, ripresa, visto.</summary>
@@ -204,6 +312,7 @@ public sealed class LibraryScanTests(ITestOutputHelper output) : IDisposable
         var tmdb = new FakeLibraryTmdb();
         tmdb.Movies["Il Padrino"] = [new TmdbMovie(238, "Il padrino", "The Godfather", "1972-03-14", 8.7, 21000)];
         tmdb.Tv["Breaking Bad"] = [new TmdbMovie(1396, "Breaking Bad", "Breaking Bad", "2008-01-20", 8.9, 15000)];
+        tmdb.Seasons[(1396, 1)] = new() { [1] = "Pilota (da TMDB)", [2] = "Il gatto nel sacco" };
         var scanner = new LibraryScanner(lib, works, tools, TimeProvider.System) { Pace = TimeSpan.Zero };
 
         var r = await scanner.ScanAsync(tmdb, CancellationToken.None);
@@ -242,7 +351,7 @@ public sealed class LibraryScanTests(ITestOutputHelper output) : IDisposable
         // la Scheda della serie mostra gli episodi in ordine
         var detail = works.Detail(show.WorkId!.Value, null, Now)!;
         Assert.Equal([1, 2], detail.Files.Select(f => f.Episode!.Value));
-        Assert.Equal("Pilota", detail.Files[0].EpisodeTitle);
+        Assert.Equal(("Pilota", "Il gatto nel sacco"), (detail.Files[0].EpisodeTitle, detail.Files[1].EpisodeTitle));  // il nome del file vince su TMDB
 
         // ripresa e visto per profilo; la serie diventa vista quando lo sono tutti gli episodi
         var profiles = new ProfileStore(Db);
@@ -260,14 +369,23 @@ public sealed class LibraryScanTests(ITestOutputHelper output) : IDisposable
         var seen = lib.Entries("series", antonio, "added", null).Single();
         Assert.True(seen.Watched);
         Assert.Empty(new TonightStore(Db, guide).Items(antonio, Now)!);          // vista: fuori dalla mia serata
-        Assert.False(lib.Entries("series", bimbi, "added", null).Single().Watched);
+        Assert.Empty(lib.Entries("series", bimbi, "added", null));                 // un dramma: non per il profilo bambino
+        Assert.False(lib.Item(ep2, bimbi)!.Watched);                               // il visto è per profilo
         Assert.Equal(ProgressResult.NotFound, lib.Progress(999, ep1, 1, 0, Now));
 
-        // abbinamento a mano del file da sistemare
-        long work = lib.LocalWork("Titolo Ritrovato", 2001, "film", Now);
+        // visti e votati: la serie vista, il film votato senza averlo visto
+        new WorkStore(Db, guide).SetStars(antonio, padrinoGuida, 5, Now);
+        Assert.Equal(["Il Padrino", "Breaking Bad"], lib.Entries("watched", antonio, "stars", null).Select(e => e.Title));
+        Assert.Empty(lib.Entries("watched", bimbi, "added", null));
+
+        // abbinamento a mano del file da sistemare, a un cartone animato (genere TMDB 16)
+        long work = lib.FilmWork("Titolo Ritrovato", 2001, 999, "", "", 0, 0, false, Now, [16, 10751]);
         lib.SetMatch(mkv.Id, work, "manual");
         Assert.Empty(lib.Entries("unmatched", null, "added", null));
         Assert.Equal(2, lib.Entries("films", null, "title", null).Count);
+        // il profilo bambino vede solo il cartone: niente Padrino, niente Breaking Bad, niente file da sistemare
+        Assert.Equal(["Titolo Ritrovato"], lib.Entries("all", bimbi, "title", null).Select(e => e.Title));
+        Assert.Empty(lib.Entries("unmatched", bimbi, "added", null));
 
         // seconda scansione: niente di nuovo; un file cancellato risulta mancante (e un abbinamento a mano resta)
         File.Delete(Path.Combine(series, "Breaking Bad", "Stagione 01", "Breaking Bad - S01E02.mp4"));

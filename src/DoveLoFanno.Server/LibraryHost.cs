@@ -61,6 +61,7 @@ public sealed class LibraryHost(ServerContext ctx, ILogger<LibraryHost> log) : B
                     recordingsChanged = false;
                     Scanning = true;
                     var r = await Scanner.ScanAsync(Tmdb(), ct);
+                    ImdbRatingsForLibrary();
                     LastReport = r;
                     LastScanAt = ctx.Clock.GetUtcNow();
                     log.LogInformation("Libreria: {Files} file in {Folders} cartelle, {New} nuovi, {Missing} mancanti, {Matched} riconosciuti, {Unmatched} da sistemare, {Recordings} registrazioni {Error}",
@@ -79,6 +80,23 @@ public sealed class LibraryHost(ServerContext ctx, ILogger<LibraryHost> log) : B
             try { await scanWake.WaitAsync(ct); }
             catch (OperationCanceledException) { return; }
         }
+    }
+
+    /// <summary>
+    /// Voti IMDb anche per le serie e i film della libreria che non passano in guida, dal file di IMDb che il servizio dei
+    /// voti ha già scaricato (solo se i voti IMDb sono attivi: la licenza del file è personale).
+    /// </summary>
+    void ImdbRatingsForLibrary()
+    {
+        string file = Path.Combine(ctx.DataDir, "ratings", "title.ratings.tsv.gz");
+        if (ctx.Settings.Get("ImdbRatings") != "1" || !File.Exists(file)) return;
+        var need = ctx.Library.WorksWithoutImdbRating();
+        if (need.Count == 0) return;
+        var found = ImdbRatings.Read(file, need.Select(x => x.ImdbId).ToHashSet());
+        int n = 0;
+        foreach (var (work, imdb) in need)
+            if (found.TryGetValue(imdb, out var r) && r.Votes > 0) { ctx.Library.SetImdbRating(work, r.Rating, r.Votes); n++; }
+        if (n > 0) log.LogInformation("Libreria: voto IMDb per {Count} opere", n);
     }
 
     async Task CopyLoopAsync(CancellationToken ct)

@@ -13,6 +13,7 @@ public interface ILibraryTmdb
     Task<string> TvImdbIdAsync(int tmdbId, CancellationToken ct);
     Task<MovieDetails> MovieDetailsAsync(int tmdbId, CancellationToken ct);
     Task<MovieDetails> TvDetailsAsync(int tmdbId, CancellationToken ct);
+    Task<IReadOnlyDictionary<int, string>> SeasonAsync(int tmdbId, int season, CancellationToken ct);
 }
 
 /// <summary>Come è andata una scansione.</summary>
@@ -28,12 +29,19 @@ public sealed class LibraryScanner(LibraryStore store, WorkStore works, IMediaTo
     /// <summary>Pausa tra due chiamate a TMDB (il limite è circa 50 al secondo, si resta molto sotto).</summary>
     public TimeSpan Pace { get; init; } = TimeSpan.FromMilliseconds(120);
 
+    readonly Dictionary<long, int> tvIds = [];
+    readonly Dictionary<(int Tv, int Season), IReadOnlyDictionary<int, string>> seasons = [];
+
     /// <summary>Stato leggibile per le Impostazioni ("Leggo 120 file su 3.400"...).</summary>
     public string Status { get; private set; } = "";
+
+    /// <summary>Versione delle regole di abbinamento dei file: quando cresce, i file non decisi a mano si riabbinano.</summary>
+    public const int MatchRules = 3;
 
     public async Task<ScanReport> ScanAsync(ILibraryTmdb? tmdb, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
+        if (tmdb != null) store.ResetMatchesForRules(MatchRules);
         Status = "Registrazioni";
         int recorded = store.SyncRecordings(now);
 
@@ -64,7 +72,7 @@ public sealed class LibraryScanner(LibraryStore store, WorkStore works, IMediaTo
                 error = "lettura interrotta: " + ex.Message;
             }
             // con un errore di lettura non si segna niente come mancante: meglio un file in più che uno perso
-            if (error.Length == 0) missing += store.MarkMissing(f.Id, seen, now);
+            if (error.Length == 0) missing += store.MarkMissing(f.Id, f.Path, seen, now);
             fresh += Math.Max(0, store.Counts().Files - before);
             files += seen.Count;
             store.FolderScanned(f.Id, seen.Count, error, now);
@@ -126,6 +134,8 @@ public sealed class LibraryScanner(LibraryStore store, WorkStore works, IMediaTo
         int matched = 0, unmatched = 0, n = 0;
         // più episodi della stessa serie: una sola ricerca
         var seriesCache = new Dictionary<string, long?>(StringComparer.Ordinal);
+        tvIds.Clear();
+        seasons.Clear();
         foreach (var it in todo)
         {
             ct.ThrowIfCancellationRequested();
@@ -156,7 +166,7 @@ public sealed class LibraryScanner(LibraryStore store, WorkStore works, IMediaTo
         if (best == null) return null;
         string imdb = "";
         try { imdb = await tmdb.ImdbIdAsync(best.Id, ct); } catch (HttpRequestException) { }
-        return store.FilmWork(best.Title, best.Year, best.Id, imdb, best.OriginalTitle, best.VoteAverage, best.VoteCount, best.IsDocumentary, now);
+        return store.FilmWork(best.Title, best.Year, best.Id, imdb, best.OriginalTitle, best.VoteAverage, best.VoteCount, best.IsDocumentary, now, best.GenreIds);
     }
 
     async Task<long?> SeriesAsync(ILibraryTmdb? tmdb, PendingItem it, Dictionary<string, long?> cache, DateTimeOffset now, CancellationToken ct)
@@ -172,31 +182,110 @@ public sealed class LibraryScanner(LibraryStore store, WorkStore works, IMediaTo
                 {
                     string imdb = "";
                     try { imdb = await tmdb.TvImdbIdAsync(best.Id, ct); } catch (HttpRequestException) { }
-                    series = store.SeriesWork(best.Title, best.Year, best.Id, imdb, best.OriginalTitle, best.VoteAverage, best.VoteCount, best.IsDocumentary, now);
+                    series = store.SeriesWork(best.Title, best.Year, best.Id, imdb, best.OriginalTitle, best.VoteAverage, best.VoteCount, best.IsDocumentary, now, best.GenreIds);
+                    tvIds[series.Value] = best.Id;
                 }
             }
             cache[key] = series;
         }
         if (series is not long s) return null;
         // un file in una cartella di serie senza stagione ed episodio resta della serie
-        if (it.Season is int season && it.Episode is int ep) return store.EpisodeWork(s, season, ep, it.EpisodeTitle, now);
+        if (it.Season is int season && it.Episode is int ep)
+        {
+            string title = it.EpisodeTitle;
+            // senza titolo nel nome del file si prende quello di TMDB (una richiesta per stagione)
+            if (title.Length == 0 && tmdb != null && tvIds.TryGetValue(s, out int tv))
+            {
+                if (!seasons.TryGetValue((tv, season), out var names))
+                {
+                    try { names = await tmdb.SeasonAsync(tv, season, ct); }
+                    catch (HttpRequestException) { names = new Dictionary<int, string>(); }
+                    seasons[(tv, season)] = names;
+                    await Task.Delay(Pace, clock, ct);
+                }
+                title = names.GetValueOrDefault(ep, "");
+            }
+            long work = store.EpisodeWork(s, season, ep, title, now);
+            if (title.Length > 0) store.SetEpisodeTitle(work, title);
+            return work;
+        }
         return s;
     }
 
-    /// <summary>Ricerca di un film come nella guida: con l'anno, poi senza; si accetta solo un titolo che corrisponde.</summary>
+    /// <summary>
+    /// Ricerca di un film: con l'anno, poi senza; si accetta solo un titolo che corrisponde. Per i file, a differenza della
+    /// guida, un titolo di una parola solo contenuto in un altro non basta ("Odissea" non è "2001: Odissea nello spazio").
+    /// Se non si trova nulla si provano le varianti dei seguiti: "Rocky 1" = "Rocky", "Rocky 2" = "Rocky II",
+    /// "Men In Black III" = "Men in Black 3". Senza anno, un omonimo sconosciuto lascia il posto al film noto che
+    /// contiene il titolo ("Rapunzel" = "Rapunzel - L'intreccio della torre", non un film del 1983 con 30 voti).
+    /// </summary>
     public async Task<TmdbMovie?> FindMovieAsync(ILibraryTmdb tmdb, string title, int year, CancellationToken ct)
     {
-        string q = TitleMatcher.QueryTitle(title);
-        var tw = TitleMatcher.Words(q);
-        if (tw.Count == 0) return null;
-        var best = TitleMatcher.Pick(await tmdb.SearchMovieAsync(q, year, ct), tw, year);
-        await Task.Delay(Pace, clock, ct);
-        if (best == null && year > 0)
+        string q0 = TitleMatcher.QueryTitle(title);
+        foreach (string q in SequelVariants(q0).Prepend(q0))
         {
-            best = TitleMatcher.Pick(await tmdb.SearchMovieAsync(q, 0, ct), tw, year);
+            var tw = TitleMatcher.Words(q);
+            if (tw.Count == 0) continue;
+            var results = await tmdb.SearchMovieAsync(q, year, ct);
             await Task.Delay(Pace, clock, ct);
+            var best = Accept(TitleMatcher.Pick(results, tw, year), tw);
+            if (best == null && year > 0)
+            {
+                results = await tmdb.SearchMovieAsync(q, 0, ct);
+                await Task.Delay(Pace, clock, ct);
+                best = Accept(TitleMatcher.Pick(results, tw, year), tw);
+            }
+            if (best != null && year == 0 && best.VoteCount < 200)
+            {
+                var famous = results
+                    .Where(m => m.VoteCount >= Math.Max(1000, best.VoteCount * 20) && (Contains(m.Title, tw) || Contains(m.OriginalTitle, tw)))
+                    .MaxBy(m => m.VoteCount);
+                if (famous != null) best = famous;
+            }
+            if (best != null) return best;
         }
-        return best;
+        return null;
+    }
+
+    /// <summary>
+    /// Un titolo di una parola si accetta se il titolo di TMDB comincia con quella parola ("Ribelle" = "Ribelle - The Brave"),
+    /// non se ci sta in mezzo ("Odissea" non è "2001: Odissea nello spazio").
+    /// </summary>
+    static TmdbMovie? Accept(TmdbMovie? m, List<string> tw)
+    {
+        if (m == null) return null;
+        if (TitleMatcher.TitleMatch(m, tw) > 0) return m;
+        return tw.Count == 1 && (FirstWord(m.Title) == tw[0] || FirstWord(m.OriginalTitle) == tw[0]) ? m : null;
+    }
+
+    static string FirstWord(string title) => Epg.Titles.TitleKey(title).Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+
+    static bool Contains(string title, List<string> tw)
+    {
+        var w = TitleMatcher.Words(title);
+        return tw.Count > 0 && tw.TrueForAll(w.Contains);
+    }
+
+    static readonly string[] Roman = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+    /// <summary>Altre forme del numero finale di un seguito: "Rocky 1" → "Rocky", "Rocky 2" → "Rocky II", "Men In Black III" → "Men In Black 3".</summary>
+    public static IEnumerable<string> SequelVariants(string q)
+    {
+        int sp = q.LastIndexOf(' ');
+        if (sp <= 0) yield break;
+        string head = q[..sp], last = q[(sp + 1)..];
+        if (int.TryParse(last, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int n) && n is >= 1 and <= 10)
+        {
+            if (n == 1) yield return head;
+            else yield return head + " " + Roman[n];
+            yield break;
+        }
+        int r = Array.FindIndex(Roman, x => x.Length > 0 && x.Equals(last, StringComparison.OrdinalIgnoreCase));
+        if (r > 0)
+        {
+            yield return head + " " + r.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (r == 1) yield return head;
+        }
     }
 
     public async Task<TmdbMovie?> FindTvAsync(ILibraryTmdb tmdb, string title, int year, CancellationToken ct)

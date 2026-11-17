@@ -34,7 +34,7 @@ export type ListDetail = S['ListDetail'];
 export type ListEntry = S['ListEntry'];
 export type MatchCandidate = S['MatchCandidate'];
 export type MatchBody = S['MatchBody'];
-export type LibrarySection = 'all' | 'films' | 'series' | 'documentaries' | 'programmes' | 'recordings' | 'unmatched';
+export type LibrarySection = 'all' | 'films' | 'series' | 'documentaries' | 'programmes' | 'recordings' | 'unmatched' | 'watched';
 export type LibrarySort = 'added' | 'title' | 'rating' | 'stars';
 
 /** Errore dell'API con il messaggio del server (campo "error"), già in italiano. */

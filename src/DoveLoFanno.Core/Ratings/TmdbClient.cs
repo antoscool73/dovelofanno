@@ -9,7 +9,8 @@ namespace DoveLoFanno.Ratings;
 public sealed record Provider(string Name, string Kind, string LogoPath);
 
 /// <summary>Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg).</summary>
-public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers);
+public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers,
+    IReadOnlyList<int>? GenreIds = null);
 
 /// <summary>
 /// Client TMDB con la chiave dell'utente: chiave v3 (32 caratteri) come parametro api_key, token v4 (lungo) come
@@ -49,6 +50,22 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
     {
         using var doc = await GetAsync("tv/" + tmdbId.ToString(CultureInfo.InvariantCulture) + "/external_ids", "", ct);
         return Str(doc.RootElement, "imdb_id");
+    }
+
+    /// <summary>Titoli degli episodi di una stagione (numero → titolo in italiano, se TMDB lo ha).</summary>
+    public async Task<IReadOnlyDictionary<int, string>> SeasonAsync(int tmdbId, int season, CancellationToken ct)
+    {
+        using var doc = await GetAsync("tv/" + tmdbId.ToString(CultureInfo.InvariantCulture) + "/season/" + season.ToString(CultureInfo.InvariantCulture), "language=it-IT", ct);
+        var res = new Dictionary<int, string>();
+        if (doc.RootElement.TryGetProperty("episodes", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var e in arr.EnumerateArray())
+            {
+                int n = (int)Num(e, "episode_number");
+                string name = Str(e, "name");
+                // TMDB senza traduzione mette "Episodio 3": non è un titolo
+                if (n > 0 && name.Length > 0 && !name.StartsWith("Episodio ", StringComparison.OrdinalIgnoreCase)) res[n] = name;
+            }
+        return res;
     }
 
     /// <summary>Come <see cref="MovieDetailsAsync"/> per una serie: durata = durata tipica di un episodio.</summary>
@@ -103,8 +120,10 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
             runtime = ert.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Number).Select(x => x.GetInt32()).FirstOrDefault();
         string original = Str(m, "original_title");
         if (original.Length == 0) original = Str(m, "original_name");
+        var genres = m.TryGetProperty("genres", out var gs) && gs.ValueKind == JsonValueKind.Array
+            ? gs.EnumerateArray().Select(g => (int)Num(g, "id")).Where(x => x > 0).ToList() : [];
         return new MovieDetails(Str(m, "overview"), Str(m, "poster_path"), Str(m, "backdrop_path"), runtime,
-            original, trailer, link, providers);
+            original, trailer, link, providers, genres);
     }
 
     /// <summary>"" se la chiave funziona, altrimenti il motivo.</summary>

@@ -19,6 +19,7 @@
     { id: 'documentari', label: 'Documentari', api: 'documentaries' },
     { id: 'programmi', label: 'Programmi', api: 'programmes' },
     { id: 'registrazioni', label: 'Registrazioni', api: 'recordings' },
+    { id: 'visti', label: 'Visti e votati', api: 'watched' },
     { id: 'da-sistemare', label: 'Da sistemare', api: 'unmatched' },
   ];
   const current = $derived(sections.find((s) => s.id === router.librarySection) ?? sections[0]!);
@@ -181,6 +182,7 @@
   const emptyText: Record<string, string> = {
     film: 'Nessun film in casa.', serie: 'Nessuna serie in casa.', documentari: 'Nessun documentario in casa.',
     programmi: 'Nessun programma in casa.', registrazioni: 'Nessuna registrazione finita.', 'da-sistemare': 'Niente da sistemare: tutti i file sono riconosciuti.',
+    visti: 'Niente di visto o votato. Si segna dalla Scheda («Già visto», le stelle) o guardando un file fino alla fine.',
   };
 </script>
 
@@ -316,7 +318,7 @@
     {:else if entries.length === 0}
       <div class="empty">
         <p>{text ? 'Nessun titolo con queste parole.' : emptyText[current.id]}</p>
-        {#if folders === 0 && current.id !== 'registrazioni'}
+        {#if folders === 0 && current.id !== 'registrazioni' && current.id !== 'visti'}
           <p class="muted small">Per i file già sul NAS aggiungi le cartelle (Film, Serie…) in <a href="/impostazioni" onclick={navigate}>Impostazioni › Cartelle</a>. Le registrazioni entrano da sole.</p>
         {/if}
       </div>
@@ -351,7 +353,7 @@
                 {#if e.playItemId}
                   <a class="play" href="/guarda/{e.playItemId}" onclick={navigate} aria-label="{e.positionS > 0 ? 'Riprendi' : 'Guarda'} {e.title}">▶ {e.positionS > 0 ? 'Riprendi' : e.episodes > 0 ? 'Guarda' : 'Guarda'}</a>
                 {/if}
-                {#if e.watched}<Badge tone="green">Visto</Badge>{/if}
+                {#if e.watched}<Badge tone="green">Visto</Badge>{:else if current.id === 'visti'}<Badge tone="neutral">Votato</Badge>{/if}
                 {#if e.recorded && current.id !== 'registrazioni'}<Badge tone="red">Registrato</Badge>{/if}
               </div>
               <Stars size="s" value={e.stars} label="Il tuo voto per {e.title}" onchange={(v) => e.workId != null && setStars(e.workId, v)} />

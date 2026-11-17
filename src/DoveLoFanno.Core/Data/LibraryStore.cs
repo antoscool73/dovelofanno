@@ -111,6 +111,13 @@ public sealed class LibraryStore(string dbPath)
         if (old.Size == size && old.Mod == mod)
         {
             Db.Exec(c, "UPDATE library_items SET missing_since = NULL, folder_id = coalesce(folder_id, $f) WHERE id = $id", ("$f", folderId), ("$id", old.Id));
+            // regole del nome migliorate: se ora si capisce un altro titolo, il file si riabbina (non quelli decisi a mano)
+            Db.Exec(c, """
+                UPDATE library_items SET title_guess = $t, year_guess = $y, season = $se, episode = $ep, match_state = 'pending'
+                WHERE id = $id AND origin = 'imported' AND match_state <> 'manual'
+                  AND (title_guess <> $t OR year_guess <> $y OR coalesce(season, -1) <> coalesce($se, -1) OR coalesce(episode, -1) <> coalesce($ep, -1))
+                """,
+                ("$t", guess.Title), ("$y", guess.Year), ("$se", guess.Season), ("$ep", guess.Episode), ("$id", old.Id));
             return;
         }
         // file cambiato: si rilegge con ffprobe; l'abbinamento si rifà se non l'ha deciso l'utente
@@ -124,16 +131,38 @@ public sealed class LibraryStore(string dbPath)
             ("$s", size), ("$m", mod), ("$f", folderId), ("$t", guess.Title), ("$y", guess.Year), ("$se", guess.Season), ("$ep", guess.Episode), ("$id", old.Id));
     }
 
-    /// <summary>I file della cartella non visti in questa scansione: risultano mancanti (si tengono, un disco può essere staccato).</summary>
-    public int MarkMissing(long folderId, IReadOnlySet<string> seen, DateTimeOffset now)
+    /// <summary>
+    /// I file della cartella non visti in questa scansione: risultano mancanti (si tengono, un disco può essere staccato).
+    /// Quelli che ora si saltano (extra, "Bonus", campioni) invece escono dalla libreria. Restituisce i mancanti.
+    /// </summary>
+    public int MarkMissing(long folderId, string root, IReadOnlySet<string> seen, DateTimeOffset now)
     {
         using var c = Open();
         var paths = Db.Query(c, "SELECT id, path FROM library_items WHERE folder_id = $f AND missing_since IS NULL",
             r => (r.GetInt64(0), r.GetString(1)), ("$f", folderId));
         int n = 0;
         foreach (var (id, path) in paths)
-            if (!seen.Contains(path)) n += Db.Exec(c, "UPDATE library_items SET missing_since = $t WHERE id = $id", ("$t", Db.Unix(now)), ("$id", id));
+        {
+            if (seen.Contains(path)) continue;
+            if (MediaName.Skipped(root, path)) Db.Exec(c, "DELETE FROM library_items WHERE id = $id", ("$id", id));
+            else n += Db.Exec(c, "UPDATE library_items SET missing_since = $t WHERE id = $id", ("$t", Db.Unix(now)), ("$id", id));
+        }
         return n;
+    }
+
+    /// <summary>
+    /// Regole di abbinamento della libreria cambiate (versione nelle impostazioni): i file abbinati da TMDB o non
+    /// trovati si riabbinano una volta, quelli decisi a mano restano. true se è successo.
+    /// </summary>
+    public bool ResetMatchesForRules(int version)
+    {
+        using var c = Open();
+        int old = (int)(Db.ScalarLong(c, "SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'LibraryMatchRules'") ?? 0);
+        if (old >= version) return false;
+        Db.Exec(c, "UPDATE library_items SET match_state = 'pending' WHERE origin = 'imported' AND match_state IN ('matched', 'unmatched')");
+        Db.Exec(c, "INSERT INTO settings (key, value) VALUES ('LibraryMatchRules', $v) ON CONFLICT (key) DO UPDATE SET value = $v",
+            ("$v", version.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        return old > 0;
     }
 
     /// <summary>
@@ -225,23 +254,68 @@ public sealed class LibraryStore(string dbPath)
     /// Opera di un film: prima quella con lo stesso codice TMDB (anche se viene dalla guida), poi quella con la stessa
     /// chiave titolo|anno, altrimenti una nuova. Il voto TMDB si mette solo se l'opera non ne ha già uno.
     /// </summary>
-    public long FilmWork(string title, int year, int? tmdbId, string imdbId, string originalTitle, double vote, int votes, bool documentary, DateTimeOffset now)
+    public long FilmWork(string title, int year, int? tmdbId, string imdbId, string originalTitle, double vote, int votes, bool documentary, DateTimeOffset now,
+        IReadOnlyList<int>? genres = null)
     {
         using var c = Open();
         if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'movie' AND tmdb_id = $t ORDER BY (kind = 'film') DESC, id LIMIT 1", ("$t", t)) is long byTmdb)
+        {
+            SetGenres(c, byTmdb, genres);
             return byTmdb;
+        }
         string key = Titles.TitleKey(title) + "|" + year.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return UpsertWork(c, documentary ? "documentary" : "film", key, title, year, tmdbId, tmdbId == null ? null : "movie", imdbId, originalTitle, vote, votes, null, null, null, now);
+        long id = UpsertWork(c, documentary ? "documentary" : "film", key, title, year, tmdbId, tmdbId == null ? null : "movie", imdbId, originalTitle, vote, votes, null, null, null, now);
+        SetGenres(c, id, genres);
+        return id;
+    }
+
+    static void SetGenres(SqliteConnection c, long workId, IReadOnlyList<int>? genres)
+    {
+        if (genres is { Count: > 0 })
+            Db.Exec(c, "UPDATE works SET genres = $g WHERE id = $id AND genres = '[]'", ("$g", JsonSerializer.Serialize(genres)), ("$id", workId));
     }
 
     /// <summary>Opera di una serie (o di un documentario a puntate): chiave tv:codice TMDB, o serie|titolo senza TMDB.</summary>
-    public long SeriesWork(string title, int year, int? tmdbId, string imdbId, string originalTitle, double vote, int votes, bool documentary, DateTimeOffset now)
+    public long SeriesWork(string title, int year, int? tmdbId, string imdbId, string originalTitle, double vote, int votes, bool documentary, DateTimeOffset now,
+        IReadOnlyList<int>? genres = null)
     {
         using var c = Open();
         if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'tv' AND tmdb_id = $t AND parent_id IS NULL ORDER BY id LIMIT 1", ("$t", t)) is long byTmdb)
+        {
+            SetGenres(c, byTmdb, genres);
             return byTmdb;
-        string key = tmdbId is int id ? "tv:" + id.ToString(System.Globalization.CultureInfo.InvariantCulture) : "serie|" + Titles.TitleKey(title);
-        return UpsertWork(c, documentary ? "documentary" : "series", key, title, year, tmdbId, tmdbId == null ? null : "tv", imdbId, originalTitle, vote, votes, null, null, null, now);
+        }
+        string key = tmdbId is int tv ? "tv:" + tv.ToString(System.Globalization.CultureInfo.InvariantCulture) : "serie|" + Titles.TitleKey(title);
+        long work = UpsertWork(c, documentary ? "documentary" : "series", key, title, year, tmdbId, tmdbId == null ? null : "tv", imdbId, originalTitle, vote, votes, null, null, null, now);
+        SetGenres(c, work, genres);
+        return work;
+    }
+
+    /// <summary>Opere della libreria (film e serie) con codice IMDb e senza il voto IMDb: per i voti dal file di IMDb.</summary>
+    public List<(long WorkId, string ImdbId)> WorksWithoutImdbRating()
+    {
+        using var c = Open();
+        return Db.Query(c, """
+            SELECT DISTINCT t.id, t.imdb_id FROM library_items li JOIN works w ON w.id = li.work_id JOIN works t ON t.id = coalesce(w.parent_id, w.id)
+            WHERE t.imdb_id <> '' AND t.rating_source <> 'IMDb' AND li.missing_since IS NULL
+            """, r => (r.GetInt64(0), r.GetString(1)));
+    }
+
+    public void SetImdbRating(long workId, double rating, int votes)
+    {
+        using var c = Open();
+        Db.Exec(c, "UPDATE works SET rating = $r, rating_source = 'IMDb', rating_votes = $v WHERE id = $id",
+            ("$r", Math.Round(rating, 1)), ("$v", votes), ("$id", workId));
+    }
+
+    /// <summary>Titolo dell'episodio da TMDB, se finora era solo quello fatto da serie e numero ("Don Matteo 1x02").</summary>
+    public void SetEpisodeTitle(long episodeWorkId, string title)
+    {
+        using var c = Open();
+        Db.Exec(c, """
+            UPDATE works SET title = $t, title_key = $tk WHERE id = $id AND parent_id IS NOT NULL
+              AND title = (SELECT p.title FROM works p WHERE p.id = works.parent_id) || ' ' || works.season || 'x' || printf('%02d', works.episode)
+            """, ("$t", title), ("$tk", Titles.TitleKey(title)), ("$id", episodeWorkId));
     }
 
     /// <summary>Opera di un episodio, figlia della serie.</summary>
@@ -393,6 +467,8 @@ public sealed class LibraryStore(string dbPath)
     {
         using var c = Open();
         string tk = Titles.TitleKey(text);
+        bool child = profileId != null && Db.ScalarLong(c, "SELECT is_child FROM profiles WHERE id = $p", ("$p", profileId)) == 1;
+        if (section == "watched") return Watched(c, profileId, sort, tk, child);
         if (section == "unmatched")
             return Db.Query(c, """
                 SELECT li.id, li.title_guess, li.year_guess, li.added_at, coalesce(li.duration_s, 0), li.origin, li.path,
@@ -404,7 +480,7 @@ public sealed class LibraryStore(string dbPath)
                 r => new LibraryEntry(null, r.GetInt64(0), "unmatched", r.GetString(1).Length > 0 ? r.GetString(1) : Path.GetFileNameWithoutExtension(r.GetString(6)),
                     r.GetInt32(2), "", null, "", null, r.GetInt64(8) == 1, 1, 0, Db.FromUnix(r.GetInt64(3)), r.GetInt64(0), r.GetInt32(7), r.GetInt32(4),
                     r.GetString(5) == "recorded"),
-                ("$p", profileId)).Where(e => tk.Length == 0 || Titles.TitleKey(e.Title).Contains(tk, StringComparison.Ordinal)).ToList();
+                ("$p", profileId)).Where(e => !child && (tk.Length == 0 || Titles.TitleKey(e.Title).Contains(tk, StringComparison.Ordinal))).ToList();
 
         string filter = section switch
         {
@@ -432,7 +508,7 @@ public sealed class LibraryStore(string dbPath)
                     WHERE x.top = t.id ORDER BY coalesce(xs.watched, 0), (xs.position_s > 0) DESC, x.season, x.episode, x.added_at DESC LIMIT 1)
             FROM it JOIN works t ON t.id = it.top
             LEFT JOIN watch_states ws ON ws.profile_id = $p AND ws.work_id = t.id AND ws.item_id IS NULL
-            WHERE {filter} AND ($tk = '' OR t.title_key LIKE '%' || $tk || '%')
+            WHERE {filter} AND ($tk = '' OR t.title_key LIKE '%' || $tk || '%') {(child ? "AND " + WorkStore.ChildSafe("t") : "")}
             GROUP BY t.id ORDER BY {order}
             """,
             r => (Work: r.GetInt64(0), Kind: r.GetString(1), Title: r.GetString(2), Year: r.GetInt32(3), Poster: r.GetString(4),
@@ -454,6 +530,36 @@ public sealed class LibraryStore(string dbPath)
             return new LibraryEntry(x.Work, null, x.Kind, x.Title, x.Year, WorkStore.ImageUrl(x.Poster, "w342"), x.Rating, x.Src, x.Stars, x.Watched,
                 x.Files, x.Episodes, Db.FromUnix(x.Added), x.Play, p, d, x.Recorded);
         }).ToList();
+    }
+
+    /// <summary>
+    /// "Visti e votati": le opere che il profilo ha visto o votato con le stelle, anche senza file in casa (viste in TV,
+    /// segnate dalla Scheda). Prima le più recenti.
+    /// </summary>
+    static List<LibraryEntry> Watched(SqliteConnection c, long? profileId, string sort, string tk, bool child)
+    {
+        if (profileId == null) return [];
+        string order = sort switch
+        {
+            "title" => "t.title_key, t.year",
+            "rating" => "t.rating IS NULL, t.rating DESC, t.title_key",
+            "stars" => "ws.stars IS NULL, ws.stars DESC, t.title_key",
+            _ => "ws.updated_at DESC",
+        };
+        return Db.Query(c, $"""
+            SELECT t.id, t.kind, t.title, t.year, t.poster, t.rating, t.rating_source, ws.stars, ws.watched, ws.updated_at,
+                   (SELECT count(*) FROM library_items x JOIN works xw ON xw.id = x.work_id WHERE (xw.id = t.id OR xw.parent_id = t.id) AND x.missing_since IS NULL),
+                   (SELECT x.id FROM library_items x JOIN works xw ON xw.id = x.work_id
+                    WHERE (xw.id = t.id OR xw.parent_id = t.id) AND x.missing_since IS NULL ORDER BY x.season, x.episode, x.added_at DESC LIMIT 1)
+            FROM watch_states ws JOIN works t ON t.id = ws.work_id
+            WHERE ws.profile_id = $p AND ws.item_id IS NULL AND t.parent_id IS NULL AND (ws.watched = 1 OR ws.stars IS NOT NULL)
+              AND ($tk = '' OR t.title_key LIKE '%' || $tk || '%') {(child ? "AND " + WorkStore.ChildSafe("t") : "")}
+            ORDER BY {order}
+            """,
+            r => new LibraryEntry(r.GetInt64(0), null, r.GetString(1), r.GetString(2), r.GetInt32(3), WorkStore.ImageUrl(r.GetString(4), "w342"),
+                r.IsDBNull(5) ? null : r.GetDouble(5), r.GetString(6), Db.NInt(r, 7), r.GetInt64(8) == 1, r.GetInt32(10), 0,
+                Db.FromUnix(r.GetInt64(9)), Db.NLong(r, 11), 0, 0, false),
+            ("$p", profileId), ("$tk", tk));
     }
 
     /// <summary>I file di un'opera (per una serie: tutti gli episodi in ordine), con la ripresa del profilo.</summary>

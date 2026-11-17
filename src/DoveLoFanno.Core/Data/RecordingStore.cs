@@ -49,6 +49,27 @@ public sealed class RecordingStore(string dbPath)
             ("$b", beforeMin), ("$a", afterMin), ("$f", format), ("$now", Db.Unix(now)));
     }
 
+    /// <summary>
+    /// Opera e programma di una registrazione, per i nomi delle cartelle e il .nfo. Se la guida è stata ricaricata e il
+    /// programma ha cambiato id, si cerca quello della stessa opera allo stesso orario. null se la registrazione non c'è.
+    /// </summary>
+    public RecordingMedia? Media(long id)
+    {
+        using var c = Open();
+        return Db.Query(c, """
+            SELECT coalesce(w.kind, ''), coalesce(w.title, ''), coalesce(nullif(w.year, 0), p.year, 0), w.tmdb_id, coalesce(w.tmdb_kind, ''),
+                   coalesce(w.imdb_id, ''), coalesce(w.overview, ''), coalesce(p.description, ''), coalesce(p.categories, '[]'),
+                   coalesce(p.directors, ''), coalesce(p.actors, ''), coalesce(p.episode, ''), coalesce(p.subtitle, ''), coalesce(p.group_name, '')
+            FROM recordings r LEFT JOIN works w ON w.id = r.work_id
+            LEFT JOIN programmes p ON p.id = coalesce(r.programme_id,
+                (SELECT x.id FROM programmes x WHERE x.work_id = r.work_id AND x.start = r.start LIMIT 1))
+            WHERE r.id = $id
+            """,
+            x => new RecordingMedia(x.GetString(0), x.GetString(1), x.GetInt32(2), Db.NInt(x, 3), x.GetString(4), x.GetString(5), x.GetString(6),
+                x.GetString(7), x.GetString(8), x.GetString(9), x.GetString(10), x.GetString(11), x.GetString(12), x.GetString(13)),
+            ("$id", id)).FirstOrDefault();
+    }
+
     const string Select = """
         SELECT r.id, r.channel_id, ch.name, r.title, r.start, r.stop, r.before_min, r.after_min, r.format, r.state,
                r.lost_minutes, r.lost_ranges, r.file, r.log, r.created_at, r.work_id

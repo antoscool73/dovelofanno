@@ -24,13 +24,24 @@ public static partial class MediaName
     static readonly HashSet<string> SkipFolders = new(StringComparer.OrdinalIgnoreCase)
     {
         "extras", "extra", "featurettes", "trailers", "trailer", "behind the scenes", "deleted scenes", "interviews", "scenes",
-        "shorts", "samples", "sample", "@eadir", "#recycle", "$recycle.bin", "#snapshot", ".trash", "lost+found", "system volume information",
+        "shorts", "samples", "sample", "bonus", "bonus features", "special features", "speciali", "contenuti speciali", "contenuti extra",
+        "making of", "backstage", "@eadir", "#recycle", "$recycle.bin", "#snapshot", ".trash", "lost+found", "system volume information",
     };
 
     public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
 
     /// <summary>true per le cartelle da saltare (nascoste, extra, cestini).</summary>
     public static bool SkipFolder(string name) => name.StartsWith('.') || SkipFolders.Contains(name);
+
+    /// <summary>true se il file, dentro la cartella <paramref name="root"/>, sta in una sottocartella da saltare o è da saltare.</summary>
+    public static bool Skipped(string root, string path)
+    {
+        string rel = Path.GetRelativePath(root, path);
+        var parts = rel.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return false;
+        for (int i = 0; i < parts.Length - 1; i++) if (SkipFolder(parts[i])) return true;
+        return SkipFile(parts[^1]);
+    }
 
     /// <summary>true per i file da saltare: nascosti e campioni ("sample").</summary>
     public static bool SkipFile(string name) => name.StartsWith('.') || SampleWord().IsMatch(Path.GetFileNameWithoutExtension(name));
@@ -65,15 +76,24 @@ public static partial class MediaName
             return new NameGuess(sy.Title, sy.Year, Int(sf.Groups["s"].Value), Int(ef.Groups["e"].Value), Clean(file[(ef.Index + ef.Length)..], rest: true).Title);
         }
 
-        // film: dal nome del file, o dalla cartella "Titolo (Anno)" se il file non ha l'anno
+        // film: dal nome del file, o dalla cartella "Titolo (Anno)" se il file non ha l'anno e il suo nome è una parte del
+        // titolo della cartella ("About Time (2013) .../time.avi", "Tutta Colpa di Freud (2014) .../Tutta colpa di Freud.avi")
         var f = Clean(file);
         if (f.Year == 0 && parent.Length > 0)
         {
             var p = Clean(parent);
-            if (p.Year > 0 && (f.Title.Length == 0 || SameStart(p.Title, f.Title) || GenericName().IsMatch(file))) return new NameGuess(p.Title, p.Year, null, null, "");
+            if (p.Year > 0 && (f.Title.Length == 0 || SameStart(p.Title, f.Title) || GenericName().IsMatch(file) || WordsIn(f.Title, p.Title)))
+                return new NameGuess(p.Title, p.Year, null, null, "");
         }
         if (f.Title.Length == 0) f = Clean(parent);
         return new NameGuess(f.Title, f.Year, null, null, "");
+    }
+
+    static bool WordsIn(string part, string whole)
+    {
+        var a = Epg.Titles.TitleKey(part).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var b = Epg.Titles.TitleKey(whole).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return a.Length > 0 && a.All(b.Contains);
     }
 
     static string SeriesFolder(string parent, string grand) =>
@@ -107,6 +127,9 @@ public static partial class MediaName
             year = v;
             cut = y.Index;
         }
+        // un film su più file: "CD 1", "CD2", "Disco 3", "Disc 1", "Parte 1-2" non fanno parte del titolo
+        var part = PartSuffix().Match(s);
+        if (part.Success && part.Index > 0 && part.Index < cut) cut = part.Index;
         // le sigle di rilascio chiudono il titolo
         var junk = Junk().Match(s);
         if (junk.Success && (junk.Index > 0 || rest) && junk.Index < cut) cut = junk.Index;
@@ -130,6 +153,9 @@ public static partial class MediaName
 
     [GeneratedRegex(@"\bsample\b", RegexOptions.IgnoreCase)]
     private static partial Regex SampleWord();
+
+    [GeneratedRegex(@"[\s\-_.]*\b(?:cd|dvd|disco|disc|disk)\s*\d{1,2}\b|[\s\-_.]*\b(?:parte|part|pt)\s*\d{1,2}\s*(?:-|di|of|/)\s*\d{1,2}\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PartSuffix();
 
     [GeneratedRegex(@"^(movie|film|video|main|feature)$", RegexOptions.IgnoreCase)]
     private static partial Regex GenericName();

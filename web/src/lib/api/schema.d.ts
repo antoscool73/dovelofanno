@@ -1138,7 +1138,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched) con lo stato del profilo */
+        /** Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti e votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti */
         get: {
             parameters: {
                 query?: {
