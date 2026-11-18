@@ -44,6 +44,34 @@ public sealed class RatingsHost(ServerContext ctx, ILogger<RatingsHost> log) : B
         }
     }
 
+    /// <summary>
+    /// Locandine, trame e piattaforme dei film in guida nei prossimi 8 giorni, da TMDB: così Stasera e la Guida mostrano la
+    /// locandina vera e "dove lo vedo" è pronto senza aprire la Scheda. Al massimo 4 richieste al secondo.
+    /// </summary>
+    async Task DetailsAsync(CancellationToken ct)
+    {
+        string key = ctx.Settings.Get("TmdbKey");
+        if (key.Length == 0) return;
+        var tmdb = new TmdbClient(ctx.Http, key);
+        int done = 0;
+        foreach (var (workId, tmdbId, kind) in ctx.Works.WorksNeedingDetails(ctx.Clock.GetUtcNow(), 8, 600))
+        {
+            try
+            {
+                var d = kind == "tv" ? await tmdb.TvDetailsAsync((int)tmdbId, ct) : await tmdb.MovieDetailsAsync((int)tmdbId, ct);
+                ctx.Works.SaveDetails(workId, d, ctx.Clock.GetUtcNow());
+                done++;
+            }
+            catch (TmdbKeyException) { return; }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException && !ct.IsCancellationRequested)
+            {
+                log.LogWarning("Dettagli TMDB dell'opera {Id} non scaricati: {Error}", workId, ex.Message);
+            }
+            await Task.Delay(250, ct);
+        }
+        if (done > 0) log.LogInformation("Dettagli TMDB (locandine, piattaforme): {Count} opere", done);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -52,6 +80,7 @@ public sealed class RatingsHost(ServerContext ctx, ILogger<RatingsHost> log) : B
             {
                 int rated = await RatingSync.RunAsync(ctx.Guide, Current(), ctx.Clock.GetUtcNow(), ct);
                 if (rated > 0) log.LogInformation("Voti dei film: {Rated} opere con voto", rated);
+                await DetailsAsync(ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

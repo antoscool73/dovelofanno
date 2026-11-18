@@ -16,7 +16,7 @@ public sealed record GuideProgramme(
     DateTimeOffset Start, DateTimeOffset Stop, string Title, string Subtitle, string Description,
     IReadOnlyList<string> Categories, string Group, string Sub, int Year, string Country, string Directors, string Actors,
     string Episode, string Icon, long? WorkId, string WorkKey, double? Rating, string RatingSource, bool Scheduled,
-    int? ChannelNumber = null, int? ChannelOrder = null);
+    int? ChannelNumber = null, int? ChannelOrder = null, string Poster = "");
 
 /// <summary>Filtri della guida: finestra di tempo obbligatoria, il resto facoltativo.</summary>
 public sealed record GuideQuery(DateTimeOffset From, DateTimeOffset To)
@@ -198,7 +198,7 @@ public sealed class GuideStore(string dbPath)
         var rows = Db.Query(c, """
             SELECT p.id, gc.id, gc.name, ch.id, coalesce(ch.name, ''), p.start, p.stop, p.title, p.subtitle, p.description, p.categories,
                    p.group_name, p.sub_genre, p.year, p.country, p.directors, p.actors, p.episode, p.icon, p.work_id, coalesce(w.work_key, ''),
-                   w.rating, coalesce(w.rating_source, ''), coalesce(ch.key, ''), gc.xmltv_id
+                   w.rating, coalesce(w.rating_source, ''), coalesce(ch.key, ''), gc.xmltv_id, coalesce(w.poster, '')
             FROM programmes p
             JOIN guide_channels gc ON gc.id = p.guide_channel_id
             JOIN guide_sources gs ON gs.id = gc.guide_source_id AND gs.enabled = 1
@@ -224,7 +224,11 @@ public sealed class GuideStore(string dbPath)
                     r.GetString(7), r.GetString(8), r.GetString(9), cats, r.GetString(11), r.GetString(12), r.GetInt32(13), r.GetString(14),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18), Db.NLong(r, 19), r.GetString(20),
                     r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled,
-                    chId != null ? ChannelNumbers.For(r.GetString(23), r.GetString(4)) : ChannelNumbers.For(r.GetString(24), r.GetString(2)));
+                    chId != null ? ChannelNumbers.For(r.GetString(23), r.GetString(4)) : ChannelNumbers.For(r.GetString(24), r.GetString(2)))
+                {
+                    // locandina dell'opera da TMDB (si scarica dopo i voti), se c'è
+                    Poster = WorkStore.ImageUrl(r.GetString(25), "w342"),
+                };
             },
             ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$ch", q.ChannelId), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),
             ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating), ("$rec", q.OnlyRecordable ? 1 : 0));

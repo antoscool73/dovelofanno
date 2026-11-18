@@ -85,10 +85,10 @@
 
 <style>
   .bell { position: relative; }
-  .btn { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text-2); cursor: pointer; }
+  .btn { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text-2); cursor: pointer; }
   .btn:hover { color: var(--text); }
   .count { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--rec); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-  .panel { position: absolute; right: 0; top: 52px; z-index: 50; width: min(380px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+  .panel { position: absolute; right: 0; top: 48px; z-index: 50; width: min(380px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
   .phead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .x { border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; min-width: 32px; min-height: 32px; }
   ul { list-style: none; margin: 0; padding: 0; }
@@ -103,5 +103,5 @@
   .d { font-size: 13px; color: var(--text-2); }
   .w { font-size: 12px; color: var(--muted); }
   .empty { margin: 0; padding: 16px; color: var(--muted); font-size: 14px; }
-  @media (max-width: 720px) { .panel { position: fixed; left: 16px; right: 16px; width: auto; top: 64px; } }
+  @media (max-width: 720px) { .panel { position: fixed; left: 16px; right: 16px; width: auto; top: 56px; } }
 </style>

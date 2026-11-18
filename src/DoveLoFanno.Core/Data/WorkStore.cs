@@ -94,6 +94,23 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         return r.Count == 0 ? null : r[0];
     }
 
+    /// <summary>
+    /// Film e serie con codice TMDB che passano in guida nei prossimi giorni e non hanno ancora i dettagli (locandina,
+    /// trama, piattaforme), o li hanno da più di una settimana: si scaricano in background dopo i voti.
+    /// </summary>
+    public List<(long WorkId, long TmdbId, string Kind)> WorksNeedingDetails(DateTimeOffset now, int days, int max)
+    {
+        using var c = Open();
+        return Db.Query(c, """
+            SELECT w.id, w.tmdb_id, coalesce(w.tmdb_kind, 'movie') FROM works w
+            WHERE w.tmdb_id IS NOT NULL AND w.kind IN ('film', 'series', 'documentary') AND (w.details_at IS NULL OR w.details_at < $old)
+              AND EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND p.stop > $now AND p.start < $to)
+            ORDER BY (SELECT min(p.start) FROM programmes p WHERE p.work_id = w.id AND p.stop > $now) LIMIT $max
+            """,
+            r => (r.GetInt64(0), r.GetInt64(1), r.GetString(2)),
+            ("$old", Db.Unix(now.AddDays(-7))), ("$now", Db.Unix(now)), ("$to", Db.Unix(now.AddDays(days))), ("$max", max));
+    }
+
     public void SaveDetails(long workId, MovieDetails d, DateTimeOffset now)
     {
         using var c = Open();

@@ -1,6 +1,7 @@
 <script lang="ts">
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
   import Badge from '../lib/components/Badge.svelte';
+  import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
   import AlertPanel from '../lib/components/AlertPanel.svelte';
@@ -146,7 +147,7 @@
     {#if w.backdrop}<img class="backdrop" src={w.backdrop} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
     <div class="hero-in">
       <div class="poster">
-        {#if w.poster}<img src={w.poster} alt="Locandina di {w.title}" referrerpolicy="no-referrer" />{:else}<span class="ptitle">{w.title}</span>{/if}
+        <PosterImg src={w.poster || first?.icon || ''} title={w.title} />
       </div>
       <div class="info">
         <button type="button" class="back" onclick={() => history.back()}>← Indietro</button>
@@ -282,8 +283,6 @@
   .hero-word { position: absolute; top: 20px; right: var(--gutter); max-width: 70%; text-align: right; font-family: var(--font-display); font-weight: 700; font-size: clamp(60px, 10vw, 150px); line-height: 0.95; color: #1f2b44; text-transform: uppercase; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 56px var(--gutter) 36px; max-width: 1240px; }
   .poster { flex: 0 0 220px; aspect-ratio: 2 / 3; border-radius: 14px; background: #2b3d63; overflow: hidden; display: flex; align-items: flex-end; padding: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); position: relative; }
-  .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ptitle { position: relative; min-width: 0; font-family: var(--font-display); font-size: 22px; line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; hyphens: auto; }
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }
   .listmenu { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
@@ -315,5 +314,5 @@
   .wrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .wrow:last-child { border-bottom: 0; }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-  @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .ptitle { font-size: 16px; } .hero-in { gap: 20px; padding-top: 24px; } }
+  @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .hero-in { gap: 20px; padding-top: 24px; } }
 </style>

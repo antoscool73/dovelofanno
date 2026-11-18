@@ -3809,6 +3809,8 @@ export interface components {
             channelNumber?: null | number;
             /** Format: int32 */
             channelOrder?: null | number;
+            /** @default  */
+            poster: string;
         };
         GuideSourceRow: {
             /** Format: int64 */

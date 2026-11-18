@@ -2,9 +2,12 @@
   // Home: risponde a "stasera che si guarda?". In evidenza il titolo migliore della serata, poi "La mia serata in TV",
   // le registrazioni in corso e in arrivo, i film di stasera e quelli della settimana per voto.
   import Badge from '../lib/components/Badge.svelte';
+  import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
+  import Section from '../lib/components/Section.svelte';
+  import { inMySubscriptions, payPlatform } from '../lib/pay';
   import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
@@ -17,6 +20,7 @@
   let proposals = $state<Proposal[]>([]);
   let hasPreferences = $state(true);
   let continuing = $state<LibraryItem[]>([]);
+  let mySubs = $state<string[]>([]);
   let loading = $state(true);
   let error = $state('');
   let open = $state<GuideProgramme | null>(null);
@@ -37,7 +41,7 @@
     const { from, to } = eveningWindow(now);
     const tomorrow = new Date(midnight(now).getTime() + 86_400_000);
     try {
-      const [list, recs, films, week, props, prefs, cont] = await Promise.all([
+      const [list, recs, films, week, props, prefs, cont, subs] = await Promise.all([
         prof ? api.tonight(prof.id) : Promise.resolve([]),
         api.recordings(),
         api.guide({ from, to, group: 'Film', max: 500 }),
@@ -45,7 +49,9 @@
         prof ? api.proposals(prof.id, 2) : Promise.resolve([]),
         prof ? api.preferences(prof.id) : Promise.resolve([]),
         prof ? api.continueWatching(prof.id).catch(() => []) : Promise.resolve([]),
+        prof ? api.profileSubscriptions(prof.id).then((x) => x.services).catch(() => []) : Promise.resolve([]),
       ]);
+      mySubs = subs;
       continuing = cont;
       proposals = props;
       hasPreferences = prefs.length > 0;
@@ -54,7 +60,7 @@
       // stasera: film che iniziano dalle 20 alle 2; quelli già in onda contano solo se è già sera
       const evening = now.getHours() >= 20 || now.getHours() < 2;
       const isEvening = (d: Date) => d.getHours() >= 20 || d.getHours() < 2;
-      tonightFilms = dedupe(films.filter((p) => (new Date(p.start) < now ? evening : isEvening(new Date(p.start)))))
+      tonightFilms = (films.filter((p) => (new Date(p.start) < now ? evening : isEvening(new Date(p.start)))))
         .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || a.start.localeCompare(b.start));
       weekFilms = dedupe(week).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 18);
     } catch (e) {
@@ -72,7 +78,8 @@
   function dedupe(list: GuideProgramme[]) {
     const seen = new Set<string>();
     return list.filter((p) => {
-      const k = p.workKey || `${p.title}|${p.year}`;
+      // lo stesso film su due canali (o con e senza anno nella guida) compare una volta sola
+      const k = p.title.trim().toLowerCase();
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -146,6 +153,15 @@
     if (!loading && location.hash === '#proposte') setTimeout(() => document.getElementById('proposte')?.scrollIntoView({ behavior: 'smooth' }), 100);
   });
 
+  // Stasera in TV divisa: quello che si vede (in chiaro o con i miei abbonamenti) e quello a pagamento fuori abbonamento
+  // un film che passa sia su un canale visibile sia su uno a pagamento resta solo tra quelli visibili
+  const filmsMine = $derived(dedupe(tonightFilms.filter((p) => inMySubscriptions(p, mySubs))));
+  const filmsOther = $derived.by(() => {
+    const mine = new Set(filmsMine.map((p) => p.title.trim().toLowerCase()));
+    return dedupe(tonightFilms.filter((p) => !inMySubscriptions(p, mySubs) && !mine.has(p.title.trim().toLowerCase())));
+  });
+  const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
+
   const tonightAvailable = $derived(tonightList.filter((i) => i.next && new Date(i.next.start) < eveningWindow(now).to));
   const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i)));
 </script>
@@ -180,11 +196,8 @@
   {/if}
 
   <div class="pad sections">
-    <section>
-      <div class="sec-head">
-        <h2>La mia serata in TV</h2>
-        <span class="muted small">{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere dalla guida: compaiono qui appena passano.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} stasera`}</span>
-      </div>
+    <Section key="serata" title="La mia serata in TV">
+      {#snippet aside()}{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere dalla guida: compaiono qui appena passano.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} stasera`}{/snippet}
       {#if tonightAvailable.length > 0}
         <ul class="tonight">
           {#each tonightAvailable as i (i.workId)}
@@ -209,11 +222,11 @@
           {#each tonightLater as i, k (i.workId)}{k > 0 ? ', ' : ''}<button type="button" class="link" onclick={() => (i.next ? (open = i.next) : drop(i))} title={i.next ? '' : 'Nessun passaggio nei prossimi giorni: tocca per togliere'}>{i.title}</button> ({i.next ? `${day(i.next.start, now).toLowerCase()} ${time(i.next.start)}, ${i.next.channelName || i.next.guideChannelName}` : 'nessun passaggio in guida'}){/each}.
         </p>
       {/if}
-    </section>
+    </Section>
 
     {#if continuing.length > 0}
-      <section>
-        <div class="sec-head"><h2>Continua a guardare</h2><a href="/libreria" onclick={navigate}>Libreria</a></div>
+      <Section key="continua" title="Continua a guardare">
+        {#snippet aside()}<a href="/libreria" onclick={navigate}>Libreria</a>{/snippet}
         <ul class="tonight">
           {#each continuing.slice(0, 6) as it (it.id)}
             <li>
@@ -226,14 +239,11 @@
             </li>
           {/each}
         </ul>
-      </section>
+      </Section>
     {/if}
 
-    <section id="proposte">
-      <div class="sec-head">
-        <h2>Proposte per te</h2>
-        <a href="/preferenze#proposte" onclick={navigate}>{hasPreferences ? 'Cambia le preferenze' : 'Scegli cosa proporti'}</a>
-      </div>
+    <Section key="proposte" id="proposte" title="Proposte per te">
+      {#snippet aside()}<a href="/preferenze#proposte" onclick={navigate}>{hasPreferences ? 'Cambia le preferenze' : 'Scegli cosa proporti'}</a>{/snippet}
       {#if proposals.length > 0}
         <ul class="tonight">
           {#each proposals.slice(0, 12) as x (x.programme.id)}
@@ -255,11 +265,11 @@
       {:else}
         <p class="muted small">{hasPreferences ? 'Niente di nuovo per oggi e domani dalle tue preferenze.' : 'Dì a DoveLoFanno cosa ti piace (generi, voto minimo, attori): qui compaiono i programmi giusti di oggi e domani.'}</p>
       {/if}
-    </section>
+    </Section>
 
     {#if live.length > 0 || upcoming.length > 0}
-      <section>
-        <div class="sec-head"><h2>In registrazione e in arrivo</h2><a href="/registrazioni" onclick={navigate}>Tutte le registrazioni</a></div>
+      <Section key="registrazioni" title="In registrazione e in arrivo">
+        {#snippet aside()}<a href="/registrazioni" onclick={navigate}>Tutte le registrazioni</a>{/snippet}
         <ul class="recs">
           {#each live as r (r.id)}
             <li class="rec-live"><Badge tone="red">In registrazione</Badge><span class="r-title">{r.title}</span><span class="muted small">{r.channelName} · {range(r.start, r.stop)} · mancano {minutes(Math.max(0, between(now.toISOString(), r.recordTo)))}</span></li>
@@ -268,36 +278,45 @@
             <li><Badge tone="blue">{day(r.start, now)} {time(r.start)}</Badge><span class="r-title">{r.title}</span><span class="muted small">{r.channelName} · {range(r.start, r.stop)}</span></li>
           {/each}
         </ul>
-      </section>
+      </Section>
     {/if}
 
-    {#snippet row(title: string, note: string, list: GuideProgramme[])}
-      <section>
-        <div class="sec-head"><h2>{title}</h2><span class="muted small">{note}</span></div>
-        <ul class="cards">
-          {#each list as p (p.id)}
-            <li>
-              <button type="button" class="card" onclick={() => (open = p)}>
-                <span class="poster" class:has-img={!!p.icon}>
-                  {#if p.icon}<img src={p.icon} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="poster-title">{p.title}</span>{/if}
-                  {#if p.rating != null}<span class="stars">★ {vote(p.rating)}</span>{/if}
-                  {#if p.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
-                </span>
-                <span class="c-title">{p.title}</span>
-                <span class="muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
-                <span class="muted small">{[p.sub, p.year || '', p.country].filter(Boolean).join(' · ')}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </section>
+    {#snippet cards(list: GuideProgramme[])}
+      <ul class="cards">
+        {#each list as p (p.id)}
+          <li>
+            <button type="button" class="card" onclick={() => (open = p)}>
+              <span class="poster">
+                <PosterImg src={p.poster || p.icon} title={p.title} />
+                {#if p.rating != null}<span class="stars">★ {vote(p.rating)}</span>{/if}
+                {#if p.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
+              </span>
+              <span class="c-title">{p.title}</span>
+              <span class="muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
+              <span class="muted small">{[p.sub, p.year || '', p.country].filter(Boolean).join(' · ')}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
     {/snippet}
 
     {#if tonightFilms.length > 0}
-      {@render row('Stasera in TV', 'i film di stasera, dal voto più alto', tonightFilms.slice(0, 18))}
+      <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
+        {#snippet aside()}film in chiaro e sui canali dei tuoi abbonamenti, dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{/snippet}
+        {#if filmsMine.length > 0}{@render cards(filmsMine.slice(0, 18))}{:else}<p class="muted small">Nessun film stasera in chiaro o nei tuoi abbonamenti.</p>{/if}
+      </Section>
+      {#if filmsOther.length > 0}
+        <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
+          {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
+          {@render cards(filmsOther.slice(0, 18))}
+        </Section>
+      {/if}
     {/if}
     {#if weekFilms.length > 0}
-      {@render row('Questa settimana', 'film con voto 7 e oltre nei prossimi giorni', weekFilms)}
+      <Section key="settimana" title="Questa settimana">
+        {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
+        {@render cards(weekFilms)}
+      </Section>
     {/if}
 
     {#if !hero && tonightFilms.length === 0 && weekFilms.length === 0}
@@ -334,8 +353,6 @@
   .credits { margin: 0; font-size: 14px; color: var(--muted); }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
   .sections { display: flex; flex-direction: column; gap: 32px; padding-top: 28px; padding-bottom: 56px; }
-  .sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 12px; }
-  h2 { font-size: 22px; }
   .tonight { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
   .tonight li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; }
   .t-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
@@ -355,10 +372,8 @@
   .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
   .cards li { scroll-snap-align: start; }
   .card { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
-  .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: flex; align-items: flex-end; padding: 12px; margin-bottom: 4px; }
+  .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: block; margin-bottom: 4px; }
   .card:hover .poster, .card:focus-visible .poster { box-shadow: 0 0 0 2px var(--text); }
-  .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .poster-title { position: relative; font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.1; }
   .stars { position: absolute; top: 8px; left: 8px; background: rgba(13, 16, 21, 0.8); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
   .recdot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
   .c-title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -3851,6 +3851,10 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "poster": {
+            "type": "string",
+            "default": ""
           }
         }
       },

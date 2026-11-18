@@ -2,6 +2,7 @@
   // Libreria: liste personali e di famiglia, opere in casa per sezione (film, serie, documentari, programmi,
   // registrazioni) e file da sistemare. Le stelle sono il voto personale del profilo, accanto al voto IMDb.
   import Badge from '../lib/components/Badge.svelte';
+  import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
   import Stars from '../lib/components/Stars.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
@@ -28,6 +29,10 @@
   let lists = $state<ListSummary[]>([]);
   let cont = $state<LibraryItem[]>([]);
   let entries = $state<LibraryEntry[] | null>(null);
+  // sezione a cui appartiene l'elenco caricato: cambiando scheda non si mostrano mai i titoli della scheda prima
+  // (i file da sistemare non hanno opera e nella griglia dei film davano chiavi doppie, che bloccavano la pagina)
+  let entriesFor = $state<LibrarySection | null>(null);
+  const shown = $derived(entriesFor === current.api ? entries : null);
   let detail = $state<ListDetail | null>(null);
   let sort = $state<LibrarySort>('added');
   let text = $state('');
@@ -51,7 +56,13 @@
   async function loadEntries() {
     const s = current.api;
     if (!s) return;
-    try { entries = await api.library(s, session.profile?.id, sort, text.trim()); error = ''; }
+    try {
+      const res = await api.library(s, session.profile?.id, sort, text.trim());
+      if (current.api !== s) return;   // nel frattempo si è passati a un'altra scheda
+      entries = res;
+      entriesFor = s;
+      error = '';
+    }
     catch (e) { error = e instanceof ApiError ? e.message : 'Libreria non letta'; }
   }
 
@@ -233,7 +244,7 @@
         {#each detail.items as it (it.workId)}
           <div class="lrow">
             <a class="mini" href="/opera/{it.workId}" onclick={navigate} aria-label="Apri la scheda di {it.title}">
-              {#if it.poster}<img src={it.poster} alt="" referrerpolicy="no-referrer" />{/if}
+              <PosterImg src={it.poster} title={it.title} compact />
             </a>
             <div class="lbody">
               <div class="line">
@@ -313,9 +324,9 @@
       {/if}
     </div>
 
-    {#if entries === null}
+    {#if shown === null}
       <p class="muted" role="status">Un momento…</p>
-    {:else if entries.length === 0}
+    {:else if shown.length === 0}
       <div class="empty">
         <p>{text ? 'Nessun titolo con queste parole.' : emptyText[current.id]}</p>
         {#if folders === 0 && current.id !== 'registrazioni' && current.id !== 'visti'}
@@ -325,7 +336,7 @@
     {:else if current.id === 'da-sistemare'}
       <p class="muted small">File che non sono stati riconosciuti{hasTmdb ? ' su TMDB' : ''}: indica tu di che titolo si tratta.</p>
       <ul class="fix">
-        {#each entries as e (e.itemId)}
+        {#each shown as e (e.itemId ?? e.title)}
           <li>
             <span class="lbody"><strong>{e.title}</strong>{#if e.year} <span class="muted">({e.year})</span>{/if}
               <span class="muted small">{e.durationS ? clock(e.durationS) : 'durata sconosciuta'}{e.recorded ? ' · registrazione' : ''} · aggiunto {day(e.addedAt).toLowerCase()}</span></span>
@@ -338,10 +349,10 @@
       </ul>
     {:else}
       <div class="grid">
-        {#each entries as e (e.workId)}
+        {#each shown as e (e.workId ?? `f${e.itemId}`)}
           <article class="card">
             <a class="poster" href="/opera/{e.workId}" onclick={navigate}>
-              {#if e.poster}<img src={e.poster} alt="" referrerpolicy="no-referrer" loading="lazy" />{:else}<span class="ptitle">{e.title}</span>{/if}
+              <PosterImg src={e.poster} title={e.title} />
               {#if e.positionS > 0 && e.durationS > 0}<span class="prog over" aria-hidden="true"><span style="width: {pct(e.positionS, e.durationS)}%"></span></span>{/if}
             </a>
             <div class="cbody">
@@ -437,7 +448,7 @@
   .sel select { min-height: 40px; padding: 0 12px; border-radius: var(--radius-s); border: 1px solid var(--line-btn); background: var(--card); color: var(--text); font-size: 14px; }
   .lrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 14px 20px; border-bottom: 1px solid var(--line-soft); }
   .lrow:last-child { border-bottom: 0; }
-  .mini { flex: 0 0 56px; aspect-ratio: 2 / 3; border-radius: 6px; background: var(--raised); overflow: hidden; }
+  .mini { flex: 0 0 56px; aspect-ratio: 2 / 3; border-radius: 6px; background: var(--raised); overflow: hidden; position: relative; }
   .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .lbody { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -451,8 +462,6 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px 16px; }
   .card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 10px; background: #24304a; overflow: hidden; display: flex; align-items: flex-end; padding: 12px; text-decoration: none; }
-  .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ptitle { position: relative; font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.15; color: var(--text); overflow-wrap: anywhere; }
   .cbody { display: flex; flex-direction: column; gap: 4px; }
   .cfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .play { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 8px; background: var(--green-soft); color: var(--green-text); font-weight: 600; font-size: 14px; text-decoration: none; }
