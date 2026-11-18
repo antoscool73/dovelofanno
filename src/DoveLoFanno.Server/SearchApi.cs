@@ -15,7 +15,11 @@ public sealed record SearchHit(long? WorkId, string Kind, string Title, string O
     IReadOnlyList<string>? Genres = null, string Country = "", string Credits = "");
 
 /// <summary>Risultati: prima le opere già note, poi TMDB. TmdbNote spiega perché TMDB manca (niente chiave, non risponde).</summary>
-public sealed record SearchResult(IReadOnlyList<SearchHit> Hits, string TmdbNote);
+public sealed record SearchResult(IReadOnlyList<SearchHit> Hits, string TmdbNote)
+{
+    /// <summary>Probabilmente ci sono altri risultati: il client li chiede con un limit più alto.</summary>
+    public bool More { get; init; }
+}
 
 public sealed record FromTmdbBody(int TmdbId, string Kind, string Title, string? OriginalTitle, int Year, double? VoteAverage, int? VoteCount,
     IReadOnlyList<int>? GenreIds);
@@ -32,8 +36,8 @@ public sealed record SearchOptions(IReadOnlyList<SearchOption> Genres, IReadOnly
 public static class SearchApi
 {
     static readonly int[] ChildGenres = [16, 10751, 10762];
-    const int MaxHits = 40;
-    const int MaxLookups = 24;        // titoli TMDB da controllare uno per uno (paese, piattaforme)
+    const int PageSize = 40;         // risultati per volta: il client ne chiede di più (limit) arrivato in fondo
+    const int MaxLimit = 400;
 
     public static void Map(RouteGroupBuilder api)
     {
@@ -43,7 +47,7 @@ public static class SearchApi
             .WithTags("Opere").WithSummary("Generi e paesi tra cui scegliere nei filtri della ricerca");
 
         api.MapGet("/search", async Task<IResult> (string? q, long? profileId, string? kind, int? genre, int? yearFrom, int? yearTo, string? country,
-            double? minRating, string? avail, ServerContext ctx, CancellationToken ct) =>
+            double? minRating, string? avail, int? limit, ServerContext ctx, CancellationToken ct) =>
         {
             string text = (q ?? "").Trim();
             if (text.Length > 100) text = text[..100];
@@ -53,6 +57,10 @@ public static class SearchApi
                 (country ?? "").Trim().ToUpperInvariant(), minRating ?? 0, availSet);
             if (text.Length < 2 && !f.Any) return Results.BadRequest(new ApiError("scrivi almeno 2 lettere o scegli un filtro"));
             if (text.Length < 2) text = "";
+            // caricamento progressivo: il client chiede 40, poi 80, 120... (fino a 400); i titoli TMDB da controllare
+            // uno per uno (piattaforme, paese) crescono con il limite
+            int max = Math.Clamp(limit ?? PageSize, 1, MaxLimit);
+            int lookups = Math.Max(24, max * 3 / 4);
 
             var prof = profileId is long pid ? ctx.Profiles.Get(pid) : null;
             bool child = prof is { IsChild: true };
@@ -70,7 +78,7 @@ public static class SearchApi
 
             var hits = new List<SearchHit>();
             var shown = new HashSet<long>();
-            foreach (var w in ctx.Works.Find(text, now, child).Where(LocalOk).Take(MaxHits))
+            foreach (var w in ctx.Works.Find(text, now, child).Where(LocalOk).Take(max))
             {
                 hits.Add(FromWork(w));
                 shown.Add(w.Id);
@@ -82,58 +90,65 @@ public static class SearchApi
             // un titolo solo su TMDB non è in TV né in casa: con quei soli filtri di disponibilità TMDB non serve
             bool tmdbUseful = f.AvailSet.Count == 0 || f.AvailSet.Contains("mine") || f.AvailSet.Contains("paid");
             if (key.Length == 0) note = "Per cercare anche i titoli che non passano in TV serve la chiave TMDB (Impostazioni › Voti dei film).";
-            else if (tmdbUseful && hits.Count < MaxHits)
+            else if (tmdbUseful && hits.Count < max)
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromSeconds(12));
+                cts.CancelAfter(TimeSpan.FromSeconds(12 + max / 20));
                 var tmdb = new TmdbClient(ctx.Http, key);
                 try
                 {
-                    var cands = await CandidatesAsync(tmdb, text, f, cts.Token);
+                    var cands = await CandidatesAsync(tmdb, text, f, max, cts.Token);
                     cands = [.. cands.Where(c => !child || c.Hit.GenreIds.Any(g => ChildGenres.Contains(g)))
                         .Where(c => f.KindOk(KindOf(c.Hit)) && TmdbGenres.Matches(f.Genre, c.Hit.GenreIds, "") && f.YearOk(c.Hit.Year))];
 
                     // titoli già noti: valgono i dati di DoveLoFanno (voto IMDb, passaggi, casa, piattaforme)
                     var known = ctx.Works.ByTmdb(cands.Select(c => (c.Hit.Kind, (long)c.Hit.Id)));
-                    var knownOk = ctx.Works.Find("", now, child, MaxHits * 4, known.Values.Distinct().ToList()).Where(LocalOk).ToDictionary(w => w.Id);
-                    var unknown = new List<(TmdbSearchHit Hit, string Credits)>();
-                    foreach (var c in cands)
-                    {
-                        if (known.TryGetValue((c.Hit.Kind, c.Hit.Id), out long wid))
-                        {
-                            if (!shown.Contains(wid) && knownOk.TryGetValue(wid, out var w)) { hits.Add(FromWork(w) with { Credits = c.Credits.Length > 0 ? c.Credits : CreditsOf(w) }); shown.Add(wid); }
-                        }
-                        else if (f.MinRating <= 0 || (c.Hit.VoteCount >= ListRatingSync.MinTmdbVotes && c.Hit.VoteAverage >= f.MinRating))
-                            unknown.Add(c);
-                    }
+                    var knownOk = ctx.Works.Find("", now, child, max * 4, known.Values.Distinct().ToList()).Where(LocalOk).ToDictionary(w => w.Id);
+                    var unknown = cands.Where(c => !known.ContainsKey((c.Hit.Kind, c.Hit.Id))
+                        && (f.MinRating <= 0 || (c.Hit.VoteCount >= ListRatingSync.MinTmdbVotes && c.Hit.VoteAverage >= f.MinRating))).ToList();
 
                     // titoli solo su TMDB: piattaforme in Italia sempre (per icone, "dove si vede" e il pulsante giusto) e paese
-                    // se il filtro c'è e la ricerca non l'ha già applicato, per i primi MaxLookups; gli altri senza piattaforme
+                    // se il filtro c'è e la ricerca non l'ha già applicato, per i primi lookups; gli altri senza piattaforme
                     bool needCountry = f.Country.Length > 0 && text.Length > 0;
                     bool needAvail = f.AvailSet.Count > 0;
-                    var checkedOnes = await Throttled(unknown.Take(MaxLookups), 6, async c =>
+                    var checkedList = await Throttled(unknown.Take(lookups), 6, async c =>
                     {
                         IReadOnlyList<string> countries = needCountry ? await tmdb.CountriesAsync(c.Hit.Id, c.Hit.Kind, cts.Token) : [];
                         IReadOnlyList<Provider> prov = await tmdb.ProvidersAsync(c.Hit.Id, c.Hit.Kind, cts.Token);
-                        return (c.Hit, c.Credits, Countries: countries, Providers: prov);
+                        return (Key: (c.Hit.Kind, c.Hit.Id), Countries: countries, Providers: prov);
                     });
-                    foreach (var x in checkedOnes)
+                    var checkedOnes = checkedList.ToDictionary(x => x.Key);
+                    var unknownKeys = unknown.Select(c => (c.Hit.Kind, c.Hit.Id)).ToHashSet();
+
+                    // nell'ordine di TMDB, noti e non noti mescolati: chiedendo più risultati quelli già mostrati restano in testa.
+                    // Se i filtri richiedono di controllare uno per uno, ci si ferma all'ultimo titolo controllato
+                    bool mustCheck = needCountry || needAvail;
+                    foreach (var c in cands)
                     {
-                        if (hits.Count >= MaxHits) break;
+                        if (hits.Count >= max) break;
+                        if (known.TryGetValue((c.Hit.Kind, c.Hit.Id), out long wid))
+                        {
+                            if (!shown.Contains(wid) && knownOk.TryGetValue(wid, out var w))
+                            {
+                                hits.Add(FromWork(w) with { Credits = c.Credits.Length > 0 ? c.Credits : CreditsOf(w) });
+                                shown.Add(wid);
+                            }
+                            continue;
+                        }
+                        if (!unknownKeys.Contains((c.Hit.Kind, c.Hit.Id))) continue;
+                        if (!checkedOnes.TryGetValue((c.Hit.Kind, c.Hit.Id), out var x))
+                        {
+                            if (mustCheck) break;
+                            hits.Add(FromTmdb(c.Hit, c.Credits, null, null, ""));     // piattaforme null = non lette
+                            continue;
+                        }
                         if (needCountry && !x.Countries.Contains(f.Country)) continue;
                         var streaming = x.Providers.Where(p => p.Kind is "subscription" or "free").Select(p => p.Name).Distinct().ToList();
                         var paid = x.Providers.Where(p => p.Kind is "rent" or "buy").Select(p => p.Name).Distinct().ToList();
                         if (needAvail && !AvailOk(f, false, false, streaming, paid, subs)) continue;
-                        hits.Add(FromTmdb(x.Hit, x.Credits, streaming, paid,
+                        hits.Add(FromTmdb(c.Hit, c.Credits, streaming, paid,
                             f.Country.Length > 0 && x.Countries.Contains(f.Country) ? Countries.Name(f.Country) : ""));
                     }
-                    // oltre i titoli controllati, solo se nessun filtro ha bisogno di controllare (piattaforme null = non lette)
-                    if (!needCountry && !needAvail)
-                        foreach (var c in unknown.Skip(MaxLookups))
-                        {
-                            if (hits.Count >= MaxHits) break;
-                            hits.Add(FromTmdb(c.Hit, c.Credits, null, null, ""));
-                        }
                 }
                 catch (TmdbKeyException ex) { note = ex.Message; }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
@@ -141,7 +156,7 @@ public static class SearchApi
                     note = "TMDB non risponde: ci sono solo i titoli della guida e di casa.";
                 }
             }
-            return Results.Ok(new SearchResult(hits, note));
+            return Results.Ok(new SearchResult(hits, note) { More = hits.Count >= max && max < MaxLimit });
         })
             .WithTags("Opere")
             .WithSummary("Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, " +
@@ -203,7 +218,7 @@ public static class SearchApi
     /// Candidati da TMDB: con il testo, i titoli e, se il testo è il nome di una persona (regista, attore), la sua
     /// filmografia per prima; senza testo, discover con i filtri (anche serie se il tipo lo consente).
     /// </summary>
-    static async Task<List<(TmdbSearchHit Hit, string Credits)>> CandidatesAsync(TmdbClient tmdb, string text, SearchFilter f, CancellationToken ct)
+    static async Task<List<(TmdbSearchHit Hit, string Credits)>> CandidatesAsync(TmdbClient tmdb, string text, SearchFilter f, int max, CancellationToken ct)
     {
         var res = new List<(TmdbSearchHit, string)>();
         void Add(TmdbSearchHit h, string credits)
@@ -223,14 +238,17 @@ public static class SearchApi
         }
         string money = f.AvailSet.Contains("mine") && f.AvailSet.Contains("paid") ? "flatrate|free|ads|rent|buy"
             : f.AvailSet.Contains("mine") ? "flatrate|free|ads" : f.AvailSet.Contains("paid") ? "rent|buy|flatrate" : "";
-        var lists = new List<IReadOnlyList<TmdbSearchHit>>();
-        if (f.Kind is "all" or "film" or "documentary")
+        // pagina per pagina (film e serie alternati): chiedendo di più, i risultati già mostrati restano in testa nello stesso ordine
+        bool movies = f.Kind is "all" or "film" or "documentary", series = f.Kind is "all" or "series";
+        int pages = Math.Min(20, max / 20 + 1);
+        for (int p = 1; p <= pages; p++)
         {
-            lists.Add(await tmdb.DiscoverAsync("movie", f, money, ct));
-            lists.Add(await tmdb.DiscoverAsync("movie", f, money, ct, page: 2));
+            var page = new List<TmdbSearchHit>();
+            if (movies) page.AddRange(await tmdb.DiscoverAsync("movie", f, money, ct, page: p));
+            if (series && p <= pages / 2 + 1) page.AddRange(await tmdb.DiscoverAsync("tv", f, money, ct, page: p));
+            if (page.Count == 0) break;
+            foreach (var h in page.OrderByDescending(h => h.Popularity)) Add(h, "");
         }
-        if (f.Kind is "all" or "series") lists.Add(await tmdb.DiscoverAsync("tv", f, money, ct));
-        foreach (var h in lists.SelectMany(l => l).OrderByDescending(h => h.Popularity)) Add(h, "");
         return res;
     }
 

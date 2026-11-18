@@ -77,6 +77,39 @@
     }
   }
 
+  // altri passaggi dello stesso titolo nei giorni della guida: i prossimi 3, ognuno con il suo Registra
+  let others = $state<GuideProgramme[]>([]);
+  let othersCount = $state(0);
+  let otherBusy = $state<number | null>(null);
+  $effect(() => {
+    const now = new Date();
+    api.guide({ from: now, to: new Date(now.getTime() + 15 * 86_400_000), text: p.title, max: 200 })
+      .then((list) => {
+        const same = list.filter((x) => x.id !== p.id && new Date(x.stop) > now
+          && (p.workId != null ? x.workId === p.workId : x.title === p.title && x.subtitle === p.subtitle))
+          .sort((a, b) => a.start.localeCompare(b.start));
+        othersCount = same.length;
+        others = same.slice(0, 3);
+      })
+      .catch(() => { others = []; othersCount = 0; });
+  });
+  async function recordOther(x: GuideProgramme) {
+    if (x.scheduled) { goTo('/registrazioni'); return; }
+    if (x.channelId == null) return;
+    otherBusy = x.id;
+    error = '';
+    try {
+      const r = await api.scheduleRecording({ channelId: x.channelId, title: x.title, start: x.start, stop: x.stop, beforeMin: null, afterMin: null, format: null, programmeId: x.id });
+      x.scheduled = true;
+      warnings = r.warnings;
+      onchange();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Registrazione non programmata';
+    } finally {
+      otherBusy = null;
+    }
+  }
+
   const facts = $derived(
     [p.group + (p.sub ? ` · ${p.sub}` : ''), p.country, p.year ? String(p.year) : '', p.episode, minutes(between(p.start, p.stop))].filter(Boolean),
   );
@@ -98,6 +131,21 @@
     {#if p.description}<p class="desc">{p.description}</p>{/if}
     {#if p.directors || p.actors}
       <p class="credits">{#if p.directors}Regia di {p.directors}{/if}{#if p.directors && p.actors} · {/if}{#if p.actors}Con {p.actors}{/if}</p>
+    {/if}
+
+    {#if others.length > 0}
+      <section class="others" aria-label="Altri passaggi">
+        <h3>Altri passaggi{othersCount > others.length ? ` · i prossimi ${others.length} di ${othersCount}` : ''}</h3>
+        <ul>
+          {#each others as x (x.id)}
+            <li>
+              <span class="o-main"><strong>{day(x.start)} · {range(x.start, x.stop)}</strong><span class="muted">{x.channelName || x.guideChannelName}{x.channelId == null ? ' · non è nelle tue playlist' : ''}</span></span>
+              {#if x.channelId != null}<RecordButton size="m" scheduled={x.scheduled} busy={otherBusy === x.id} onclick={() => recordOther(x)} />{/if}
+            </li>
+          {/each}
+        </ul>
+        {#if othersCount > others.length && p.workId != null}<button type="button" class="link small" onclick={() => goTo(`/opera/${p.workId}`)}>Tutti i passaggi nella scheda</button>{/if}
+      </section>
     {/if}
 
     {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -156,4 +204,9 @@
   .small { font-size: 13px; }
   .error { margin: 0; color: var(--rec-text); }
   .warn { margin: 0; color: var(--orange-text); font-size: 14px; }
+  .others { display: flex; flex-direction: column; gap: 8px; }
+  .others h3 { margin: 0; font-size: 15px; }
+  .others ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .others li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px; padding: 8px 12px; }
+  .o-main { flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 </style>

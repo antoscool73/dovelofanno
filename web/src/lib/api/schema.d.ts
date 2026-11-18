@@ -305,6 +305,7 @@ export interface paths {
                     country?: string;
                     minRating?: number;
                     avail?: string;
+                    limit?: number;
                 };
                 header?: never;
                 path?: never;
@@ -4589,6 +4590,7 @@ export interface components {
         SearchResult: {
             hits: components["schemas"]["SearchHit"][];
             tmdbNote: string;
+            more?: boolean;
         };
         ServicesBody: {
             services: string[];

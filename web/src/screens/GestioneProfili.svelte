@@ -150,7 +150,7 @@
 {/if}
 
 <h3>Abbonamenti della famiglia</h3>
-<p class="f-muted">Le piattaforme che avete: «Dove lo vedo» le mette per prime e gli avvisi «nei miei abbonamenti» le controllano. Ogni profilo le eredita, a meno che non scelga le sue in Preferenze.</p>
+<p class="f-muted">Le piattaforme che avete: «Dove Lo Fanno» le mette per prime e gli avvisi «nei miei abbonamenti» le controllano. Ogni profilo le eredita, a meno che non scelga le sue in Preferenze.</p>
 {#if family}
   <ServicePicker known={family.known} selected={family.services} disabled={busy} ontoggle={toggleService} />
   <form class="f-row" onsubmit={addCustom}>

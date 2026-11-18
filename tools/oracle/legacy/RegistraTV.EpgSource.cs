@@ -111,6 +111,10 @@ namespace RegistraTV
                         if (Array.IndexOf(NoSub, cats[i]) < 0) { sub = Cap(p.Categories[i]); break; }
                 }
             }
+            // DoveLoFanno, 18/11/2026: regola aggiunta anche qui (non c'è nel tag registratv-v1.0) perché
+            // l'oracolo resti uguale: su un canale per bambini tutto tranne i film è "Bambini" (Gumball su Boing
+            // ha "Scoperta e avventura" e finiva tra i documentari)
+            else if (Regex.IsMatch(Plain(hint), @"kids|boing|cartoon|frisbee|\bk2\b|yoyo|gulp|nick|super!|deakids|cartoonito|boomerang")) g = "Bambini";
             else if (cats.Contains("informazione") && cats.Contains("sport")) g = "Sport";
             else if (Any(cats, Kids)) g = "Bambini";
             else if (Any(cats, Series)) g = "Serie TV";

@@ -52,6 +52,9 @@ public static partial class Genres
                     if (!NoSub.Contains(cats[i])) { sub = Cap(p.Categories[i]); break; }
             }
         }
+        // su un canale per bambini tutto il resto è per bambini: Boing mette "Scoperta e avventura" ai cartoni
+        // (Gumball finiva tra i documentari) e "Azione, Animazione" agli anime
+        else if (KidsChannel().IsMatch(Titles.Plain(hint))) g = Kids;
         else if (cats.Contains("informazione") && cats.Contains("sport")) g = Sport;
         else if (Any(cats, KidsCats)) g = Kids;
         else if (Any(cats, SeriesCats)) g = Series;

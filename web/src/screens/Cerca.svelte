@@ -1,7 +1,35 @@
 <script lang="ts" module>
   import type { SearchQuery } from '../lib/api/client';
   // i filtri restano tornando indietro dalla Scheda (per la durata della pagina)
-  let last: SearchQuery = { q: '', kind: 'all', genre: 0, yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [] };
+  const EMPTY: SearchQuery = { q: '', kind: 'all', genre: 0, yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [] };
+  let last: SearchQuery = { ...EMPTY };
+
+  /** Filtri nell'indirizzo: /cerca#kind=film&avail=mine (così Stasera porta qui con i filtri di una riga). */
+  export function searchHash(s: Partial<SearchQuery>): string {
+    const p = new URLSearchParams();
+    if (s.q?.trim()) p.set('q', s.q.trim());
+    if (s.kind && s.kind !== 'all') p.set('kind', s.kind);
+    if (s.genre) p.set('genre', String(s.genre));
+    if (s.yearFrom) p.set('yearFrom', String(s.yearFrom));
+    if (s.yearTo) p.set('yearTo', String(s.yearTo));
+    if (s.country) p.set('country', s.country);
+    if (s.minRating) p.set('minRating', String(s.minRating));
+    if (s.avail?.length) p.set('avail', s.avail.join(','));
+    const t = p.toString();
+    return t ? '#' + t : '';
+  }
+
+  function fromHash(hash: string): SearchQuery | null {
+    if (hash.length < 2) return null;
+    const p = new URLSearchParams(hash.slice(1));
+    const kind = p.get('kind');
+    const avail = (p.get('avail') ?? '').split(',').filter((a): a is SearchQuery['avail'][number] => ['tv', 'mine', 'paid', 'home'].includes(a));
+    return {
+      q: p.get('q') ?? '', kind: kind === 'film' || kind === 'series' || kind === 'documentary' ? kind : 'all',
+      genre: Number(p.get('genre')) || 0, yearFrom: Number(p.get('yearFrom')) || 0, yearTo: Number(p.get('yearTo')) || 0,
+      country: p.get('country') ?? '', minRating: Number(p.get('minRating')) || 0, avail,
+    };
+  }
 </script>
 
 <script lang="ts">
@@ -19,9 +47,11 @@
   import { router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
-  let f = $state<SearchQuery>({ ...last, avail: [...last.avail] });
-  let yearFromText = $state(last.yearFrom ? String(last.yearFrom) : '');
-  let yearToText = $state(last.yearTo ? String(last.yearTo) : '');
+  // filtri: dall'indirizzo (link da Stasera, preferiti) o quelli dell'ultima ricerca
+  const start = fromHash(location.hash) ?? last;
+  let f = $state<SearchQuery>({ ...start, avail: [...start.avail] });
+  let yearFromText = $state(start.yearFrom ? String(start.yearFrom) : '');
+  let yearToText = $state(start.yearTo ? String(start.yearTo) : '');
   let hits = $state<SearchHit[]>([]);
   let note = $state('');
   let error = $state('');
@@ -68,26 +98,46 @@
     yearFromText = ''; yearToText = '';
   }
 
-  // cerca 400 ms dopo l'ultima modifica; una risposta vecchia non copre quella nuova
+  // cerca 400 ms dopo l'ultima modifica; una risposta vecchia non copre quella nuova. I filtri vanno anche
+  // nell'indirizzo (si possono salvare e condividere in casa)
+  const PAGE = 40;
+  let limit = PAGE;
+  let more = $state(false);
+  let current: SearchQuery = { ...start, avail: [...start.avail] };
   let seq = 0;
+  async function run(snap: SearchQuery, lim: number) {
+    const my = ++seq;
+    loading = true;
+    try {
+      const r = await api.search({ ...snap, limit: lim }, session.profile?.id);
+      if (my !== seq) return;
+      hits = r.hits; note = r.tmdbNote; more = r.more ?? false; error = ''; searched = true;
+      limit = lim;
+    } catch (e) {
+      if (my === seq) error = e instanceof ApiError ? e.message : 'Ricerca non riuscita';
+    } finally {
+      if (my === seq) loading = false;
+    }
+  }
   $effect(() => {
     const snap: SearchQuery = { ...f, avail: [...f.avail] };
     last = snap;
-    if (!canSearch) { hits = []; note = ''; error = ''; searched = false; loading = false; return; }
-    const my = ++seq;
-    loading = true;
-    const t = setTimeout(async () => {
-      try {
-        const r = await api.search(snap, session.profile?.id);
-        if (my !== seq) return;
-        hits = r.hits; note = r.tmdbNote; error = ''; searched = true;
-      } catch (e) {
-        if (my === seq) error = e instanceof ApiError ? e.message : 'Ricerca non riuscita';
-      } finally {
-        if (my === seq) loading = false;
-      }
-    }, 400);
+    current = snap;
+    try { history.replaceState(history.state, '', '/cerca' + searchHash(snap)); } catch { /* indirizzo non aggiornato: pazienza */ }
+    if (!canSearch) { hits = []; note = ''; error = ''; searched = false; loading = false; more = false; seq++; return; }
+    const t = setTimeout(() => run(snap, PAGE), 400);
     return () => clearTimeout(t);
+  });
+  // caricamento progressivo: arrivati in fondo ai risultati se ne chiedono altri 40
+  function loadMore() {
+    if (more && !loading && canSearch) run(current, limit + PAGE);
+  }
+  let sentinel: HTMLElement | undefined = $state();
+  $effect(() => {
+    if (!sentinel) return;
+    const io = new IntersectionObserver((e) => { if (e.some((x) => x.isIntersecting)) loadMore(); }, { rootMargin: '400px' });
+    io.observe(sentinel);
+    return () => io.disconnect();
   });
 
   const kindLabel: Record<string, string> = { film: 'Film', series: 'Serie TV', documentary: 'Documentario', programme: 'Programma' };
@@ -225,7 +275,7 @@
       {:else if loading && hits.length === 0}
         <p class="muted" role="status">Cerco…</p>
       {:else if searched}
-        <p class="sum" role="status">{hits.length === 0 ? 'Nessun titolo' : `${hits.length} ${hits.length === 1 ? 'titolo' : 'titoli'}`}{summary ? ` · ${summary}` : ''}</p>
+        <p class="sum" role="status">{hits.length === 0 ? 'Nessun titolo' : `${hits.length}${more ? '+' : ''} ${hits.length === 1 ? 'titolo' : 'titoli'}`}{summary ? ` · ${summary}` : ''}</p>
       {/if}
 
       <ul class="rows">
@@ -263,6 +313,8 @@
           </li>
         {/each}
       </ul>
+      <div bind:this={sentinel} class="sentinel" aria-hidden="true"></div>
+      {#if more && hits.length > 0}<p class="muted small" role="status">{loading ? 'Carico altri titoli…' : ''}{#if !loading}<button type="button" class="linkbtn" onclick={loadMore}>Altri titoli</button>{/if}</p>{/if}
       {#if note && canSearch}<p class="muted small">{note}</p>{/if}
       {#if hits.length > 0}<p class="muted small">Titoli, locandine e piattaforme da TMDB e JustWatch.</p>{/if}
     </section>
@@ -326,6 +378,8 @@
   .plot { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; font-size: 13px; }
   .grow { flex: 1 1 0; }
+  .sentinel { height: 1px; }
+  .linkbtn { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }
 
   .alerts { flex: 1 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; position: sticky; top: 76px; }
   .alerts h2 { margin: 0; font-size: 20px; }

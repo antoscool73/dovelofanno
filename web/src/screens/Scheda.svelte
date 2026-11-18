@@ -8,6 +8,7 @@
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import StableLabel from '../lib/components/StableLabel.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
+  import { inMySubscriptions, payPlatform, streamingFor } from '../lib/pay';
   import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
   import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
@@ -149,16 +150,20 @@
     } catch (e) { error = e instanceof ApiError ? e.message : 'Lista non aggiornata'; }
   }
 
-  const kinds: Record<string, string> = { subscription: 'In abbonamento', free: 'Gratis', rent: 'A noleggio', buy: 'In vendita' };
+  // l'abbonamento si divide in due: le piattaforme che ho (si vede subito) e quelle che non ho
+  const kinds: Record<string, string> = { mine: 'Nei tuoi abbonamenti', subscription: 'Non nei tuoi abbonamenti', free: 'Gratis', rent: 'A noleggio', buy: 'In vendita' };
   const byKind = $derived.by(() => {
     const m = new Map<string, string[]>();
-    for (const a of w?.availability ?? []) m.set(a.kind, [...(m.get(a.kind) ?? []), a.platform]);
+    for (const a of w?.availability ?? []) {
+      const k = a.kind === 'subscription' && streamingFor({ streaming: [a.platform] }, mySubs).length > 0 ? 'mine' : a.kind;
+      m.set(k, [...(m.get(k) ?? []), a.platform]);
+    }
     // "Amazon Prime Video with Ads" non si ripete se c'è già "Amazon Prime Video"
     const tidy = (l: string[]) => l.filter((n) => {
       const base = n.replace(/ (basic |standard )?with ads$/i, '');
       return base === n || !l.some((x) => x.toLowerCase() === base.toLowerCase());
     });
-    return ['subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
+    return ['mine', 'subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
   });
   const watchLink = $derived(w?.availability.find((a) => a.link)?.link ?? '');
   // originale della piattaforma appena uscito: dedotto dall'uscita, JustWatch non lo ha ancora in catalogo
@@ -305,15 +310,15 @@
     </div>
 
     <aside>
-      <h2>Dove lo vedo</h2>
+      <h2>Dove Lo Fanno</h2>
       <div class="where">
         {#if w.airings[0]}
-          <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span><Badge tone="blue">Gratis</Badge></div>
+          <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span>{#if !payPlatform(w.airings[0])}<Badge tone="blue">Gratis</Badge>{:else if inMySubscriptions(w.airings[0], mySubs)}<Badge tone="green">Nel tuo abbonamento</Badge>{:else}<Badge tone="orange">A pagamento · {payPlatform(w.airings[0])}</Badge>{/if}</div>
         {/if}
         {#each byKind as k (k.kind)}
-          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'subscription' && mySubs.some((m) => m.toLowerCase() === n.toLowerCase())}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}{#if k.kind === 'subscription' && fromRelease.length > 0}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
+          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
-        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «dove lo vedo» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
+        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}
       {#if session.profile}<div id="avvisami"><AlertPanel workId={w.id} /></div>{/if}

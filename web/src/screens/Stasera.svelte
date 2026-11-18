@@ -14,7 +14,8 @@
   import AvailLegend from '../lib/components/AvailLegend.svelte';
   import { availOf, type Avail } from '../lib/avail';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
-  import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
+  import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type SearchQuery, type TonightItem } from '../lib/api/client';
+  import { searchHash } from './Cerca.svelte';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
@@ -168,7 +169,9 @@
   const filmsMine = $derived(dedupe(tonightFilms.filter((p) => inMySubscriptions(p, mySubs))));
   const filmsOther = $derived.by(() => {
     const mine = new Set(filmsMine.map((p) => p.title.trim().toLowerCase()));
-    return dedupe(tonightFilms.filter((p) => !inMySubscriptions(p, mySubs) && !mine.has(p.title.trim().toLowerCase())));
+    // un film che vedo comunque (in casa o in streaming nei miei abbonamenti) qui non c'è
+    return dedupe(tonightFilms.filter((p) => !inMySubscriptions(p, mySubs) && !mine.has(p.title.trim().toLowerCase())
+      && !p.inHouse && streamingFor(p, mySubs).length === 0));
   });
   // on demand: film nei cataloghi streaming dei miei abbonamenti (dai film della guida: TMDB li conosce), per voto
   const onDemand = $derived(
@@ -213,37 +216,47 @@
   const tvText = (p: GuideProgramme) => `${when(p).toLowerCase()}, ${channelOf(p)}`;
   const shortNames = (l: string[]) => l.map((s) => platforms.of(s).short).join(', ');
 
+  // didascalie, sempre uguali: 1) canale del prossimo passaggio, 2) orario hh:mm–hh:mm (con il giorno se non è
+  // stasera), 3) genere · anno. Un titolo che non passa in TV ha al posto del canale come lo vedo ("Su Netflix", "In casa")
+  // e niente orario
+  function slot(p: GuideProgramme, past = false): string {
+    const s = new Date(p.start);
+    const tonight = midnight(s).getTime() === midnight(now).getTime()
+      || (midnight(s).getTime() - midnight(now).getTime() === 86_400_000 && s.getHours() < 6 && now.getHours() >= 12);
+    const r = range(p.start, p.stop);
+    if (past) return `Passato ${day(p.start, now).toLowerCase().replace('stasera', 'oggi')} ${r}`;
+    return tonight ? r : `${day(p.start, now)} ${r}`;
+  }
+  const genreYear = (genre: string, year: number) => [genre, year || ''].filter(Boolean).join(' · ');
+
   function programmeCard(p: GuideProgramme, mode: 'tv' | 'ondemand' = 'tv'): Card {
     const avail = availOf(p, mySubs, mode === 'tv' ? p : null, tvText(p));
-    const meta = [p.sub, p.year || ''].filter(Boolean).join(' · ');
+    const meta = genreYear(p.sub || p.group, p.year);
     const card: Card = {
       key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
-      lines: [mode === 'ondemand' ? `Su ${shortNames(avail.mine)}` : `${when(p)} · ${channelOf(p)}`, meta], open: () => (open = p),
+      lines: mode === 'ondemand' ? [`Su ${shortNames(avail.mine)}`, meta] : [channelOf(p), slot(p), meta], open: () => (open = p),
     };
-    // passaggio su un canale a pagamento che non ho (es. Sky Cinema), ma il titolo lo vedo in casa o in streaming:
-    // prima riga = come lo vedo io, il passaggio resta sotto come nota; il tocco apre la scheda (con Guarda)
-    if (mode === 'tv' && !avail.tv && (avail.home || avail.mine.length > 0)) {
-      const how = avail.home ? 'In casa, quando vuoi' : `Su ${shortNames(avail.mine)}, quando vuoi`;
-      card.lines = [how, meta];
-      card.note = `${when(p)} su ${channelOf(p)}`;
-      if (p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
-    }
+    // passaggio su un canale che non vedo ma il titolo l'ho in casa o in streaming: il tocco apre la scheda (con Guarda)
+    if (mode === 'tv' && !avail.tv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
     return card;
   }
 
   function tonightCard(i: TonightItem, available: boolean): Card {
     const tv = onTvTonight(i) ? i.next : null;
     const avail = availOf(i, mySubs, i.next, i.next ? tvText(i.next) : '');
-    let first: string;
-    if (tv) first = `${when(tv)} · ${channelOf(tv)}`;
-    else if (avail.mine.length > 0) first = `Su ${shortNames(avail.mine)}, quando vuoi`;
-    else if (i.inHouse) first = 'In casa';
-    else if (onlyPast(i) && i.last) first = `Passato ${day(i.last.start, now).toLowerCase().replace('stasera', 'oggi')} ${time(i.last.start)} · ${channelOf(i.last)}`;
-    else first = laterReason(i);
+    const g = i.next ?? i.last;
+    const meta = genreYear(g?.sub || g?.group || kindLabel[i.kind] || '', i.year);
+    let lines: string[];
+    if (tv) lines = [channelOf(tv), slot(tv), meta];
+    else if (avail.mine.length > 0) lines = [`Su ${shortNames(avail.mine)}`, meta];
+    else if (i.inHouse) lines = ['In casa', meta];
+    else if (i.next) lines = [channelOf(i.next), slot(i.next), meta];
+    else if (onlyPast(i) && i.last) lines = [channelOf(i.last), slot(i.last, true), meta];
+    else lines = [laterReason(i), meta];
     return {
       key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || i.last?.poster || i.last?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
       scheduled: !!tv?.scheduled, avail, dim: !available,
-      lines: [first, [i.year || '', tv ? tv.sub || tv.group : kindLabel[i.kind] ?? ''].filter(Boolean).join(' · ')],
+      lines,
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
       rec: tv && recordable(tv) ? tv : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia serata',
     };
@@ -356,7 +369,7 @@
       </Section>
     {/if}
 
-    {#snippet row(list: Card[])}
+    {#snippet row(list: Card[], all: { filter: Partial<SearchQuery>; label: string; hint: string } | null = null)}
       <ul class="cards" use:dragScroll>
         {#each list as c (c.key)}
           <li class:dim={c.dim}>
@@ -388,6 +401,16 @@
             {/if}
           </li>
         {/each}
+        {#if all}
+          <!-- ultima locandina: la lista completa è la ricerca con i filtri di questa riga -->
+          <li>
+            <a class="card all" href={'/cerca' + searchHash(all.filter)} onclick={navigate}>
+              <span class="poster more"><span class="plus" aria-hidden="true">→</span><span>{all.label}</span></span>
+              <span class="c-title">Vedi tutti</span>
+              <span class="line muted small">{all.hint}</span>
+            </a>
+          </li>
+        {/if}
       </ul>
     {/snippet}
 
@@ -395,10 +418,10 @@
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
         {#snippet aside()}<span class="mysubs">dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{#each platforms.sort(mySubs) as s (s)}<ServiceIcon name={s} size={24} />{/each}</span>{/snippet}
         <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
-        {#if filmsMine.length > 0}{@render row(filmsMine.slice(0, 18).map((p) => programmeCard(p)))}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
+        {#if filmsMine.length > 0}{@render row(filmsMine.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'] }, label: 'Tutti i film in TV', hint: 'nei prossimi giorni, con i filtri' })}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
         <h3 class="subrow">On demand <span class="muted small">da vedere quando vuoi nei cataloghi dei tuoi abbonamenti</span></h3>
         {#if onDemand.length > 0}
-          {@render row(onDemand.slice(0, 18).map((p) => programmeCard(p, 'ondemand')))}
+          {@render row(onDemand.slice(0, 18).map((p) => programmeCard(p, 'ondemand')), { filter: { kind: 'film', avail: ['mine'] }, label: 'Tutti i film nei tuoi abbonamenti', hint: 'il catalogo completo, con i filtri' })}
         {:else}
           <p class="muted small">{mySubs.length === 0 ? 'Scegli i tuoi abbonamenti (Netflix, Prime Video…) in Preferenze: qui compaiono i film dei loro cataloghi.' : 'Nessun film della guida nei cataloghi dei tuoi abbonamenti, per ora.'}</p>
         {/if}
@@ -406,14 +429,14 @@
       {#if filmsOther.length > 0}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
           {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
-          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)))}
+          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paid'] }, label: 'Tutti i film a pagamento', hint: 'noleggio, acquisto, altri abbonamenti' })}
         </Section>
       {/if}
     {/if}
     {#if weekFilms.length > 0}
       <Section key="settimana" title="Questa settimana">
         {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
-        {@render row(weekFilms.map((p) => programmeCard(p)))}
+        {@render row(weekFilms.map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'], minRating: 7 }, label: 'Tutti i film da 7 in su', hint: 'in TV nei prossimi giorni' })}
       </Section>
     {/if}
 
@@ -486,6 +509,11 @@
   .recdot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
   .c-title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .accent { color: var(--link); }
+  /* "Vedi tutti": ultima locandina della riga, porta alla ricerca con i filtri della riga */
+  .card.all { text-decoration: none; }
+  .poster.more { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; text-align: center; background: var(--surface); border: 1px dashed var(--line-btn); color: var(--text-2); font-weight: 600; font-size: 14px; }
+  .card.all:hover .poster.more { border-color: var(--text-2); color: var(--text); }
+  .plus { font-size: 30px; line-height: 1; color: var(--link); }
   /* nota su due righe al massimo: il passaggio su un canale che non ho */
   .note { color: var(--muted); font-size: 12px; line-height: 1.3; opacity: 0.85; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   /* titoli della mia serata che stasera non si vedono nei miei abbonamenti: più chiari, ma si aprono lo stesso */

@@ -32,6 +32,17 @@ public class GenresTests
         Assert.Equal("Serie TV", p.Group);
     }
 
+    [Theory]
+    [InlineData("Scoperta e avventura")]   // Gumball su Boing (17/11/2026)
+    [InlineData("Azione", "Animazione")]
+    public void SuUnCanalePerBambiniEBambini(params string[] cats)
+    {
+        var p = Classified(P(10, episode: "S4 E24", title: "Lo straordinario mondo di Gumball", cats: cats), "Boing.it Boing");
+        Assert.Equal(("Bambini", false), (p.Group, p.GroupGuessed));
+        Assert.Equal("Film", Classified(P(95, cats: ["Film", "Animazione"]), "Boing.it Boing").Group);
+        Assert.Equal("Documentari", Classified(P(50, cats: ["Scoperta e avventura"]), "Focus.it Focus").Group);
+    }
+
     [Fact]
     public void FilmSottoVentiMinutiEAltro()
     {

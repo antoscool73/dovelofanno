@@ -233,7 +233,7 @@
 
     {:else if tab === 'abbonamenti'}
       <h2>I miei abbonamenti</h2>
-      <p class="f-muted">Servono a «Dove lo vedo» e agli avvisi «nei miei abbonamenti». Quelli della famiglia si scelgono in Impostazioni › Profili e abbonamenti.</p>
+      <p class="f-muted">Servono a «Dove Lo Fanno» e agli avvisi «nei miei abbonamenti». Quelli della famiglia si scelgono in Impostazioni › Profili e abbonamenti.</p>
       {#if mySubs && family}
         <label class="f-check"><input type="checkbox" checked={mySubs.inherits} disabled={busy}
           onchange={(e) => act(() => api.setProfileSubscriptions(prof!.id, e.currentTarget.checked, e.currentTarget.checked ? null : family!.services))} />

@@ -40,7 +40,7 @@
     error = '';
     try {
       await api.updateRatingSettings({ tmdbKey: key.trim(), clearTmdbKey: null, imdbEnabled: null });
-      done = [...done, 'Chiave TMDB salvata: arrivano voti, locandine e «dove lo vedo».'];
+      done = [...done, 'Chiave TMDB salvata: arrivano voti, locandine e «Dove Lo Fanno».'];
       step = 4;
     } catch (x) {
       error = x instanceof ApiError ? x.message : 'Chiave non salvata';
@@ -75,7 +75,7 @@
 
     {#if step === 1 || step === 2}
       <h1>Hai una playlist IPTV?</h1>
-      <p class="f-muted">Con una playlist M3U DoveLoFanno registra i canali e mostra la guida a griglia con l'anteprima. Senza, resta una guida con proposte, «dove lo vedo», avvisi e la libreria dei file di casa.</p>
+      <p class="f-muted">Con una playlist M3U DoveLoFanno registra i canali e mostra la guida a griglia con l'anteprima. Senza, resta una guida con proposte, «Dove Lo Fanno», avvisi e la libreria dei file di casa.</p>
       <form onsubmit={addPlaylist} class="form">
         <label class="f-field">Indirizzo della playlist M3U (o file sul server)<input bind:value={url} placeholder="https://…/playlist.m3u" /></label>
         <label class="f-check"><input type="checkbox" bind:checked={rights} /> Ho il diritto di usare questa playlist. DoveLoFanno non include né fornisce canali.</label>
@@ -85,7 +85,7 @@
         </div>
       </form>
     {:else if step === 3}
-      <h1>Voti, locandine e dove lo vedo</h1>
+      <h1>Voti, locandine e Dove Lo Fanno</h1>
       <p class="f-muted">Vengono da TMDB con una chiave personale gratuita: si chiede su themoviedb.org (Impostazioni › API) e si incolla qui. DoveLoFanno la prova prima di salvarla e non la mostra più.</p>
       <form onsubmit={saveKey} class="form">
         <label class="f-field">Chiave TMDB (v3 o token v4)<input bind:value={key} autocomplete="off" /></label>
@@ -96,7 +96,7 @@
       </form>
     {:else if step === 4}
       <h1>Che abbonamenti avete?</h1>
-      <p class="f-muted">«Dove lo vedo» li mette per primi e gli avvisi ti dicono quando un titolo ci arriva. Ogni profilo può poi scegliere i suoi.</p>
+      <p class="f-muted">«Dove Lo Fanno» li mette per primi e gli avvisi ti dicono quando un titolo ci arriva. Ogni profilo può poi scegliere i suoi.</p>
       {#if family}
         <ServicePicker known={family.known} selected={family.services} ontoggle={toggle} />
       {/if}

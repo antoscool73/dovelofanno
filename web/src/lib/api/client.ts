@@ -53,7 +53,7 @@ export type SearchOptions = S['SearchOptions'];
 /** Filtri della ricerca avanzata: tutti facoltativi (vuoto o 0 = filtro spento). */
 export type SearchQuery = {
   q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genre: number; yearFrom: number; yearTo: number;
-  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[];
+  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[]; limit?: number;
 };
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
@@ -206,6 +206,7 @@ export const api = {
     if (s.country) p.set('country', s.country);
     if (s.minRating) p.set('minRating', String(s.minRating));
     if (s.avail.length) p.set('avail', s.avail.join(','));
+    if (s.limit) p.set('limit', String(s.limit));
     return call<SearchResult>('GET', '/search?' + p.toString());
   },
   searchOptions: () => call<SearchOptions>('GET', '/search/options'),
