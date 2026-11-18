@@ -196,6 +196,30 @@ public sealed class GuideStore(string dbPath)
         return new GuideStatus(channels, linked, progs, last, until, guides);
     }
 
+    /// <summary>
+    /// Canale della playlist di ogni canale della guida: quello collegato direttamente, oppure (Alias) quello di un altro
+    /// canale della stessa guida con lo stesso nome normalizzato. epgshare01 ha i canali Rai e Top Crime due volte
+    /// ("Rai4" e "Rai 4  5021") con palinsesti non identici: anche i programmi del doppione si devono poter registrare.
+    /// </summary>
+    static Dictionary<long, (long Id, string Name, string Key, bool Alias)> ChannelLinks(SqliteConnection c)
+    {
+        var all = Db.Query(c, """
+            SELECT gc.id, gc.guide_source_id, gc.name, ch.id, coalesce(ch.name, ''), coalesce(ch.key, '')
+            FROM guide_channels gc
+            LEFT JOIN channels ch ON ch.id = (SELECT min(x.id) FROM channels x WHERE x.guide_channel_id = gc.id AND x.excluded = 0)
+            """, r => (Gc: r.GetInt64(0), Src: r.GetInt64(1), Key: Titles.ChannelKey(r.GetString(2)), Ch: Db.NLong(r, 3), Name: r.GetString(4), ChKey: r.GetString(5)));
+        var res = new Dictionary<long, (long, string, string, bool)>();
+        var byKey = new Dictionary<(long Src, string Key), (long, string, string)>();
+        foreach (var x in all.Where(x => x.Ch != null))
+        {
+            res[x.Gc] = (x.Ch!.Value, x.Name, x.ChKey, false);
+            if (x.Key.Length > 0) byKey.TryAdd((x.Src, x.Key), (x.Ch.Value, x.Name, x.ChKey));
+        }
+        foreach (var x in all.Where(x => x.Ch == null && x.Key.Length > 0))
+            if (byKey.TryGetValue((x.Src, x.Key), out var l)) res[x.Gc] = (l.Item1, l.Item2, l.Item3, true);
+        return res;
+    }
+
     /// <summary>Programmi che si sovrappongono a [From, To), ordinati per inizio e canale.</summary>
     public List<GuideProgramme> Query(GuideQuery q)
     {
@@ -205,6 +229,8 @@ public sealed class GuideStore(string dbPath)
             WHERE state IN ('scheduled', 'recording', 'merging') AND stop + after_min * 60 > $from AND start - before_min * 60 < $to
             """, r => (Ch: r.GetInt64(0), A: r.GetInt64(1), B: r.GetInt64(2)), ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)));
 
+        var links = ChannelLinks(c);
+        var aliased = new HashSet<long>();
         var rows = Db.Query(c, """
             SELECT p.id, gc.id, gc.name, ch.id, coalesce(ch.name, ''), p.start, p.stop, p.title, p.subtitle, p.description, p.categories,
                    p.group_name, p.sub_genre, p.year, p.country, p.directors, p.actors, p.episode, p.icon, p.work_id, coalesce(w.work_key, ''),
@@ -221,26 +247,28 @@ public sealed class GuideStore(string dbPath)
             LEFT JOIN channels ch ON ch.id = (SELECT min(x.id) FROM channels x WHERE x.guide_channel_id = gc.id AND x.excluded = 0)
             LEFT JOIN works w ON w.id = p.work_id
             WHERE p.stop > $from AND p.start < $to
-              AND ($ch IS NULL OR ch.id = $ch)
               AND ($g IS NULL OR p.group_name = $g)
               AND ($sg IS NULL OR p.sub_genre = $sg COLLATE NOCASE)
               AND ($min <= 0 OR coalesce(w.rating, 0) >= $min)
-              AND ($rec = 0 OR ch.id IS NOT NULL)
             ORDER BY p.start, coalesce(ch.name, gc.name), p.id
             """,
             r =>
             {
-                long? chId = Db.NLong(r, 3);
+                // canale della playlist: collegato direttamente o tramite un doppione della guida con lo stesso nome
+                long gcId = r.GetInt64(1);
+                links.TryGetValue(gcId, out var link);
+                long? chId = link.Id > 0 ? link.Id : null;
+                if (link.Alias) aliased.Add(r.GetInt64(0));
                 long a = r.GetInt64(5), b = r.GetInt64(6);
                 // in programma: una registrazione dello stesso canale ne copre almeno metà (come RegistraTV)
                 bool scheduled = chId is long id && pending.Any(x => x.Ch == id && Math.Min(b, x.B) - Math.Max(a, x.A) >= (b - a) / 2.0);
                 string[] cats;
                 try { cats = JsonSerializer.Deserialize<string[]>(r.GetString(10)) ?? []; } catch (JsonException) { cats = []; }
-                return new GuideProgramme(r.GetInt64(0), r.GetInt64(1), r.GetString(2), chId, r.GetString(4), Db.FromUnix(a), Db.FromUnix(b),
+                return new GuideProgramme(r.GetInt64(0), r.GetInt64(1), r.GetString(2), chId, chId != null ? link.Name : "", Db.FromUnix(a), Db.FromUnix(b),
                     r.GetString(7), r.GetString(8), r.GetString(9), cats, r.GetString(11), r.GetString(12), r.GetInt32(13), r.GetString(14),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18), Db.NLong(r, 19), r.GetString(20),
                     r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled,
-                    chId != null ? ChannelNumbers.For(r.GetString(23), r.GetString(4)) : ChannelNumbers.For(r.GetString(24), r.GetString(2)))
+                    chId != null ? ChannelNumbers.For(link.Key, link.Name) : ChannelNumbers.For(r.GetString(24), r.GetString(2)))
                 {
                     // locandina dell'opera da TMDB (si scarica dopo i voti), se c'è
                     Poster = WorkStore.ImageUrl(r.GetString(25), "w342"),
@@ -249,8 +277,20 @@ public sealed class GuideStore(string dbPath)
                     InHouse = !r.IsDBNull(28) && r.GetInt64(28) == 1,
                 };
             },
-            ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$ch", q.ChannelId), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),
-            ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating), ("$rec", q.OnlyRecordable ? 1 : 0));
+            ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),
+            ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating));
+
+        // canale e "solo registrabili" dopo il collegamento (anche tramite doppione); un programma del doppione che c'è
+        // anche sul canale collegato (stesso titolo, inizio entro 10 minuti) si mostra una volta sola
+        rows = [.. rows.Where(p => (q.ChannelId == null || p.ChannelId == q.ChannelId) && (!q.OnlyRecordable || p.ChannelId != null))];
+        if (aliased.Count > 0)
+        {
+            var originals = rows.Where(p => p.ChannelId != null && !aliased.Contains(p.Id))
+                .GroupBy(p => (p.ChannelId, Titles.TitleKey(p.Title))).ToDictionary(g => g.Key, g => g.Select(p => p.Start).ToList());
+            rows = [.. rows.Where(p => !aliased.Contains(p.Id)
+                || !originals.TryGetValue((p.ChannelId, Titles.TitleKey(p.Title)), out var starts)
+                || !starts.Any(s => Math.Abs((s - p.Start).TotalMinutes) <= 10))];
+        }
 
         // a parità di inizio, i canali nell'ordine della playlist (ChannelOrder, come RegistraTV); quelli della sola
         // guida dopo, per numero del digitale terrestre e nome
