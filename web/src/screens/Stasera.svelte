@@ -10,6 +10,7 @@
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import { platforms } from '../lib/platforms.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
+  import { dragScroll } from '../lib/dragScroll';
   import AvailLegend from '../lib/components/AvailLegend.svelte';
   import { availOf, type Avail } from '../lib/avail';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
@@ -179,8 +180,22 @@
   // abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo
   const onTvTonight = (i: TonightItem) => !!i.next && new Date(i.next.start) < eveningWindow(now).to;
   const tonightAvailable = $derived(tonightList.filter((i) => onTvTonight(i) || i.inHouse || streamingFor(i, mySubs).length > 0));
-  const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i)));
+  // passati: già trasmessi negli ultimi 3 giorni e oggi non si vedono in nessun altro modo (nessun passaggio in arrivo,
+  // non in casa, nessuna piattaforma): si mostrano solo con l'interruttore "Mostra programmazione passata"
+  const onlyPast = (i: TonightItem) =>
+    !!i.last && !i.next && !i.inHouse && (i.streaming?.length ?? 0) === 0 && (i.paid?.length ?? 0) === 0;
+  const tonightPast = $derived(tonightList.filter((i) => !tonightAvailable.includes(i) && onlyPast(i)));
+  const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i) && !onlyPast(i)));
+  const PAST_KEY = 'dlf.serata.passati';
+  let showPast = $state((() => { try { return localStorage.getItem(PAST_KEY) === '1'; } catch { return false; } })());
+  function setShowPast(v: boolean) {
+    showPast = v;
+    try { if (v) localStorage.setItem(PAST_KEY, '1'); else localStorage.removeItem(PAST_KEY); } catch { /* solo per questa visita */ }
+  }
   const kindLabel: Record<string, string> = { film: 'Film', series: 'Serie TV', documentary: 'Documentario', programme: 'Programma' };
+  // i voti (IMDb o TMDB) esistono per film, serie e documentari: dove mancano si scrive N/A
+  const RATED_KINDS = ['film', 'series', 'documentary'];
+  const RATED_GROUPS = ['Film', 'Serie TV', 'Documentari'];
   function laterReason(i: TonightItem): string {
     if (i.next) return `In TV ${day(i.next.start, now).toLowerCase()} ${time(i.next.start)}`;
     const st = [...(i.streaming ?? []), ...(i.paid ?? [])];
@@ -191,7 +206,7 @@
   // una locandina di una riga: stessa forma per la mia serata, le proposte e i film (in diretta, on demand, settimana)
   type Card = {
     key: string; poster: string; title: string; rating: number | null; scheduled: boolean; avail: Avail;
-    lines: string[]; note?: string; accent?: string; warn?: string; dim?: boolean; open: () => void;
+    lines: string[]; note?: string; accent?: string; warn?: string; dim?: boolean; open: () => void; rated?: boolean;
     rec?: GuideProgramme | null; seen?: () => void; drop?: () => void; dropLabel?: string;
   };
   const channelOf = (p: GuideProgramme) => p.channelName || p.guideChannelName;
@@ -202,7 +217,7 @@
     const avail = availOf(p, mySubs, mode === 'tv' ? p : null, tvText(p));
     const meta = [p.sub, p.year || ''].filter(Boolean).join(' · ');
     const card: Card = {
-      key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail,
+      key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
       lines: [mode === 'ondemand' ? `Su ${shortNames(avail.mine)}` : `${when(p)} · ${channelOf(p)}`, meta], open: () => (open = p),
     };
     // passaggio su un canale a pagamento che non ho (es. Sky Cinema), ma il titolo lo vedo in casa o in streaming:
@@ -223,9 +238,10 @@
     if (tv) first = `${when(tv)} · ${channelOf(tv)}`;
     else if (avail.mine.length > 0) first = `Su ${shortNames(avail.mine)}, quando vuoi`;
     else if (i.inHouse) first = 'In casa';
+    else if (onlyPast(i) && i.last) first = `Passato ${day(i.last.start, now).toLowerCase().replace('stasera', 'oggi')} ${time(i.last.start)} · ${channelOf(i.last)}`;
     else first = laterReason(i);
     return {
-      key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || '', title: i.title, rating: i.rating ?? null,
+      key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || i.last?.poster || i.last?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
       scheduled: !!tv?.scheduled, avail, dim: !available,
       lines: [first, [i.year || '', tv ? tv.sub || tv.group : kindLabel[i.kind] ?? ''].filter(Boolean).join(' · ')],
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
@@ -242,7 +258,11 @@
     };
   }
 
-  const serataCards = $derived([...tonightAvailable.map((i) => tonightCard(i, true)), ...tonightLater.map((i) => tonightCard(i, false))]);
+  const serataCards = $derived([
+    ...tonightAvailable.map((i) => tonightCard(i, true)),
+    ...tonightLater.map((i) => tonightCard(i, false)),
+    ...(showPast ? tonightPast.map((i) => tonightCard(i, false)) : []),
+  ]);
 </script>
 
 {#if loading}
@@ -277,10 +297,21 @@
   <div class="pad sections">
     <AvailLegend />
     <Section key="serata" title="La mia serata">
+      {#snippet tools()}
+        {#if tonightPast.length > 0}
+          <label class="switch">
+            <input type="checkbox" role="switch" checked={showPast} onchange={(e) => setShowPast(e.currentTarget.checked)} />
+            <span class="track" aria-hidden="true"></span>
+            Mostra programmazione passata ({tonightPast.length})
+          </label>
+        {/if}
+      {/snippet}
       {#snippet aside()}{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere (dalla guida o con la lente): compaiono qui quando si possono vedere.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} da vedere stasera`}{/snippet}
       {#if serataCards.length > 0}
         {@render row(serataCards)}
-        {#if tonightLater.length > 0}<p class="muted small">Le locandine più chiare non si vedono stasera nei tuoi abbonamenti: un tocco apre la scheda.</p>{/if}
+        {#if serataCards.some((c) => c.dim)}<p class="muted small">Le locandine più chiare non si vedono stasera nei tuoi abbonamenti: un tocco apre la scheda.</p>{/if}
+      {:else if tonightPast.length > 0}
+        <p class="muted small">Niente da vedere stasera dalla tua lista: {tonightPast.length === 1 ? 'un titolo è già passato' : `${tonightPast.length} titoli sono già passati`} negli ultimi giorni.</p>
       {/if}
     </Section>
 
@@ -326,13 +357,13 @@
     {/if}
 
     {#snippet row(list: Card[])}
-      <ul class="cards">
+      <ul class="cards" use:dragScroll>
         {#each list as c (c.key)}
           <li class:dim={c.dim}>
             <button type="button" class="card" onclick={c.open}>
               <span class="poster">
                 <PosterImg src={c.poster} title={c.title} />
-                {#if c.rating != null}<span class="stars">★ {vote(c.rating)}</span>{/if}
+                {#if c.rating != null}<span class="stars">★ {vote(c.rating)}</span>{:else if c.rated}<span class="stars na" title="Voto non ancora disponibile">★ N/A</span>{/if}
                 {#if c.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
                 <AvailBadges a={c.avail} />
               </span>
@@ -392,7 +423,6 @@
         <p class="muted">Arriva dalla playlist (se la indica) o da una guida aggiunta in <a href="/impostazioni" onclick={navigate}>Impostazioni</a>. Senza la chiave TMDB i film non hanno voto: si aggiunge in Impostazioni › Voti dei film.</p>
       </div>
     {/if}
-    <p class="muted small"><a href="/guida" onclick={(e) => { e.preventDefault(); router.go('/guida'); }}>Tutta la guida</a> · <a href="/libreria" onclick={navigate}>Continua a guardare nella Libreria</a></p>
   </div>
 {/if}
 
@@ -434,6 +464,14 @@
   .r-title { font-weight: 600; }
   .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; align-items: start; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
   .cards li { scroll-snap-align: start; }
+  :global(.cards.dragging), :global(.row-scroll.dragging) { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .track { position: relative; width: 34px; height: 20px; border-radius: 10px; background: var(--line-btn); transition: background 0.15s; }
+  .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: left 0.15s; }
+  .switch input:checked + .track { background: var(--blue); }
+  .switch input:checked + .track::after { left: 17px; }
+  .switch input:focus-visible + .track { box-shadow: var(--focus); }
   .card { width: 100%; display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
   .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: block; margin-bottom: 6px; }
   /* una riga per voce: un testo lungo non deve allungare tutta la fila */
@@ -444,6 +482,7 @@
   .subrow { font-size: 16px; margin: 4px 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
   .subrow + :global(ul), .subrow + p { margin-bottom: 20px; }
   .stars { position: absolute; top: 8px; left: 8px; background: rgba(13, 16, 21, 0.8); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+  .stars.na { color: var(--muted); font-weight: 600; }
   .recdot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
   .c-title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .accent { color: var(--link); }

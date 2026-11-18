@@ -249,6 +249,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Generi e paesi tra cui scegliere nei filtri della ricerca */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchOptions"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -256,12 +292,19 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Cerca per titolo: opere della guida e di casa, poi film e serie di TMDB (anche solo in streaming); profilo bambino: solo titoli per bambini */
+        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini */
         get: {
             parameters: {
-                query: {
-                    q: string;
+                query?: {
+                    q?: string;
                     profileId?: number;
+                    kind?: string;
+                    genre?: number;
+                    yearFrom?: number;
+                    yearTo?: number;
+                    country?: string;
+                    minRating?: number;
+                    avail?: string;
                 };
                 header?: never;
                 path?: never;
@@ -4529,6 +4572,19 @@ export interface components {
             genreIds: number[];
             streaming?: null | string[];
             paid?: null | string[];
+            genres?: null | string[];
+            /** @default  */
+            country: string;
+            /** @default  */
+            credits: string;
+        };
+        SearchOption: {
+            id: string;
+            name: string;
+        };
+        SearchOptions: {
+            genres: components["schemas"]["SearchOption"][];
+            countries: components["schemas"]["SearchOption"][];
         };
         SearchResult: {
             hits: components["schemas"]["SearchHit"][];
@@ -4611,6 +4667,7 @@ export interface components {
             /** @default  */
             poster: string;
             paid?: null | string[];
+            last?: null | components["schemas"]["GuideProgramme"];
         };
         TrackInfo: {
             /** Format: int32 */

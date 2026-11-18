@@ -205,7 +205,7 @@
           {#if genre}<span>{genre}</span>{/if}
           {#if runtime}<span>{minutes(runtime)}</span>{/if}
           {#if first?.country}<span>{first.country}</span>{/if}
-          {#if w.rating != null}<Badge tone="blue">★ {vote(w.rating)} {w.ratingSource}</Badge>{/if}
+          {#if w.rating != null}<Badge tone="blue">★ {vote(w.rating)} {w.ratingSource}</Badge>{:else if w.kind !== 'programme' && w.kind !== 'episode'}<span title="Voto non ancora disponibile: IMDb non ha ancora il titolo e su TMDB ha meno di 20 voti">★ N/A</span>{/if}
           {#if w.watched}<Badge tone="green">Visto</Badge>{/if}
         </div>
         {#if plot}<p class="plot">{plot}</p>{/if}

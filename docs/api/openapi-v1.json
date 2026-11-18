@@ -184,17 +184,36 @@
         }
       }
     },
+    "/api/v1/search/options": {
+      "get": {
+        "tags": [
+          "Opere"
+        ],
+        "summary": "Generi e paesi tra cui scegliere nei filtri della ricerca",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search": {
       "get": {
         "tags": [
           "Opere"
         ],
-        "summary": "Cerca per titolo: opere della guida e di casa, poi film e serie di TMDB (anche solo in streaming); profilo bambino: solo titoli per bambini",
+        "summary": "Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini",
         "parameters": [
           {
             "name": "q",
             "in": "query",
-            "required": true,
             "schema": {
               "type": "string"
             }
@@ -205,6 +224,59 @@
             "schema": {
               "type": "integer",
               "format": "int64"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "yearFrom",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "yearTo",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minRating",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "avail",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -6004,6 +6076,59 @@
             "items": {
               "type": "string"
             }
+          },
+          "genres": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "country": {
+            "type": "string",
+            "default": ""
+          },
+          "credits": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      },
+      "SearchOption": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchOptions": {
+        "required": [
+          "genres",
+          "countries"
+        ],
+        "type": "object",
+        "properties": {
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchOption"
+            }
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchOption"
+            }
           }
         }
       },
@@ -6321,6 +6446,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "last": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GuideProgramme"
+              }
+            ]
           }
         }
       },

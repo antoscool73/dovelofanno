@@ -4,6 +4,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
+  import { dragScroll } from '../lib/dragScroll';
   import { availOf } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -263,7 +264,7 @@
               <div class="line">
                 <a class="ltitle" href="/opera/{it.workId}" onclick={navigate}>{it.title}</a>
                 {#if kindLabel[it.kind]}<Badge tone={kindLabel[it.kind]!.tone}>{kindLabel[it.kind]!.label}</Badge>{/if}
-                {#if it.rating != null}<span class="muted small">{it.ratingSource} {vote(it.rating)}</span>{/if}
+                {#if it.rating != null}<span class="muted small">{it.ratingSource} {vote(it.rating)}</span>{:else if it.kind !== 'programme'}<span class="muted small" title="Voto non ancora disponibile">N/A</span>{/if}
                 {#if it.watched}<Badge tone="green">Visto</Badge>{/if}
               </div>
               <div class="muted small">{[it.country, it.year ? String(it.year) : '', it.credits].filter(Boolean).join(' · ')}</div>
@@ -291,7 +292,7 @@
     {#if cont.length > 0}
       <section class="pad block">
         <h2>Continua a guardare</h2>
-        <div class="row-scroll">
+        <div class="row-scroll" use:dragScroll>
           {#each cont as c (c.id)}
             <a class="cont" href="/guarda/{c.id}" onclick={navigate}>
               <span class="ctitle">{c.title}</span>
@@ -376,7 +377,7 @@
             <div class="cbody">
               <a class="ctitle" href="/opera/{e.workId}" onclick={navigate}>{e.title}</a>
               <div class="muted small">
-                {[e.year ? String(e.year) : '', e.episodes > 0 ? `${e.episodes} ${e.episodes === 1 ? 'episodio' : 'episodi'}` : e.files > 1 ? `${e.files} file` : '', e.rating != null ? `${e.ratingSource} ${vote(e.rating)}` : ''].filter(Boolean).join(' · ')}
+                {[e.year ? String(e.year) : '', e.episodes > 0 ? `${e.episodes} ${e.episodes === 1 ? 'episodio' : 'episodi'}` : e.files > 1 ? `${e.files} file` : '', e.rating != null ? `${e.ratingSource} ${vote(e.rating)}` : e.kind !== 'programme' ? 'N/A' : ''].filter(Boolean).join(' · ')}
               </div>
               <div class="cfoot">
                 {#if e.playItemId}

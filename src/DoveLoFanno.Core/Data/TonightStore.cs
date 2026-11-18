@@ -4,11 +4,13 @@ namespace DoveLoFanno.Data;
 
 /// <summary>
 /// Un titolo della lista "La mia serata in TV" con il suo prossimo passaggio in guida, le piattaforme dove si vede in
-/// streaming (abbonamento o gratis) e se c'è in casa (file o registrazione riuscita).
+/// streaming (abbonamento o gratis), se c'è in casa (file o registrazione riuscita) e l'ultimo passaggio già trasmesso
+/// negli ultimi 3 giorni (Last).
 /// </summary>
 public sealed record TonightItem(
     long WorkId, string Kind, string Title, int Year, double? Rating, string RatingSource, DateTimeOffset AddedAt, GuideProgramme? Next,
-    IReadOnlyList<string>? Streaming = null, bool InHouse = false, string Poster = "", IReadOnlyList<string>? Paid = null);
+    IReadOnlyList<string>? Streaming = null, bool InHouse = false, string Poster = "", IReadOnlyList<string>? Paid = null,
+    GuideProgramme? Last = null);
 
 public enum TonightResult { Ok, NoProfile, NoWork }
 
@@ -26,7 +28,7 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
     /// <summary>null se il profilo non esiste.</summary>
     public List<TonightItem>? Items(long profileId, DateTimeOffset now)
     {
-        List<(long Work, string Kind, string Title, int Year, double? Rating, string Src, long Added, long? Prog, string Streaming, bool Home, string Poster, string Paid)> rows;
+        List<(long Work, string Kind, string Title, int Year, double? Rating, string Src, long Added, long? Prog, string Streaming, bool Home, string Poster, string Paid, long? Last)> rows;
         using (var c = Open())
         {
             long? list = ListId(c, profileId);
@@ -39,18 +41,21 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
                                WHERE (e.id = w.id OR e.parent_id = w.id) AND i.missing_since IS NULL)
                        OR EXISTS (SELECT 1 FROM recordings r WHERE r.work_id = w.id AND r.state IN ('completed', 'incomplete') AND r.file <> ''),
                        w.poster,
-                       coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), '')
+                       coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), ''),
+                       (SELECT p.id FROM programmes p WHERE p.work_id = w.id AND p.stop <= $now AND p.stop > $past ORDER BY p.start DESC LIMIT 1)
                 FROM list_items li JOIN works w ON w.id = li.work_id
                 WHERE li.list_id = $l ORDER BY li.position, li.added_at
                 """,
                 r => (r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.IsDBNull(4) ? (double?)null : r.GetDouble(4), r.GetString(5), r.GetInt64(6), Db.NLong(r, 7),
-                    r.GetString(8), r.GetInt64(9) == 1, r.GetString(10), r.GetString(11)),
-                ("$l", list), ("$now", Db.Unix(now)));
+                    r.GetString(8), r.GetInt64(9) == 1, r.GetString(10), r.GetString(11), Db.NLong(r, 12)),
+                ("$l", list), ("$now", Db.Unix(now)), ("$past", Db.Unix(now.AddDays(-3))));
         }
         return rows.Select(x => new TonightItem(x.Work, x.Kind, x.Title, x.Year, x.Rating, x.Src, Db.FromUnix(x.Added),
             x.Prog is long pid ? guide.Programme(pid) : null,
             x.Streaming.Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), x.Home, WorkStore.ImageUrl(x.Poster, "w342"),
-            x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList())).ToList();
+            x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+            // ultimo passaggio già trasmesso negli ultimi 3 giorni ("programmazione passata" in Stasera)
+            x.Last is long lid ? guide.Programme(lid) : null)).ToList();
     }
 
     public TonightResult Add(long profileId, long workId, DateTimeOffset now)

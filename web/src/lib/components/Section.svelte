@@ -3,8 +3,9 @@
   // dispositivo (comodità, non dato importante: senza memoria del browser resta aperta).
   import type { Snippet } from 'svelte';
 
-  let { key, title, id = undefined, aside = undefined, children }: {
-    key: string; title: string; id?: string; aside?: Snippet; children: Snippet;
+  // tools: controlli subito dopo il titolo (es. un interruttore); aside: testo a destra
+  let { key, title, id = undefined, aside = undefined, tools = undefined, children }: {
+    key: string; title: string; id?: string; aside?: Snippet; tools?: Snippet; children: Snippet;
   } = $props();
 
   const storeKey = $derived('dlf.sezione.' + key);
@@ -28,13 +29,16 @@
         {title}
       </button>
     </h2>
+    {#if tools && !closed}<div class="tools">{@render tools()}</div>{/if}
     {#if aside}<div class="aside">{@render aside()}</div>{/if}
   </div>
   <div id={bodyId} hidden={closed}>{@render children()}</div>
 </section>
 
 <style>
-  .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 12px; }
+  .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 12px; }
+  .tools { display: flex; align-items: center; }
+  .aside { margin-left: auto; }
   h2 { font-size: 22px; margin: 0; }
   h2 button {
     display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px 2px 0; border: 0; background: none; color: var(--text);

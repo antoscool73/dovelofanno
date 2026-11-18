@@ -49,6 +49,12 @@ export type Platform = S['Platform'];
 export type SearchHit = S['SearchHit'];
 export type SearchResult = S['SearchResult'];
 export type FromTmdbBody = S['FromTmdbBody'];
+export type SearchOptions = S['SearchOptions'];
+/** Filtri della ricerca avanzata: tutti facoltativi (vuoto o 0 = filtro spento). */
+export type SearchQuery = {
+  q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genre: number; yearFrom: number; yearTo: number;
+  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[];
+};
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
 export type NotificationSettings = S['NotificationSettings'];
@@ -189,8 +195,20 @@ export const api = {
 
   familySubscriptions: () => call<FamilySubscriptions>('GET', '/subscriptions'),
   platforms: () => call<Platform[]>('GET', '/platforms'),
-  search: (q: string, profileId?: number) =>
-    call<SearchResult>('GET', `/search?q=${encodeURIComponent(q)}${profileId ? `&profileId=${profileId}` : ''}`),
+  search: (s: SearchQuery, profileId?: number) => {
+    const p = new URLSearchParams();
+    if (s.q.trim()) p.set('q', s.q.trim());
+    if (profileId) p.set('profileId', String(profileId));
+    if (s.kind !== 'all') p.set('kind', s.kind);
+    if (s.genre) p.set('genre', String(s.genre));
+    if (s.yearFrom) p.set('yearFrom', String(s.yearFrom));
+    if (s.yearTo) p.set('yearTo', String(s.yearTo));
+    if (s.country) p.set('country', s.country);
+    if (s.minRating) p.set('minRating', String(s.minRating));
+    if (s.avail.length) p.set('avail', s.avail.join(','));
+    return call<SearchResult>('GET', '/search?' + p.toString());
+  },
+  searchOptions: () => call<SearchOptions>('GET', '/search/options'),
   workFromTmdb: (b: FromTmdbBody) => call<{ workId: number }>('POST', '/works/from-tmdb', b),
   setFamilySubscriptions: (services: string[]) => call<FamilySubscriptions>('PUT', '/subscriptions', { services }),
   profileSubscriptions: (profileId: number) => call<ProfileSubscriptions>('GET', `/profiles/${profileId}/subscriptions`),

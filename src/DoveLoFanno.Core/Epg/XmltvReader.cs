@@ -13,17 +13,19 @@ namespace DoveLoFanno.Epg;
 /// </summary>
 public static partial class XmltvReader
 {
-    public static EpgGuide Load(string path, DateTime now)
+    /// <param name="keepDays">giorni di programmi già finiti da tenere: 1 come RegistraTV (oracolo); il server ne tiene 3
+    /// per la "programmazione passata" della mia serata.</param>
+    public static EpgGuide Load(string path, DateTime now, int keepDays = 1)
     {
         using var fs = File.OpenRead(path);
-        return Load(fs, now);
+        return Load(fs, now, keepDays);
     }
 
-    public static EpgGuide Load(Stream stream, DateTime now)
+    public static EpgGuide Load(Stream stream, DateTime now, int keepDays = 1)
     {
         var progs = new Dictionary<string, List<EpgProgramme>>(StringComparer.OrdinalIgnoreCase);
         var names = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        DateTime keep = now.AddDays(-1);
+        DateTime keep = now.AddDays(-keepDays);
 
         Stream input = stream;
         if (stream.CanSeek)

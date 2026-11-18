@@ -16,6 +16,9 @@ public sealed record Provider(string Name, string Kind, string LogoPath, string 
 public sealed record TmdbSearchHit(int Id, string Kind, string Title, string OriginalTitle, int Year, string PosterPath, string Overview,
     double VoteAverage, int VoteCount, double Popularity, IReadOnlyList<int> GenreIds);
 
+/// <summary>Una persona trovata con search/multi: regista, attore... (KnownFor = known_for_department, es. Directing).</summary>
+public sealed record TmdbPerson(int Id, string Name, string KnownFor, double Popularity);
+
 /// <summary>Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg).</summary>
 public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers,
     IReadOnlyList<int>? GenreIds = null);
@@ -24,10 +27,20 @@ public sealed record MovieDetails(string Overview, string PosterPath, string Bac
 /// Client TMDB con la chiave dell'utente: chiave v3 (32 caratteri) come parametro api_key, token v4 (lungo) come
 /// Bearer. Ritenta due volte su 429, errori 5xx e di rete; 401 = <see cref="TmdbKeyException"/>.
 /// </summary>
-public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Library.ILibraryTmdb
+public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Library.ILibraryTmdb, ITmdbVotes
 {
     const string Api = "https://api.themoviedb.org/3/";
     readonly string key = (apiKey ?? "").Trim();
+
+    /// <summary>Media e numero dei voti TMDB di un film (movie) o di una serie (tv).</summary>
+    public async Task<(double Average, int Count)> VotesAsync(int tmdbId, string kind, CancellationToken ct)
+    {
+        using var doc = await GetAsync((kind == "tv" ? "tv/" : "movie/") + tmdbId.ToString(CultureInfo.InvariantCulture), "", ct);
+        return (Num(doc.RootElement, "vote_average"), (int)Num(doc.RootElement, "vote_count"));
+    }
+
+    Task<string> ITmdbVotes.ImdbIdAsync(int tmdbId, string kind, CancellationToken ct) =>
+        kind == "tv" ? TvImdbIdAsync(tmdbId, ct) : ImdbIdAsync(tmdbId, ct);
 
     public bool HasKey => key.Length > 0;
 
@@ -55,25 +68,119 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
     }
 
     /// <summary>search/multi in italiano: film e serie insieme (le persone si scartano), nell'ordine di TMDB.</summary>
-    public async Task<IReadOnlyList<TmdbSearchHit>> SearchMultiAsync(string text, CancellationToken ct)
+    public async Task<IReadOnlyList<TmdbSearchHit>> SearchMultiAsync(string text, CancellationToken ct) => (await SearchAllAsync(text, ct)).Titles;
+
+    /// <summary>search/multi: titoli (film e serie) e persone (registi, attori) insieme.</summary>
+    public async Task<(IReadOnlyList<TmdbSearchHit> Titles, IReadOnlyList<TmdbPerson> People)> SearchAllAsync(string text, CancellationToken ct)
     {
         using var doc = await GetAsync("search/multi", "query=" + Uri.EscapeDataString(text) + "&language=it-IT&include_adult=false", ct);
-        return ParseMulti(doc.RootElement);
+        return (ParseMulti(doc.RootElement), ParsePeople(doc.RootElement));
     }
 
-    internal static List<TmdbSearchHit> ParseMulti(JsonElement root)
+    internal static List<TmdbSearchHit> ParseMulti(JsonElement root, string? forcedKind = null)
     {
         var res = new List<TmdbSearchHit>();
         if (!root.TryGetProperty("results", out var arr) || arr.ValueKind != JsonValueKind.Array) return res;
         foreach (var m in arr.EnumerateArray())
         {
-            string kind = Str(m, "media_type");
-            if (kind is not ("movie" or "tv")) continue;
-            var x = kind == "tv" ? ParseTv(m) : Parse(m);
-            if (x.Id <= 0 || x.Title.Length == 0) continue;
-            res.Add(new TmdbSearchHit(x.Id, kind, x.Title, x.OriginalTitle, x.Year, Str(m, "poster_path"), Str(m, "overview"),
-                x.VoteAverage, x.VoteCount, Num(m, "popularity"), x.GenreIds));
+            var hit = Hit(m, forcedKind ?? Str(m, "media_type"));
+            if (hit != null) res.Add(hit);
         }
+        return res;
+    }
+
+    static TmdbSearchHit? Hit(JsonElement m, string kind)
+    {
+        if (kind is not ("movie" or "tv")) return null;
+        var x = kind == "tv" ? ParseTv(m) : Parse(m);
+        if (x.Id <= 0 || x.Title.Length == 0) return null;
+        return new TmdbSearchHit(x.Id, kind, x.Title, x.OriginalTitle, x.Year, Str(m, "poster_path"), Str(m, "overview"),
+            x.VoteAverage, x.VoteCount, Num(m, "popularity"), x.GenreIds);
+    }
+
+    internal static List<TmdbPerson> ParsePeople(JsonElement root)
+    {
+        var res = new List<TmdbPerson>();
+        if (!root.TryGetProperty("results", out var arr) || arr.ValueKind != JsonValueKind.Array) return res;
+        foreach (var m in arr.EnumerateArray())
+            if (Str(m, "media_type") == "person" && (int)Num(m, "id") > 0 && Str(m, "name").Length > 0)
+                res.Add(new TmdbPerson((int)Num(m, "id"), Str(m, "name"), Str(m, "known_for_department"), Num(m, "popularity")));
+        return res;
+    }
+
+    /// <summary>Filmografia di una persona: i titoli che ha diretto (Directed = true) e quelli in cui recita.</summary>
+    public async Task<IReadOnlyList<(TmdbSearchHit Hit, bool Directed)>> PersonCreditsAsync(int personId, CancellationToken ct)
+    {
+        using var doc = await GetAsync("person/" + personId.ToString(CultureInfo.InvariantCulture) + "/combined_credits", "language=it-IT", ct);
+        return ParseCredits(doc.RootElement);
+    }
+
+    internal static List<(TmdbSearchHit Hit, bool Directed)> ParseCredits(JsonElement root)
+    {
+        var res = new List<(TmdbSearchHit, bool)>();
+        if (root.TryGetProperty("crew", out var crew) && crew.ValueKind == JsonValueKind.Array)
+            foreach (var m in crew.EnumerateArray())
+                if (Str(m, "job") == "Director" && Hit(m, Str(m, "media_type")) is { } h && !res.Any(x => x.Item1.Id == h.Id && x.Item1.Kind == h.Kind))
+                    res.Add((h, true));
+        if (root.TryGetProperty("cast", out var cast) && cast.ValueKind == JsonValueKind.Array)
+            foreach (var m in cast.EnumerateArray())
+                if (Hit(m, Str(m, "media_type")) is { } h && !res.Any(x => x.Item1.Id == h.Id && x.Item1.Kind == h.Kind))
+                    res.Add((h, false));
+        return res;
+    }
+
+    /// <summary>
+    /// discover/movie o discover/tv con i filtri della ricerca avanzata, dai più popolari; <paramref name="monetization"/>
+    /// (es. "flatrate|free|ads" o "rent|buy") limita ai titoli disponibili in Italia in quel modo.
+    /// </summary>
+    public async Task<IReadOnlyList<TmdbSearchHit>> DiscoverAsync(string kind, SearchFilter f, string monetization, CancellationToken ct, int page = 1)
+    {
+        var q = new List<string> { "language=it-IT", "include_adult=false", "sort_by=popularity.desc", "page=" + page.ToString(CultureInfo.InvariantCulture) };
+        bool tv = kind == "tv";
+        // genere: per i film il suo codice, per le serie gli equivalenti (Azione = Action & Adventure); i documentari = 99
+        var must = new List<string>();
+        if (f.Kind == "documentary") must.Add("99");
+        if (f.Genre > 0)
+        {
+            int[] ids = tv ? TmdbGenres.All.FirstOrDefault(g => g.Id == f.Genre)?.Tv ?? [] : [f.Genre];
+            if (ids.Length == 0) return [];
+            must.Add(string.Join("|", ids));
+        }
+        if (must.Count > 0) q.Add("with_genres=" + Uri.EscapeDataString(string.Join(",", must)));
+        string dateField = tv ? "first_air_date" : "primary_release_date";
+        if (f.YearFrom > 0) q.Add($"{dateField}.gte={f.YearFrom}-01-01");
+        if (f.YearTo > 0) q.Add($"{dateField}.lte={f.YearTo}-12-31");
+        if (f.Country.Length > 0) q.Add("with_origin_country=" + Uri.EscapeDataString(f.Country.ToUpperInvariant()));
+        if (f.MinRating > 0) q.Add("vote_average.gte=" + f.MinRating.ToString(CultureInfo.InvariantCulture) + "&vote_count.gte=50");
+        if (monetization.Length > 0) q.Add("watch_region=IT&with_watch_monetization_types=" + Uri.EscapeDataString(monetization));
+        using var doc = await GetAsync("discover/" + (tv ? "tv" : "movie"), string.Join("&", q), ct);
+        return ParseMulti(doc.RootElement, tv ? "tv" : "movie");
+    }
+
+    /// <summary>Paesi di produzione (ISO): per un film production_countries, per una serie origin_country.</summary>
+    public async Task<IReadOnlyList<string>> CountriesAsync(int tmdbId, string kind, CancellationToken ct)
+    {
+        using var doc = await GetAsync((kind == "tv" ? "tv/" : "movie/") + tmdbId.ToString(CultureInfo.InvariantCulture), "", ct);
+        var res = new List<string>();
+        var r = doc.RootElement;
+        if (r.TryGetProperty("production_countries", out var pc) && pc.ValueKind == JsonValueKind.Array)
+            res.AddRange(pc.EnumerateArray().Select(c => Str(c, "iso_3166_1")).Where(s => s.Length > 0));
+        if (r.TryGetProperty("origin_country", out var oc) && oc.ValueKind == JsonValueKind.Array)
+            res.AddRange(oc.EnumerateArray().Where(c => c.ValueKind == JsonValueKind.String).Select(c => c.GetString() ?? "").Where(s => s.Length > 0));
+        return res.Distinct().ToList();
+    }
+
+    /// <summary>Piattaforme in Italia di un titolo (JustWatch tramite TMDB), senza gli altri dettagli.</summary>
+    public async Task<IReadOnlyList<Provider>> ProvidersAsync(int tmdbId, string kind, CancellationToken ct)
+    {
+        using var doc = await GetAsync((kind == "tv" ? "tv/" : "movie/") + tmdbId.ToString(CultureInfo.InvariantCulture) + "/watch/providers", "", ct);
+        var res = new List<Provider>();
+        if (doc.RootElement.TryGetProperty("results", out var all) && all.TryGetProperty("IT", out var it))
+            foreach (var (key, k) in new[] { ("flatrate", "subscription"), ("free", "free"), ("ads", "free"), ("rent", "rent"), ("buy", "buy") })
+                if (it.TryGetProperty(key, out var arr) && arr.ValueKind == JsonValueKind.Array)
+                    foreach (var p in arr.EnumerateArray())
+                        if (Str(p, "provider_name") is { Length: > 0 } name && !res.Any(x => x.Name == name && x.Kind == k))
+                            res.Add(new Provider(name, k, Str(p, "logo_path")));
         return res;
     }
 

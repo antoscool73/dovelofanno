@@ -72,6 +72,19 @@ public sealed class RatingsHost(ServerContext ctx, ILogger<RatingsHost> log) : B
         if (done > 0) log.LogInformation("Dettagli TMDB (locandine, piattaforme): {Count} opere", done);
     }
 
+    /// <summary>
+    /// Voti dei titoli nelle liste e nella mia serata che non passano in guida (es. un originale trovato con la lente):
+    /// voto IMDb dal file se i voti IMDb sono attivi, altrimenti TMDB da 20 voti; ogni giro del servizio (6 ore).
+    /// </summary>
+    async Task ListRatingsAsync(CancellationToken ct)
+    {
+        string key = ctx.Settings.Get("TmdbKey");
+        var tmdb = key.Length > 0 ? new TmdbClient(ctx.Http, key) : null;
+        string? file = ctx.Settings.Get("ImdbRatings") == "1" ? Path.Combine(ctx.DataDir, "ratings", "title.ratings.tsv.gz") : null;
+        int n = await ListRatingSync.RunAsync(ctx.Works, tmdb, file, ct, pace: TimeSpan.FromMilliseconds(250));
+        if (n > 0) log.LogInformation("Voti dei titoli nelle liste: {Count} opere", n);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -81,6 +94,7 @@ public sealed class RatingsHost(ServerContext ctx, ILogger<RatingsHost> log) : B
                 int rated = await RatingSync.RunAsync(ctx.Guide, Current(), ctx.Clock.GetUtcNow(), ct);
                 if (rated > 0) log.LogInformation("Voti dei film: {Rated} opere con voto", rated);
                 await DetailsAsync(ct);
+                await ListRatingsAsync(ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

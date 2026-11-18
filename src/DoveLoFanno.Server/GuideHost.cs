@@ -54,7 +54,7 @@ public sealed class GuideHost(ServerContext ctx, RatingsHost ratings, ILogger<Gu
             try
             {
                 await DownloadAsync(g.Url, tmp, ct);
-                var guide = XmltvReader.Load(tmp, ctx.Clock.GetLocalNow().DateTime);
+                var guide = XmltvReader.Load(tmp, ctx.Clock.GetLocalNow().DateTime, keepDays: 3);
                 File.Move(tmp, file, overwrite: true);
                 int n = ctx.Guide.Save(g.Id, guide, ctx.Clock.GetUtcNow());
                 log.LogInformation("Guida {Url}: {Channels} canali, {Programmes} programmi", g.Url, guide.ChannelCount, n);
@@ -69,7 +69,7 @@ public sealed class GuideHost(ServerContext ctx, RatingsHost ratings, ILogger<Gu
                 {
                     try
                     {
-                        ctx.Guide.Save(g.Id, XmltvReader.Load(file, ctx.Clock.GetLocalNow().DateTime), ctx.Clock.GetUtcNow());
+                        ctx.Guide.Save(g.Id, XmltvReader.Load(file, ctx.Clock.GetLocalNow().DateTime, keepDays: 3), ctx.Clock.GetUtcNow());
                         msg += " (si usa la copia salvata)";
                     }
                     catch (Exception inner) when (inner is IOException or InvalidDataException or System.Xml.XmlException) { }
