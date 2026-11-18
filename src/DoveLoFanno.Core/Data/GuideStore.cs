@@ -20,6 +20,12 @@ public sealed record GuideProgramme(
 {
     /// <summary>Piattaforme dove l'opera è in streaming in abbonamento o gratis (JustWatch tramite TMDB), se note.</summary>
     public IReadOnlyList<string> Streaming { get; init; } = [];
+
+    /// <summary>Piattaforme dove l'opera si noleggia o si compra (a pagamento), se note.</summary>
+    public IReadOnlyList<string> Paid { get; init; } = [];
+
+    /// <summary>L'opera c'è in casa: un file della libreria o una registrazione riuscita.</summary>
+    public bool InHouse { get; init; }
 }
 
 /// <summary>Filtri della guida: finestra di tempo obbligatoria, il resto facoltativo.</summary>
@@ -203,7 +209,12 @@ public sealed class GuideStore(string dbPath)
             SELECT p.id, gc.id, gc.name, ch.id, coalesce(ch.name, ''), p.start, p.stop, p.title, p.subtitle, p.description, p.categories,
                    p.group_name, p.sub_genre, p.year, p.country, p.directors, p.actors, p.episode, p.icon, p.work_id, coalesce(w.work_key, ''),
                    w.rating, coalesce(w.rating_source, ''), coalesce(ch.key, ''), gc.xmltv_id, coalesce(w.poster, ''),
-                   (SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = p.work_id AND a.kind IN ('subscription', 'free'))
+                   (SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = p.work_id AND a.kind IN ('subscription', 'free')),
+                   (SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = p.work_id AND a.kind IN ('rent', 'buy')),
+                   p.work_id IS NOT NULL AND (
+                     EXISTS (SELECT 1 FROM library_items li JOIN works e ON e.id = li.work_id
+                             WHERE (e.id = p.work_id OR e.parent_id = p.work_id) AND li.missing_since IS NULL)
+                     OR EXISTS (SELECT 1 FROM recordings rr WHERE rr.work_id = p.work_id AND rr.state IN ('completed', 'incomplete') AND rr.file <> ''))
             FROM programmes p
             JOIN guide_channels gc ON gc.id = p.guide_channel_id
             JOIN guide_sources gs ON gs.id = gc.guide_source_id AND gs.enabled = 1
@@ -234,6 +245,8 @@ public sealed class GuideStore(string dbPath)
                     // locandina dell'opera da TMDB (si scarica dopo i voti), se c'è
                     Poster = WorkStore.ImageUrl(r.GetString(25), "w342"),
                     Streaming = r.IsDBNull(26) ? [] : r.GetString(26).Split('|', StringSplitOptions.RemoveEmptyEntries),
+                    Paid = r.IsDBNull(27) ? [] : r.GetString(27).Split(',', StringSplitOptions.RemoveEmptyEntries),
+                    InHouse = !r.IsDBNull(28) && r.GetInt64(28) == 1,
                 };
             },
             ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$ch", q.ChannelId), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),

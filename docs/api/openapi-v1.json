@@ -184,6 +184,94 @@
         }
       }
     },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "Opere"
+        ],
+        "summary": "Cerca per titolo: opere della guida e di casa, poi film e serie di TMDB (anche solo in streaming); profilo bambino: solo titoli per bambini",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profileId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/works/from-tmdb": {
+      "post": {
+        "tags": [
+          "Opere"
+        ],
+        "summary": "Crea (o ritrova) l'opera di un risultato TMDB della ricerca; la Scheda poi scarica i dettagli",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FromTmdbBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkRef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources": {
       "get": {
         "tags": [
@@ -3642,6 +3730,65 @@
           }
         }
       },
+      "FromTmdbBody": {
+        "required": [
+          "tmdbId",
+          "kind",
+          "title",
+          "originalTitle",
+          "year",
+          "voteAverage",
+          "voteCount",
+          "genreIds"
+        ],
+        "type": "object",
+        "properties": {
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "voteAverage": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "voteCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "genreIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
       "GeneralSettings": {
         "required": [
           "beforeMin",
@@ -3920,6 +4067,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "paid": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inHouse": {
+            "type": "boolean"
           }
         }
       },
@@ -5724,6 +5880,136 @@
           }
         }
       },
+      "SearchHit": {
+        "required": [
+          "workId",
+          "kind",
+          "title",
+          "originalTitle",
+          "year",
+          "poster",
+          "rating",
+          "ratingSource",
+          "tmdbId",
+          "tmdbKind",
+          "overview",
+          "nextAiring",
+          "inHouse",
+          "voteAverage",
+          "voteCount",
+          "genreIds"
+        ],
+        "type": "object",
+        "properties": {
+          "workId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "poster": {
+            "type": "string"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "ratingSource": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "tmdbKind": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "nextAiring": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "inHouse": {
+            "type": "boolean"
+          },
+          "voteAverage": {
+            "type": "number",
+            "format": "double"
+          },
+          "voteCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "genreIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "streaming": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "paid": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "required": [
+          "hits",
+          "tmdbNote"
+        ],
+        "type": "object",
+        "properties": {
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            }
+          },
+          "tmdbNote": {
+            "type": "string"
+          }
+        }
+      },
       "ServicesBody": {
         "required": [
           "services"
@@ -5994,6 +6280,32 @@
                 "$ref": "#/components/schemas/GuideProgramme"
               }
             ]
+          },
+          "streaming": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "inHouse": {
+            "type": "boolean",
+            "default": false
+          },
+          "poster": {
+            "type": "string",
+            "default": ""
+          },
+          "paid": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -6042,6 +6354,10 @@
           "checkedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "default": "justwatch"
           }
         }
       },

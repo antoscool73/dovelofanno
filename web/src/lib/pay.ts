@@ -35,7 +35,7 @@ export function mySubscriptionsFor(p: GuideProgramme, services: string[]): strin
 }
 
 /** Piattaforme in streaming dei miei abbonamenti dove il film si vede quando voglio (on demand). */
-export function streamingFor(p: GuideProgramme, services: string[]): string[] {
+export function streamingFor(p: { streaming?: string[] | null }, services: string[]): string[] {
   const mine = services.map((s) => s.trim().toLowerCase()).filter(Boolean);
   // "Netflix basic with Ads" vale come "Netflix"
   const hits = (p.streaming ?? []).filter((s) => {

@@ -22,6 +22,10 @@
     {/each}
   </nav>
   <div class="spacer"></div>
+  <!-- la lente: cerca qualunque film o serie, anche solo in streaming -->
+  <a href="/cerca" onclick={navigate} class="search" aria-label="Cerca un film o una serie" title="Cerca" aria-current={router.route === 'cerca' ? 'page' : undefined}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+  </a>
   <a href="/impostazioni" onclick={navigate} class="settings" aria-current={router.route === 'impostazioni' ? 'page' : undefined}>Impostazioni</a>
   {#if session.profile}
     <NotificationBell />
@@ -50,6 +54,11 @@
   nav a:hover, .settings:hover { color: var(--text); background: var(--card); }
   nav a[aria-current='page'], .settings[aria-current='page'] { background: var(--raised); color: var(--text); font-weight: 600; }
   .spacer { flex: 1 1 0; }
+  .search {
+    display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px;
+    border: 1px solid var(--line-strong); background: var(--card); color: var(--text-2);
+  }
+  .search:hover, .search[aria-current='page'] { color: var(--text); border-color: var(--text-2); }
   .profile {
     display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px 4px 4px;
     border-radius: 10px; background: var(--card); border: 1px solid var(--line-strong);

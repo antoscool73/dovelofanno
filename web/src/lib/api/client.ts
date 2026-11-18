@@ -46,6 +46,9 @@ export type NotificationList = S['NotificationList'];
 export type ProfileSubscriptions = S['ProfileSubscriptions'];
 export type FamilySubscriptions = S['FamilySubscriptions'];
 export type Platform = S['Platform'];
+export type SearchHit = S['SearchHit'];
+export type SearchResult = S['SearchResult'];
+export type FromTmdbBody = S['FromTmdbBody'];
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
 export type NotificationSettings = S['NotificationSettings'];
@@ -186,6 +189,9 @@ export const api = {
 
   familySubscriptions: () => call<FamilySubscriptions>('GET', '/subscriptions'),
   platforms: () => call<Platform[]>('GET', '/platforms'),
+  search: (q: string, profileId?: number) =>
+    call<SearchResult>('GET', `/search?q=${encodeURIComponent(q)}${profileId ? `&profileId=${profileId}` : ''}`),
+  workFromTmdb: (b: FromTmdbBody) => call<{ workId: number }>('POST', '/works/from-tmdb', b),
   setFamilySubscriptions: (services: string[]) => call<FamilySubscriptions>('PUT', '/subscriptions', { services }),
   profileSubscriptions: (profileId: number) => call<ProfileSubscriptions>('GET', `/profiles/${profileId}/subscriptions`),
   setProfileSubscriptions: (profileId: number, inherits: boolean, services: string[] | null) =>

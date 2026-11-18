@@ -3,8 +3,11 @@ using Microsoft.Data.Sqlite;
 
 namespace DoveLoFanno.Data;
 
-/// <summary>Dove si vede un'opera (dati JustWatch tramite TMDB): kind = subscription, free, rent, buy.</summary>
-public sealed record WorkAvailability(string Platform, string Kind, string Link, DateTimeOffset CheckedAt);
+/// <summary>
+/// Dove si vede un'opera: kind = subscription, free, rent, buy. Source = justwatch (JustWatch tramite TMDB) o release
+/// (originale della piattaforma dedotto dall'uscita, finché JustWatch non lo ha in catalogo).
+/// </summary>
+public sealed record WorkAvailability(string Platform, string Kind, string Link, DateTimeOffset CheckedAt, string Source = "justwatch");
 
 /// <summary>Un file dell'opera in casa (per ora: le registrazioni riuscite).</summary>
 public sealed record WorkFile(long RecordingId, string File, DateTimeOffset Start, string ChannelName, string State, int LostMinutes);
@@ -15,6 +18,10 @@ public sealed record WorkDetail(
     long? TmdbId, string ImdbId, string Overview, string Poster, string Backdrop, int? RuntimeMin, string Trailer, DateTimeOffset? DetailsAt,
     IReadOnlyList<GuideProgramme> Airings, IReadOnlyList<WorkFile> InHouse, IReadOnlyList<WorkAvailability> Availability,
     bool InTonight, bool Watched, int? Stars, IReadOnlyList<LibraryFile> Files, IReadOnlyList<WorkListRef> Lists, long? ParentId, string ParentTitle);
+
+/// <summary>Un'opera già nota trovata dalla ricerca: prossimo passaggio in TV e se c'è in casa.</summary>
+public sealed record WorkSearchHit(long Id, string Kind, string Title, int Year, string Poster, double? Rating, string RatingSource,
+    long? TmdbId, string TmdbKind, DateTimeOffset? NextAiring, bool InHouse, IReadOnlyList<string>? Streaming = null, IReadOnlyList<string>? Paid = null);
 
 /// <summary>Opere: scheda completa, dettagli da TMDB, voto personale a stelle.</summary>
 public sealed class WorkStore(string dbPath, GuideStore guide)
@@ -54,8 +61,8 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
             """,
             r => new WorkFile(r.GetInt64(0), r.GetString(1), Db.FromUnix(r.GetInt64(2)), r.GetString(3), r.GetString(4), r.GetInt32(5)),
             ("$w", workId));
-        var avail = Db.Query(c, "SELECT platform, kind, link, checked_at FROM availability WHERE work_id = $w ORDER BY kind, platform",
-            r => new WorkAvailability(r.GetString(0), r.GetString(1), r.GetString(2), Db.FromUnix(r.GetInt64(3))), ("$w", workId));
+        var avail = Db.Query(c, "SELECT platform, kind, link, checked_at, source FROM availability WHERE work_id = $w ORDER BY kind, platform",
+            r => new WorkAvailability(r.GetString(0), r.GetString(1), r.GetString(2), Db.FromUnix(r.GetInt64(3)), r.GetString(4)), ("$w", workId));
         bool inTonight = false, watched = false;
         int? stars = null;
         if (profileId is long pid)
@@ -74,6 +81,59 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         return new WorkDetail(w.Id, w.Kind, w.Title, w.Orig, w.Year, w.Rating, w.Src, w.Votes, w.Tmdb, w.Imdb, w.Overview,
             ImageUrl(w.Poster, "w500"), ImageUrl(w.Backdrop, "w1280"), w.Runtime, w.Trailer, w.DetailsAt, airings, files, avail, inTonight, watched, stars,
             libraryFiles, lists, w.Parent, w.ParentTitle);
+    }
+
+    /// <summary>
+    /// Opere già note (dalla guida, dai file di casa o aperte da una ricerca) il cui titolo o titolo originale contiene il
+    /// testo, senza badare ad accenti e maiuscole; prima quelle in TV o in casa. Gli episodi no: c'è la serie.
+    /// </summary>
+    public List<WorkSearchHit> Search(string text, DateTimeOffset now, bool childOnly = false, int max = 20)
+    {
+        string k = Epg.Titles.TitleKey(text);
+        if (k.Length < 2) return [];
+        using var c = Open();
+        string child = childOnly ? " AND " + ChildSafe("w") : "";
+        return Db.Query(c, """
+            SELECT w.id, w.kind, w.title, w.year, w.poster, w.rating, w.rating_source, w.tmdb_id, coalesce(w.tmdb_kind, ''),
+                   (SELECT min(p.start) FROM programmes p WHERE p.work_id = w.id AND p.stop > $now) AS next,
+                   EXISTS (SELECT 1 FROM library_items li JOIN works e ON e.id = li.work_id
+                           WHERE (e.id = w.id OR e.parent_id = w.id) AND li.missing_since IS NULL)
+                   OR EXISTS (SELECT 1 FROM recordings r WHERE r.work_id = w.id AND r.state IN ('completed', 'incomplete') AND r.file <> '') AS home,
+                   (SELECT p.icon FROM programmes p WHERE p.work_id = w.id AND p.icon <> '' LIMIT 1),
+                   coalesce((SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = w.id AND a.kind IN ('subscription', 'free')), ''),
+                   coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), '')
+            FROM works w
+            WHERE w.parent_id IS NULL AND w.kind <> 'episode'
+              AND (w.title_key LIKE '%' || $k || '%' OR (w.original_title <> '' AND lower(w.original_title) LIKE '%' || lower($t) || '%'))
+            """ + child + """
+
+            ORDER BY (next IS NOT NULL OR home) DESC, (w.title_key = $k) DESC, w.rating_votes DESC, w.id
+            LIMIT $max
+            """,
+            r => new WorkSearchHit(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3),
+                r.GetString(4).Length > 0 ? ImageUrl(r.GetString(4), "w342") : (r.IsDBNull(11) ? "" : r.GetString(11)),
+                r.IsDBNull(5) ? null : r.GetDouble(5), r.GetString(6), Db.NLong(r, 7), r.GetString(8), Db.NTime(r, 9), r.GetInt64(10) == 1,
+                r.GetString(12).Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), r.GetString(13).Split(',', StringSplitOptions.RemoveEmptyEntries)),
+            ("$k", k), ("$t", text.Trim()), ("$now", Db.Unix(now)), ("$max", max));
+    }
+
+    /// <summary>Codice IMDb di un'opera, se non l'aveva.</summary>
+    public void SetImdbId(long workId, string imdbId)
+    {
+        if (imdbId.Length == 0) return;
+        using var c = Open();
+        Db.Exec(c, "UPDATE works SET imdb_id = $i WHERE id = $w AND imdb_id = ''", ("$i", imdbId), ("$w", workId));
+    }
+
+    /// <summary>Opere con questi codici TMDB già note: (movie|tv, codice) → opera.</summary>
+    public Dictionary<(string Kind, long TmdbId), long> ByTmdb(IEnumerable<(string Kind, long TmdbId)> ids)
+    {
+        var res = new Dictionary<(string, long), long>();
+        using var c = Open();
+        foreach (var (kind, id) in ids.Distinct())
+            if (Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = $k AND tmdb_id = $t AND parent_id IS NULL ORDER BY id LIMIT 1", ("$k", kind), ("$t", id)) is long w)
+                res[(kind, id)] = w;
+        return res;
     }
 
     /// <summary>Indirizzo completo di un'immagine TMDB (/abc.jpg) nella misura chiesta; gli indirizzi completi restano come sono.</summary>
@@ -125,8 +185,8 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
             ("$t", d.Trailer), ("$now", Db.Unix(now)), ("$id", workId));
         Db.Exec(c, "DELETE FROM availability WHERE work_id = $w", ("$w", workId));
         foreach (var p in d.Providers)
-            Db.Exec(c, "INSERT OR IGNORE INTO availability (work_id, platform, kind, link, checked_at) VALUES ($w, $n, $k, $l, $t)",
-                ("$w", workId), ("$n", p.Name), ("$k", p.Kind), ("$l", d.WatchLink), ("$t", Db.Unix(now)));
+            Db.Exec(c, "INSERT OR IGNORE INTO availability (work_id, platform, kind, link, checked_at, source) VALUES ($w, $n, $k, $l, $t, $s)",
+                ("$w", workId), ("$n", p.Name), ("$k", p.Kind), ("$l", p.Source == "release" ? "" : d.WatchLink), ("$t", Db.Unix(now)), ("$s", p.Source));
         tx.Commit();
     }
 

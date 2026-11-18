@@ -249,6 +249,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cerca per titolo: opere della guida e di casa, poi film e serie di TMDB (anche solo in streaming); profilo bambino: solo titoli per bambini */
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                    profileId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/works/from-tmdb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Crea (o ritrova) l'opera di un risultato TMDB della ricerca; la Scheda poi scarica i dettagli */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FromTmdbBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkRef"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sources": {
         parameters: {
             query?: never;
@@ -3816,6 +3913,20 @@ export interface components {
             services: string[];
             known: string[];
         };
+        FromTmdbBody: {
+            /** Format: int32 */
+            tmdbId: number;
+            kind: string;
+            title: string;
+            originalTitle: null | string;
+            /** Format: int32 */
+            year: number;
+            /** Format: double */
+            voteAverage: null | number;
+            /** Format: int32 */
+            voteCount: null | number;
+            genreIds: null | number[];
+        };
         GeneralSettings: {
             /** Format: int32 */
             beforeMin: number;
@@ -3892,6 +4003,8 @@ export interface components {
             /** @default  */
             poster: string;
             streaming?: string[];
+            paid?: string[];
+            inHouse?: boolean;
         };
         GuideSourceRow: {
             /** Format: int64 */
@@ -4387,6 +4500,37 @@ export interface components {
             id: number;
             warnings: string[];
         };
+        SearchHit: {
+            /** Format: int64 */
+            workId: null | number;
+            kind: string;
+            title: string;
+            originalTitle: string;
+            /** Format: int32 */
+            year: number;
+            poster: string;
+            /** Format: double */
+            rating: null | number;
+            ratingSource: string;
+            /** Format: int32 */
+            tmdbId: null | number;
+            tmdbKind: string;
+            overview: string;
+            /** Format: date-time */
+            nextAiring: null | string;
+            inHouse: boolean;
+            /** Format: double */
+            voteAverage: number;
+            /** Format: int32 */
+            voteCount: number;
+            genreIds: number[];
+            streaming?: null | string[];
+            paid?: null | string[];
+        };
+        SearchResult: {
+            hits: components["schemas"]["SearchHit"][];
+            tmdbNote: string;
+        };
         ServicesBody: {
             services: string[];
         };
@@ -4458,6 +4602,12 @@ export interface components {
             /** Format: date-time */
             addedAt: string;
             next: null | components["schemas"]["GuideProgramme"];
+            streaming?: null | string[];
+            /** @default false */
+            inHouse: boolean;
+            /** @default  */
+            poster: string;
+            paid?: null | string[];
         };
         TrackInfo: {
             /** Format: int32 */
@@ -4472,6 +4622,8 @@ export interface components {
             link: string;
             /** Format: date-time */
             checkedAt: string;
+            /** @default justwatch */
+            source: string;
         };
         WorkDetail: {
             /** Format: int64 */

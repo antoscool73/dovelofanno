@@ -5,8 +5,16 @@ using System.Text.Json;
 
 namespace DoveLoFanno.Ratings;
 
-/// <summary>Una piattaforma per un film in Italia: kind = subscription, free, rent o buy (dati JustWatch tramite TMDB).</summary>
-public sealed record Provider(string Name, string Kind, string LogoPath);
+/// <summary>
+/// Una piattaforma per un film in Italia: kind = subscription, free, rent o buy. Source = justwatch (watch providers di
+/// TMDB) o release (originale della piattaforma, dedotto dall'uscita digitale o dalla rete d'origine quando JustWatch
+/// non lo ha ancora in catalogo: succede nei primi giorni dopo l'uscita).
+/// </summary>
+public sealed record Provider(string Name, string Kind, string LogoPath, string Source = "justwatch");
+
+/// <summary>Un risultato della ricerca libera (film o serie): Kind = movie o tv, locandina come percorso TMDB.</summary>
+public sealed record TmdbSearchHit(int Id, string Kind, string Title, string OriginalTitle, int Year, string PosterPath, string Overview,
+    double VoteAverage, int VoteCount, double Popularity, IReadOnlyList<int> GenreIds);
 
 /// <summary>Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg).</summary>
 public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers,
@@ -43,6 +51,29 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
         var res = new List<TmdbMovie>();
         if (doc.RootElement.TryGetProperty("results", out var arr) && arr.ValueKind == JsonValueKind.Array)
             foreach (var m in arr.EnumerateArray()) res.Add(ParseTv(m));
+        return res;
+    }
+
+    /// <summary>search/multi in italiano: film e serie insieme (le persone si scartano), nell'ordine di TMDB.</summary>
+    public async Task<IReadOnlyList<TmdbSearchHit>> SearchMultiAsync(string text, CancellationToken ct)
+    {
+        using var doc = await GetAsync("search/multi", "query=" + Uri.EscapeDataString(text) + "&language=it-IT&include_adult=false", ct);
+        return ParseMulti(doc.RootElement);
+    }
+
+    internal static List<TmdbSearchHit> ParseMulti(JsonElement root)
+    {
+        var res = new List<TmdbSearchHit>();
+        if (!root.TryGetProperty("results", out var arr) || arr.ValueKind != JsonValueKind.Array) return res;
+        foreach (var m in arr.EnumerateArray())
+        {
+            string kind = Str(m, "media_type");
+            if (kind is not ("movie" or "tv")) continue;
+            var x = kind == "tv" ? ParseTv(m) : Parse(m);
+            if (x.Id <= 0 || x.Title.Length == 0) continue;
+            res.Add(new TmdbSearchHit(x.Id, kind, x.Title, x.OriginalTitle, x.Year, Str(m, "poster_path"), Str(m, "overview"),
+                x.VoteAverage, x.VoteCount, Num(m, "popularity"), x.GenreIds));
+        }
         return res;
     }
 
@@ -86,11 +117,45 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
     public async Task<MovieDetails> MovieDetailsAsync(int tmdbId, CancellationToken ct)
     {
         using var doc = await GetAsync("movie/" + tmdbId.ToString(CultureInfo.InvariantCulture),
-            "language=it-IT&append_to_response=videos,watch/providers&include_video_language=it,en", ct);
+            "language=it-IT&append_to_response=videos,watch/providers,release_dates&include_video_language=it,en", ct);
         return ParseDetails(doc.RootElement);
     }
 
-    internal static MovieDetails ParseDetails(JsonElement m)
+    // nomi con cui TMDB indica la piattaforma d'origine (nota dell'uscita digitale, rete di una serie) → nome della piattaforma in Italia
+    static readonly Dictionary<string, string> OriginPlatforms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Prime Video"] = "Amazon Prime Video", ["Amazon Prime Video"] = "Amazon Prime Video", ["Amazon"] = "Amazon Prime Video",
+        ["Netflix"] = "Netflix", ["Disney+"] = "Disney Plus", ["Disney Plus"] = "Disney Plus",
+        ["Apple TV+"] = "Apple TV", ["Apple TV"] = "Apple TV", ["Paramount+"] = "Paramount Plus", ["Paramount Plus"] = "Paramount Plus",
+    };
+
+    /// <summary>
+    /// Piattaforma d'origine di un originale (Prime Video, Netflix...), già uscito: per un film dalla nota dell'uscita digitale
+    /// (tipo 4), prima quella italiana; per una serie dalla rete d'origine. null se non è un originale di una piattaforma nota.
+    /// </summary>
+    internal static string? OriginPlatform(JsonElement m, DateTimeOffset now)
+    {
+        if (m.TryGetProperty("release_dates", out var rd) && rd.TryGetProperty("results", out var countries) && countries.ValueKind == JsonValueKind.Array)
+        {
+            var found = new List<(bool It, string Name)>();
+            foreach (var c in countries.EnumerateArray())
+                if (c.TryGetProperty("release_dates", out var dates) && dates.ValueKind == JsonValueKind.Array)
+                    foreach (var d in dates.EnumerateArray())
+                        if ((int)Num(d, "type") == 4 && OriginPlatforms.TryGetValue(Str(d, "note").Trim(), out var name)
+                            && DateTimeOffset.TryParse(Str(d, "release_date"), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var when) && when <= now)
+                            found.Add((Str(c, "iso_3166_1") == "IT", name));
+            if (found.Count > 0) return found.OrderByDescending(x => x.It).First().Name;
+        }
+        if (m.TryGetProperty("networks", out var nets) && nets.ValueKind == JsonValueKind.Array
+            && DateTimeOffset.TryParse(Str(m, "first_air_date"), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var first) && first <= now)
+            foreach (var n in nets.EnumerateArray())
+                if (OriginPlatforms.TryGetValue(Str(n, "name").Trim(), out var name)) return name;
+        return null;
+    }
+
+    internal static MovieDetails ParseDetails(JsonElement m) => ParseDetails(m, DateTimeOffset.UtcNow);
+
+    internal static MovieDetails ParseDetails(JsonElement m, DateTimeOffset now)
     {
         string trailer = "";
         if (m.TryGetProperty("videos", out var v) && v.TryGetProperty("results", out var vids) && vids.ValueKind == JsonValueKind.Array)
@@ -115,6 +180,10 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
                         if (name.Length > 0 && !providers.Any(x => x.Name == name && x.Kind == kind)) providers.Add(new Provider(name, kind, Str(p, "logo_path")));
                     }
         }
+        // un originale appena uscito che JustWatch non ha ancora in catalogo: la piattaforma d'origine, segnata come dedotta.
+        // Solo se JustWatch non indica nessun abbonamento in Italia: quando c'è, vale il suo dato (diritti diversi per paese)
+        if (!providers.Any(p => p.Kind == "subscription") && OriginPlatform(m, now) is { } origin)
+            providers.Add(new Provider(origin, "subscription", "", "release"));
         int runtime = (int)Num(m, "runtime");
         if (runtime == 0 && m.TryGetProperty("episode_run_time", out var ert) && ert.ValueKind == JsonValueKind.Array)
             runtime = ert.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Number).Select(x => x.GetInt32()).FirstOrDefault();

@@ -275,6 +275,9 @@ public static class Api
         // ---------------------------------------------------------------- preferenze, proposte, avvisi, notifiche (aggiunta del 18/11/2026)
         PreferencesApi.Map(api);
 
+        // ---------------------------------------------------------------- ricerca dalla lente (aggiunta del 18/11/2026)
+        SearchApi.Map(api);
+
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");
 

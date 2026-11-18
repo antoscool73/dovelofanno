@@ -151,7 +151,9 @@
     });
     return ['subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
   });
-  const watchLink = $derived(w?.availability[0]?.link ?? '');
+  const watchLink = $derived(w?.availability.find((a) => a.link)?.link ?? '');
+  // originale della piattaforma appena uscito: dedotto dall'uscita, JustWatch non lo ha ancora in catalogo
+  const fromRelease = $derived((w?.availability ?? []).filter((a) => a.source === 'release').map((a) => a.platform));
 
   // banner: la locandina ingrandita e tagliata (più grande per non sgranare); senza locandina l'immagine di scena
   const heroImage = $derived((w?.poster || first?.icon || '').replace('/t/p/w500/', '/t/p/w780/') || w?.backdrop || '');
@@ -297,9 +299,9 @@
           <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span><Badge tone="blue">Gratis</Badge></div>
         {/if}
         {#each byKind as k (k.kind)}
-          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'subscription' && mySubs.some((m) => m.toLowerCase() === n.toLowerCase())}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
+          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'subscription' && mySubs.some((m) => m.toLowerCase() === n.toLowerCase())}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}{#if k.kind === 'subscription' && fromRelease.length > 0}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
-        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{w.tmdbId ? 'Nessuna disponibilità nota in Italia.' : 'Per «dove lo vedo» serve la chiave TMDB (Impostazioni › Voti dei film).'}</div>{/if}
+        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «dove lo vedo» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}
       {#if session.profile}<div id="avvisami"><AlertPanel workId={w.id} /></div>{/if}
@@ -358,6 +360,7 @@
   .where { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
   .wrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .wrow:last-child { border-bottom: 0; }
+  .origin { display: block; margin-top: 6px; line-height: 1.4; }
   .plats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
   .plat { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
   .plat.mine :global(.ic) { box-shadow: 0 0 0 2px var(--green); }

@@ -276,7 +276,7 @@ public static class LibraryApi
             host.CopyStatus, ctx.Library.Folders());
 
     /// <summary>Locandina e trama subito dopo un abbinamento a mano (se c'è la chiave TMDB).</summary>
-    static async Task RefreshDetailsAsync(ServerContext ctx, long workId, CancellationToken ct)
+    internal static async Task RefreshDetailsAsync(ServerContext ctx, long workId, CancellationToken ct)
     {
         string key = ctx.Settings.Get("TmdbKey");
         if (key.Length == 0 || ctx.Works.DetailsToRefresh(workId, ctx.Clock.GetUtcNow()) is not { } t) return;

@@ -9,6 +9,9 @@
   import Section from '../lib/components/Section.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import { platforms } from '../lib/platforms.svelte';
+  import AvailBadges from '../lib/components/AvailBadges.svelte';
+  import AvailLegend from '../lib/components/AvailLegend.svelte';
+  import { availOf, type Avail } from '../lib/avail';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
@@ -172,8 +175,74 @@
   );
   const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
 
-  const tonightAvailable = $derived(tonightList.filter((i) => i.next && new Date(i.next.start) < eveningWindow(now).to));
+  // la mia serata: si vede stasera un titolo che passa in TV entro le 2, che è in casa o che è in streaming nei miei
+  // abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo
+  const onTvTonight = (i: TonightItem) => !!i.next && new Date(i.next.start) < eveningWindow(now).to;
+  const tonightAvailable = $derived(tonightList.filter((i) => onTvTonight(i) || i.inHouse || streamingFor(i, mySubs).length > 0));
   const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i)));
+  const kindLabel: Record<string, string> = { film: 'Film', series: 'Serie TV', documentary: 'Documentario', programme: 'Programma' };
+  function laterReason(i: TonightItem): string {
+    if (i.next) return `In TV ${day(i.next.start, now).toLowerCase()} ${time(i.next.start)}`;
+    const st = [...(i.streaming ?? []), ...(i.paid ?? [])];
+    if (st.length > 0) return `Su ${[...new Set(st.map((s) => platforms.of(s).short))].join(', ')}, a pagamento`;
+    return 'Per ora non si vede';
+  }
+
+  // una locandina di una riga: stessa forma per la mia serata, le proposte e i film (in diretta, on demand, settimana)
+  type Card = {
+    key: string; poster: string; title: string; rating: number | null; scheduled: boolean; avail: Avail;
+    lines: string[]; note?: string; accent?: string; warn?: string; dim?: boolean; open: () => void;
+    rec?: GuideProgramme | null; seen?: () => void; drop?: () => void; dropLabel?: string;
+  };
+  const channelOf = (p: GuideProgramme) => p.channelName || p.guideChannelName;
+  const tvText = (p: GuideProgramme) => `${when(p).toLowerCase()}, ${channelOf(p)}`;
+  const shortNames = (l: string[]) => l.map((s) => platforms.of(s).short).join(', ');
+
+  function programmeCard(p: GuideProgramme, mode: 'tv' | 'ondemand' = 'tv'): Card {
+    const avail = availOf(p, mySubs, mode === 'tv' ? p : null, tvText(p));
+    const meta = [p.sub, p.year || ''].filter(Boolean).join(' · ');
+    const card: Card = {
+      key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail,
+      lines: [mode === 'ondemand' ? `Su ${shortNames(avail.mine)}` : `${when(p)} · ${channelOf(p)}`, meta], open: () => (open = p),
+    };
+    // passaggio su un canale a pagamento che non ho (es. Sky Cinema), ma il titolo lo vedo in casa o in streaming:
+    // prima riga = come lo vedo io, il passaggio resta sotto come nota; il tocco apre la scheda (con Guarda)
+    if (mode === 'tv' && !avail.tv && (avail.home || avail.mine.length > 0)) {
+      const how = avail.home ? 'In casa, quando vuoi' : `Su ${shortNames(avail.mine)}, quando vuoi`;
+      card.lines = [how, meta];
+      card.note = `${when(p)} su ${channelOf(p)}`;
+      if (p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
+    }
+    return card;
+  }
+
+  function tonightCard(i: TonightItem, available: boolean): Card {
+    const tv = onTvTonight(i) ? i.next : null;
+    const avail = availOf(i, mySubs, i.next, i.next ? tvText(i.next) : '');
+    let first: string;
+    if (tv) first = `${when(tv)} · ${channelOf(tv)}`;
+    else if (avail.mine.length > 0) first = `Su ${shortNames(avail.mine)}, quando vuoi`;
+    else if (i.inHouse) first = 'In casa';
+    else first = laterReason(i);
+    return {
+      key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || '', title: i.title, rating: i.rating ?? null,
+      scheduled: !!tv?.scheduled, avail, dim: !available,
+      lines: [first, [i.year || '', tv ? tv.sub || tv.group : kindLabel[i.kind] ?? ''].filter(Boolean).join(' · ')],
+      open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
+      rec: tv && recordable(tv) ? tv : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia serata',
+    };
+  }
+
+  function proposalCard(x: Proposal): Card {
+    const c = programmeCard(x.programme);
+    return {
+      ...c, key: `x${x.programme.id}`, accent: `da «${x.preference}»${x.otherAirings > 0 ? ` · altri ${x.otherAirings} passaggi` : ''}`,
+      warn: x.conflict ? 'Oltre il limite di registrazioni' : undefined,
+      rec: recordable(x.programme) ? x.programme : null, drop: () => noMore(x), dropLabel: 'Non proporre più',
+    };
+  }
+
+  const serataCards = $derived([...tonightAvailable.map((i) => tonightCard(i, true)), ...tonightLater.map((i) => tonightCard(i, false))]);
 </script>
 
 {#if loading}
@@ -206,31 +275,12 @@
   {/if}
 
   <div class="pad sections">
-    <Section key="serata" title="La mia serata in TV">
-      {#snippet aside()}{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere dalla guida: compaiono qui appena passano.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} stasera`}{/snippet}
-      {#if tonightAvailable.length > 0}
-        <ul class="tonight">
-          {#each tonightAvailable as i (i.workId)}
-            {@const n = i.next!}
-            <li>
-              <div class="t-main">
-                <button type="button" class="t-title" onclick={() => (open = n)}>{i.title}</button>
-                <div class="muted small">{[i.year || '', n.sub || n.group, i.rating != null ? `★ ${vote(i.rating)} ${i.ratingSource}` : ''].filter(Boolean).join(' · ')}</div>
-                <div class="t-where"><Badge tone="blue">In onda</Badge> {when(n)} · {n.channelName || n.guideChannelName}</div>
-              </div>
-              <div class="t-acts">
-                {#if recordable(n)}<RecordButton size="m" scheduled={n.scheduled} busy={busy === n.id} onclick={() => quickRecord(n)} />{/if}
-                <Button size="s" onclick={() => seen(i)}>✓ Visto</Button>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-      {#if tonightLater.length > 0}
-        <p class="muted small later">
-          Prossimamente dalla lista:
-          {#each tonightLater as i, k (i.workId)}{k > 0 ? ', ' : ''}<button type="button" class="link" onclick={() => (i.next ? (open = i.next) : drop(i))} title={i.next ? '' : 'Nessun passaggio nei prossimi giorni: tocca per togliere'}>{i.title}</button> ({i.next ? `${day(i.next.start, now).toLowerCase()} ${time(i.next.start)}, ${i.next.channelName || i.next.guideChannelName}` : 'nessun passaggio in guida'}){/each}.
-        </p>
+    <AvailLegend />
+    <Section key="serata" title="La mia serata">
+      {#snippet aside()}{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere (dalla guida o con la lente): compaiono qui quando si possono vedere.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} da vedere stasera`}{/snippet}
+      {#if serataCards.length > 0}
+        {@render row(serataCards)}
+        {#if tonightLater.length > 0}<p class="muted small">Le locandine più chiare non si vedono stasera nei tuoi abbonamenti: un tocco apre la scheda.</p>{/if}
       {/if}
     </Section>
 
@@ -255,23 +305,7 @@
     <Section key="proposte" id="proposte" title="Proposte per te">
       {#snippet aside()}<a href="/preferenze#proposte" onclick={navigate}>{hasPreferences ? 'Cambia le preferenze' : 'Scegli cosa proporti'}</a>{/snippet}
       {#if proposals.length > 0}
-        <ul class="tonight">
-          {#each proposals.slice(0, 12) as x (x.programme.id)}
-            {@const n = x.programme}
-            <li class:conflict={x.conflict}>
-              <div class="t-main">
-                <button type="button" class="t-title" onclick={() => (open = n)}>{n.title}</button>
-                <div class="muted small">{[n.year || '', n.sub || n.group, n.rating != null ? `★ ${vote(n.rating)} ${n.ratingSource}` : '', `da «${x.preference}»`].filter(Boolean).join(' · ')}</div>
-                <div class="t-where">{when(n)} · {n.channelName || n.guideChannelName}{x.otherAirings > 0 ? ` · altri ${x.otherAirings} passaggi` : ''}</div>
-                {#if x.conflict}<div class="small warn">Si sovrappone ad altre registrazioni oltre il limite</div>{/if}
-              </div>
-              <div class="t-acts">
-                {#if recordable(n)}<RecordButton size="m" scheduled={n.scheduled} busy={busy === n.id} onclick={() => quickRecord(n)} />{/if}
-                <Button size="s" variant="ghost" onclick={() => noMore(x)}>Non proporre più</Button>
-              </div>
-            </li>
-          {/each}
-        </ul>
+        {@render row(proposals.slice(0, 12).map(proposalCard))}
       {:else}
         <p class="muted small">{hasPreferences ? 'Niente di nuovo per oggi e domani dalle tue preferenze.' : 'Dì a DoveLoFanno cosa ti piace (generi, voto minimo, attori): qui compaiono i programmi giusti di oggi e domani.'}</p>
       {/if}
@@ -291,28 +325,36 @@
       </Section>
     {/if}
 
-    {#snippet cards(list: GuideProgramme[], markMine = false, onDemandMode = false)}
+    {#snippet row(list: Card[])}
       <ul class="cards">
-        {#each list as p (p.id)}
-          {@const subs = markMine ? mySubscriptionsFor(p, mySubs) : []}
-          <li>
-            <button type="button" class="card" class:mine={subs.length > 0} onclick={() => (open = p)}
-              title={subs.length > 0 ? `Nei tuoi abbonamenti: ${subs.join(', ')}` : undefined}>
+        {#each list as c (c.key)}
+          <li class:dim={c.dim}>
+            <button type="button" class="card" onclick={c.open}>
               <span class="poster">
-                <PosterImg src={p.poster || p.icon} title={p.title} />
-                {#if p.rating != null}<span class="stars">★ {vote(p.rating)}</span>{/if}
-                {#if p.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
+                <PosterImg src={c.poster} title={c.title} />
+                {#if c.rating != null}<span class="stars">★ {vote(c.rating)}</span>{/if}
+                {#if c.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
+                <AvailBadges a={c.avail} />
               </span>
-              <span class="c-title">{p.title}</span>
-              {#if onDemandMode}
-                {@const on = streamingFor(p, mySubs)}
-                <span class="line onsub small">{#each on as s (s)}<ServiceIcon name={s} size={18} label={false} />{/each}Su {on.map((s) => platforms.of(s).short).join(', ')}</span>
-              {:else}
-                <span class="line muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
-              {/if}
-              <span class="line muted small">{[p.sub, p.year || ''].filter(Boolean).join(' · ')}</span>
-              {#if subs.length > 0}<span class="line onsub small">{#each subs as s (s)}<ServiceIcon name={s} size={18} label={false} />{/each}Nei tuoi abbonamenti</span>{/if}
+              <span class="c-title">{c.title}</span>
+              {#each c.lines.filter(Boolean) as l, k (k)}<span class="line muted small">{l}</span>{/each}
+              {#if c.note}<span class="note small" title={c.note}>{c.note}</span>{/if}
+              {#if c.accent}<span class="line accent small">{c.accent}</span>{/if}
+              {#if c.warn}<span class="line warn small">{c.warn}</span>{/if}
             </button>
+            {#if c.rec || c.seen || c.drop}
+              <div class="c-acts">
+                {#if c.rec}
+                  {@const r = c.rec}
+                  <button type="button" class="mini rec" class:on={r.scheduled} disabled={busy === r.id} onclick={() => quickRecord(r)}
+                    aria-pressed={r.scheduled} aria-label={r.scheduled ? 'In programma: apri' : `Registra ${c.title}`} title={r.scheduled ? 'In programma' : 'Registra'}>
+                    <span class="dot" aria-hidden="true"></span>{r.scheduled ? 'In programma' : 'Registra'}
+                  </button>
+                {/if}
+                {#if c.seen}<button type="button" class="mini" onclick={c.seen} aria-label="Visto: {c.title}" title="Visto">✓</button>{/if}
+                {#if c.drop}<button type="button" class="mini ghost" onclick={c.drop} aria-label="{c.dropLabel}: {c.title}" title={c.dropLabel}>✕</button>{/if}
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -322,10 +364,10 @@
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
         {#snippet aside()}<span class="mysubs">dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{#each platforms.sort(mySubs) as s (s)}<ServiceIcon name={s} size={24} />{/each}</span>{/snippet}
         <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
-        {#if filmsMine.length > 0}{@render cards(filmsMine.slice(0, 18))}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
+        {#if filmsMine.length > 0}{@render row(filmsMine.slice(0, 18).map((p) => programmeCard(p)))}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
         <h3 class="subrow">On demand <span class="muted small">da vedere quando vuoi nei cataloghi dei tuoi abbonamenti</span></h3>
         {#if onDemand.length > 0}
-          {@render cards(onDemand.slice(0, 18), false, true)}
+          {@render row(onDemand.slice(0, 18).map((p) => programmeCard(p, 'ondemand')))}
         {:else}
           <p class="muted small">{mySubs.length === 0 ? 'Scegli i tuoi abbonamenti (Netflix, Prime Video…) in Preferenze: qui compaiono i film dei loro cataloghi.' : 'Nessun film della guida nei cataloghi dei tuoi abbonamenti, per ora.'}</p>
         {/if}
@@ -333,14 +375,14 @@
       {#if filmsOther.length > 0}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
           {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
-          {@render cards(filmsOther.slice(0, 18))}
+          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)))}
         </Section>
       {/if}
     {/if}
     {#if weekFilms.length > 0}
       <Section key="settimana" title="Questa settimana">
-        {#snippet aside()}film con voto 7 e oltre nei prossimi giorni · <span class="legend"></span> nei tuoi abbonamenti{/snippet}
-        {@render cards(weekFilms, true)}
+        {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
+        {@render row(weekFilms.map((p) => programmeCard(p)))}
       </Section>
     {/if}
 
@@ -382,14 +424,10 @@
   .tonight li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; }
   .t-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
   .t-title { border: 0; background: none; padding: 0; color: var(--text); font-size: 17px; font-weight: 600; text-align: left; cursor: pointer; }
-  .t-where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
   .t-acts { display: flex; flex-wrap: wrap; gap: 8px; }
-  .later { margin-top: 10px; }
-  .tonight li.conflict { border-color: #4a3a2a; }
   .warn { color: var(--orange-text); }
   .bar { height: 4px; border-radius: 2px; background: var(--raised); overflow: hidden; margin-top: 6px; }
   .bar span { display: block; height: 100%; background: var(--blue); }
-  .link { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }
   .recs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .recs li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
   .rec-live { border-color: #3a2a2e; }
@@ -403,16 +441,27 @@
   .line :global(.ic) { margin: -2px 4px 0 0; }
   .mysubs { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card:hover .poster, .card:focus-visible .poster { box-shadow: 0 0 0 2px var(--text); }
-  /* nei miei abbonamenti: bordo verde del logo (#34C77B) */
-  .card.mine .poster { box-shadow: 0 0 0 3px var(--green); }
-  .card.mine:hover .poster, .card.mine:focus-visible .poster { box-shadow: 0 0 0 3px var(--green), 0 0 0 5px var(--text); }
-  .onsub { color: var(--green-text); font-weight: 600; }
   .subrow { font-size: 16px; margin: 4px 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
   .subrow + :global(ul), .subrow + p { margin-bottom: 20px; }
-  .legend { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--green); vertical-align: -1px; }
   .stars { position: absolute; top: 8px; left: 8px; background: rgba(13, 16, 21, 0.8); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
   .recdot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
   .c-title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .accent { color: var(--link); }
+  /* nota su due righe al massimo: il passaggio su un canale che non ho */
+  .note { color: var(--muted); font-size: 12px; line-height: 1.3; opacity: 0.85; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  /* titoli della mia serata che stasera non si vedono nei miei abbonamenti: più chiari, ma si aprono lo stesso */
+  .cards li.dim .poster { opacity: 0.45; }
+  .cards li.dim .c-title { color: var(--text-2); }
+  .c-acts { display: flex; gap: 6px; margin-top: 8px; }
+  .mini {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 36px; height: 34px; padding: 0 10px;
+    border-radius: 8px; border: 1px solid var(--line-btn); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .mini:hover { border-color: var(--text-2); }
+  .mini.rec { flex: 1 1 auto; background: var(--text); color: var(--bg); border: 0; }
+  .mini.rec.on { background: var(--rec-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--rec); }
+  .mini.ghost { border-color: transparent; background: none; color: var(--muted); }
+  .mini .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec-dot); }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 20px; }
   .empty p { margin: 0 0 6px; }
   @media (max-width: 720px) { .hero { min-height: 300px; } .tonight { grid-template-columns: 1fr; } .cards { grid-auto-columns: 140px; } }

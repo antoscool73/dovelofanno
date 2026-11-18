@@ -52,6 +52,23 @@ public sealed class TonightTests : IDisposable
     }
 
     [Fact]
+    public void TitoloSoloInStreaming_ConLeSuePiattaforme()
+    {
+        var (t, guide, a, _, _) = Setup();
+        // un originale trovato con la lente: niente in guida, su Prime Video dalla data di uscita
+        long madden = new LibraryStore(Db).FilmWork("Madden", 2026, 1131943, "", "Madden", 0, 0, false, Now);
+        new WorkStore(Db, guide).SaveDetails(madden, new DoveLoFanno.Ratings.MovieDetails("", "/m.jpg", "", 110, "Madden", "", "",
+            [new("Amazon Prime Video", "subscription", "", "release"), new("Apple TV Store", "rent", "")]), Now);
+        t.Add(a, madden, Now);
+        var it = Assert.Single(t.Items(a, Now)!);
+        Assert.Null(it.Next);
+        Assert.Equal(["Amazon Prime Video"], it.Streaming!);          // il noleggio non conta
+        Assert.False(it.InHouse);
+        Assert.Equal("https://image.tmdb.org/t/p/w342/m.jpg", it.Poster);
+        Assert.Equal(["Apple TV Store"], it.Paid!);
+    }
+
+    [Fact]
     public void VistoTogleDallaSerataESegnaLOpera()
     {
         var (t, _, a, _, padrino) = Setup();

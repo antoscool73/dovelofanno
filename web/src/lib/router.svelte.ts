@@ -1,7 +1,7 @@
 // Router minimo con indirizzi veri (/guida, /registrazioni...): il server rimanda a index.html ogni
 // indirizzo che non è un file né /api. Nessuna dipendenza esterna.
 
-export type Route = 'stasera' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
+export type Route = 'stasera' | 'cerca' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
 
 const paths: Record<string, Route> = {
   '/': 'stasera',
@@ -12,6 +12,7 @@ const paths: Record<string, Route> = {
   '/registrazioni': 'registrazioni',
   '/preferenze': 'preferenze',
   '/impostazioni': 'impostazioni',
+  '/cerca': 'cerca',
 };
 
 export function routeOf(pathname: string): Route {

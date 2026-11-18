@@ -12,6 +12,7 @@
   import Scheda from './screens/Scheda.svelte';
   import Libreria from './screens/Libreria.svelte';
   import Player from './screens/Player.svelte';
+  import Cerca from './screens/Cerca.svelte';
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -44,7 +45,7 @@
   load();
 
   const titles: Record<string, string> = {
-    stasera: 'Stasera', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
+    stasera: 'Stasera', cerca: 'Cerca', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
     preferenze: 'Preferenze', impostazioni: 'Impostazioni', profili: 'Chi guarda?', 'non-trovata': 'Pagina non trovata',
   };
 
@@ -73,6 +74,8 @@
   <main>
     {#if router.route === 'stasera'}
       <Stasera />
+    {:else if router.route === 'cerca'}
+      <Cerca />
     {:else if router.route === 'opera'}
       <Scheda id={router.workId} />
     {:else if router.route === 'guida'}

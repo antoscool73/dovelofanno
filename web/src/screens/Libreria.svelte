@@ -3,6 +3,7 @@
   // registrazioni) e file da sistemare. Le stelle sono il voto personale del profilo, accanto al voto IMDb.
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
+  import AvailBadges from '../lib/components/AvailBadges.svelte';
   import Button from '../lib/components/Button.svelte';
   import Stars from '../lib/components/Stars.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
@@ -353,6 +354,7 @@
           <article class="card">
             <a class="poster" href="/opera/{e.workId}" onclick={navigate}>
               <PosterImg src={e.poster} title={e.title} />
+              <AvailBadges a={{ tv: "", home: true, mine: [], pay: [] }} />
               {#if e.positionS > 0 && e.durationS > 0}<span class="prog over" aria-hidden="true"><span style="width: {pct(e.positionS, e.durationS)}%"></span></span>{/if}
             </a>
             <div class="cbody">
@@ -439,7 +441,7 @@
   .ctitle { font-weight: 600; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
   .prog { display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); overflow: hidden; margin-top: 6px; }
   .prog span { display: block; height: 100%; background: var(--blue); }
-  .prog.over { position: absolute; left: 8px; right: 8px; bottom: 8px; margin: 0; }
+  .prog.over { position: absolute; left: 8px; right: 38px; bottom: 15px; margin: 0; }  /* a destra c'è l'icona "in casa" */
   .panel { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; }
   .phead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
   .phead h2 { font-size: 24px; }
