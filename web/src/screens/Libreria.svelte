@@ -4,11 +4,13 @@
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
+  import { availOf } from '../lib/avail';
+  import { platforms } from '../lib/platforms.svelte';
   import Button from '../lib/components/Button.svelte';
   import Stars from '../lib/components/Stars.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
   import {
-    api, ApiError, type LibraryEntry, type LibraryItem, type LibrarySection, type LibrarySort, type ListDetail, type ListSummary,
+    api, ApiError, type LibraryEntry, type LibraryItem, type LibrarySection, type LibrarySort, type ListDetail, type ListEntry, type ListSummary,
   } from '../lib/api/client';
   import { clock, day, minutes, time, vote } from '../lib/format';
   import { router, navigate } from '../lib/router.svelte';
@@ -45,6 +47,15 @@
   let matching = $state<number | null>(null);
 
   const child = $derived(session.profile?.isChild ?? false);
+
+  // icone di disponibilità nelle righe delle liste: servono gli abbonamenti del profilo
+  let mySubs = $state<string[]>([]);
+  $effect(() => {
+    const p = session.profile;
+    if (p) api.profileSubscriptions(p.id).then((s) => (mySubs = s.services)).catch(() => {});
+  });
+  const listAvail = (it: ListEntry) =>
+    availOf(it, mySubs, it.next, it.next ? `${day(it.next.start).toLowerCase()} ${time(it.next.start)}, ${it.next.channelName || it.next.guideChannelName}` : '');
 
   async function loadLists() {
     const prof = session.profile;
@@ -243,9 +254,10 @@
           <p class="empty">La lista è vuota. Si aggiungono titoli dalla scheda di un'opera: «Aggiungi a una lista».</p>
         {/if}
         {#each detail.items as it (it.workId)}
+          {@const av = listAvail(it)}
           <div class="lrow">
             <a class="mini" href="/opera/{it.workId}" onclick={navigate} aria-label="Apri la scheda di {it.title}">
-              <PosterImg src={it.poster} title={it.title} compact />
+              <PosterImg src={it.poster || it.next?.poster || it.next?.icon || ''} title={it.title} compact />
             </a>
             <div class="lbody">
               <div class="line">
@@ -256,9 +268,13 @@
               </div>
               <div class="muted small">{[it.country, it.year ? String(it.year) : '', it.credits].filter(Boolean).join(' · ')}</div>
               <div class="where small">
-                {#if it.playItemId}In casa{#if it.next} · {/if}{/if}
-                {#if it.next}In onda {day(it.next.start).toLowerCase()} · {time(it.next.start)} · {it.next.channelName || it.next.guideChannelName}{/if}
-                {#if !it.playItemId && !it.next}Non in casa né in guida nei prossimi giorni{/if}
+                <AvailBadges a={av} size={20} inline />
+                <span>{[
+                  av.home ? 'In casa' : '',
+                  av.tv ? `In TV ${av.tv}` : '',
+                  av.mine.length > 0 ? `Su ${av.mine.map((s) => platforms.of(s).short).join(', ')}` : '',
+                  av.pay.length > 0 ? `A pagamento: ${av.pay.map((s) => platforms.of(s).short).join(', ')}` : '',
+                ].filter(Boolean).join(' · ') || 'Per ora non si vede: né in casa, né in TV nei prossimi giorni, né in streaming'}</span>
               </div>
             </div>
             {#if it.playItemId}<Button size="s" variant="primary" href="/guarda/{it.playItemId}" onclick={navigate}>▶ Guarda</Button>{/if}
@@ -455,7 +471,7 @@
   .lbody { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .ltitle { font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
-  .where { color: var(--text-2); }
+  .where { color: var(--text-2); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .x { width: 40px; height: 40px; border-radius: 8px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
   .x:hover { color: var(--text); background: var(--raised); }
   .tools { display: flex; flex-wrap: wrap; gap: 10px; }

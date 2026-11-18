@@ -7,6 +7,7 @@
   import AlertPanel from '../lib/components/AlertPanel.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import StableLabel from '../lib/components/StableLabel.svelte';
+  import AbbinaDialog from './AbbinaDialog.svelte';
   import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
   import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
@@ -19,6 +20,14 @@
   let error = $state('');
   let busy = $state<number | null>(null);
   let notice = $state('');
+  // "Abbina di nuovo…" su un file in casa abbinato al titolo sbagliato: dopo, si va alla scheda giusta
+  let rematch = $state<number | null>(null);
+  function rematched(it: { workId?: number | null }) {
+    rematch = null;
+    if (it.workId != null && it.workId !== w?.id) router.go(`/opera/${it.workId}`);
+    else { notice = 'Abbinamento salvato.'; load(); }
+  }
+  const kindOf = (k: string | undefined) => (k === 'film' || k === 'series' || k === 'documentary' || k === 'programme' ? k : null);
 
   let mySubs = $state<string[]>([]);
   let ignored = $state(false);
@@ -259,6 +268,9 @@
                 </span>
                 {#if f.watched}<Badge tone="green">Visto</Badge>{/if}
                 <Button size="s" variant={f.playable ? 'primary' : 'secondary'} href="/guarda/{f.itemId}" onclick={navigate}>{f.playable ? (f.positionS > 0 && !f.watched ? '▶ Riprendi' : '▶ Guarda') : 'Prepara e guarda'}</Button>
+                {#if session.profile && !session.profile.isChild}
+                  <Button size="s" variant="ghost" onclick={() => (rematch = f.itemId)}>Abbina di nuovo…</Button>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -307,6 +319,10 @@
       {#if session.profile}<div id="avvisami"><AlertPanel workId={w.id} /></div>{/if}
     </aside>
   </div>
+  {#if rematch !== null}
+    <AbbinaDialog itemId={rematch} hasTmdb={true} title={w.title} startYear={w.year}
+      startKind={kindOf(w.kind)} onclose={() => (rematch = null)} ondone={rematched} />
+  {/if}
 {/if}
 
 <style>

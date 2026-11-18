@@ -4,7 +4,8 @@
   import type { Avail } from '../avail';
   import { platforms } from '../platforms.svelte';
 
-  let { a, size = 22 }: { a: Avail; size?: number } = $props();
+  // inline: nel testo di una riga (liste) invece che sopra la locandina
+  let { a, size = 22, inline = false }: { a: Avail; size?: number; inline?: boolean } = $props();
   const names = (l: string[]) => l.map((s) => platforms.of(s).short).join(', ');
   const items = $derived([
     a.tv ? { k: 'tv', label: `In TV: ${a.tv}` } : null,
@@ -15,7 +16,7 @@
 </script>
 
 {#if items.length > 0}
-  <span class="badges" role="list" aria-label="Dove si vede">
+  <span class="badges" class:inline role="list" aria-label="Dove si vede">
     {#each items as it (it.k)}
       <span class="b {it.k}" role="listitem" title={it.label} aria-label={it.label} style:width="{size}px" style:height="{size}px">
         {#if it.k === 'tv'}
@@ -34,6 +35,8 @@
 
 <style>
   .badges { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; z-index: 1; pointer-events: auto; }
+  .badges.inline { position: static; display: inline-flex; vertical-align: middle; }
+  .inline .b { box-shadow: none; }
   .b {
     display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
     box-shadow: 0 0 0 2px rgba(13, 16, 21, 0.85), 0 2px 6px rgba(0, 0, 0, 0.45);

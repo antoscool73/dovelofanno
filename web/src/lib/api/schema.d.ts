@@ -4219,6 +4219,9 @@ export interface components {
             next: null | components["schemas"]["GuideProgramme"];
             country: string;
             credits: string;
+            streaming?: string[];
+            paid?: string[];
+            inHouse?: boolean;
         };
         ListPatch: {
             name: null | string;

@@ -1,14 +1,20 @@
 <script lang="ts">
-  // "Da sistemare": abbinamento a mano di un file a un film o a una serie di TMDB, oppure solo con titolo e anno.
+  // Abbinamento a mano di un file a un film o a una serie di TMDB, oppure solo con titolo e anno: per i file "Da
+  // sistemare" e, dalla Scheda, per rifare un abbinamento sbagliato (title/startYear/startKind = l'opera di adesso).
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type LibraryItem, type MatchCandidate } from '../lib/api/client';
 
-  let { itemId, hasTmdb, onclose, ondone }: { itemId: number; hasTmdb: boolean; onclose: () => void; ondone: () => void } = $props();
+  type Kind = 'film' | 'series' | 'documentary' | 'programme';
+  let { itemId, hasTmdb, onclose, ondone, title = '', startYear = 0, startKind = null }: {
+    itemId: number; hasTmdb: boolean; onclose: () => void; ondone: (it: LibraryItem) => void;
+    title?: string; startYear?: number; startKind?: Kind | null;
+  } = $props();
 
   let item = $state<LibraryItem | null>(null);
   let text = $state('');
   let year = $state('');
-  let kind = $state<'film' | 'series' | 'documentary' | 'programme'>('film');
+  // svelte-ignore state_referenced_locally
+  let kind = $state<Kind>(startKind ?? 'film');
   let season = $state('');
   let episode = $state('');
   let results = $state<MatchCandidate[] | null>(null);
@@ -18,8 +24,8 @@
   $effect(() => {
     api.libraryItem(itemId).then((it) => {
       item = it;
-      text = it.titleGuess || it.fileName.replace(/\.[^.]+$/, '');
-      year = it.yearGuess ? String(it.yearGuess) : '';
+      text = title || it.titleGuess || it.fileName.replace(/\.[^.]+$/, '');
+      year = startYear ? String(startYear) : it.yearGuess ? String(it.yearGuess) : '';
       if (it.season != null && it.episode != null) {
         kind = 'series';
         season = String(it.season);
@@ -49,7 +55,7 @@
     busy = true;
     error = '';
     try {
-      await api.matchItem(itemId, {
+      const done = await api.matchItem(itemId, {
         title: c ? c.title : text.trim(),
         year: c ? c.year : Number(year) || 0,
         kind,
@@ -57,7 +63,7 @@
         season: tv && season ? Number(season) : null,
         episode: tv && episode ? Number(episode) : null,
       });
-      ondone();
+      ondone(done);
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Abbinamento non salvato';
     } finally {
@@ -106,7 +112,7 @@
 
     {#if results}
       {#if results.length === 0}
-        <p class="muted">Nessun risultato: prova con il titolo originale o senza anno.</p>
+        <p class="muted">Nessun risultato, nemmeno senza anno: prova con il titolo originale o con un tipo diverso (Film / Serie).</p>
       {:else}
         <ul class="res">
           {#each results as r (r.tmdbId)}

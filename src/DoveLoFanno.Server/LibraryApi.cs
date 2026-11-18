@@ -187,8 +187,13 @@ public static class LibraryApi
             try
             {
                 bool tv = kind == "tv";
-                var res = tv ? await tmdb.SearchTvAsync(q.Trim(), year ?? 0, ct) : await tmdb.SearchMovieAsync(q.Trim(), year ?? 0, ct);
-                return Results.Ok(res.OrderByDescending(m => m.VoteCount).Take(20)
+                int y = year ?? 0;
+                var res = tv ? await tmdb.SearchTvAsync(q.Trim(), y, ct) : await tmdb.SearchMovieAsync(q.Trim(), y, ct);
+                // l'anno del file è spesso sbagliato di uno (Shutter Island "2009", per TMDB 2010): senza risultati si
+                // cerca senza anno, con prima i titoli dell'anno vicino
+                if (res.Count == 0 && y > 0)
+                    res = tv ? await tmdb.SearchTvAsync(q.Trim(), 0, ct) : await tmdb.SearchMovieAsync(q.Trim(), 0, ct);
+                return Results.Ok(res.OrderByDescending(m => y > 0 && m.Year > 0 && Math.Abs(m.Year - y) <= 1).ThenByDescending(m => m.VoteCount).Take(20)
                     .Select(m => new MatchCandidate(m.Id, tv ? "tv" : "movie", m.Title, m.OriginalTitle, m.Year, m.VoteCount)).ToList());
             }
             catch (TmdbKeyException ex) { return Results.Conflict(new ApiError(ex.Message)); }

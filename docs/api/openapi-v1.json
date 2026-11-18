@@ -4833,6 +4833,21 @@
           },
           "credits": {
             "type": "string"
+          },
+          "streaming": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "paid": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inHouse": {
+            "type": "boolean"
           }
         }
       },
