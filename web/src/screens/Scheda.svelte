@@ -3,6 +3,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
+  import AlertPanel from '../lib/components/AlertPanel.svelte';
   import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
   import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
   import { router, navigate } from '../lib/router.svelte';
@@ -15,10 +16,19 @@
   let busy = $state<number | null>(null);
   let notice = $state('');
 
+  let mySubs = $state<string[]>([]);
+  let ignored = $state(false);
+
   async function load() {
     try {
       w = await api.work(id, session.profile?.id);
       error = '';
+      const prof = session.profile;
+      if (prof) {
+        api.profileSubscriptions(prof.id).then((s) => (mySubs = s.services)).catch(() => {});
+        api.ignored(prof.id).then((l) => (ignored = !!w && l.some((i) => i.title === w!.title))).catch(() => {});
+      }
+      if (location.hash === '#avvisami') setTimeout(() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }), 200);
     } catch (e) {
       error = e instanceof ApiError ? (e.status === 404 ? 'Opera non trovata.' : e.message) : 'Scheda non letta';
     }
@@ -67,6 +77,13 @@
       else await api.addTonight(prof.id, w.id);
       w.inTonight = !w.inTonight;
     } catch (e) { error = e instanceof ApiError ? e.message : 'Lista non aggiornata'; }
+  }
+
+  async function noMore() {
+    const prof = session.profile;
+    if (!prof || !w) return;
+    try { await api.ignore(prof.id, w.id); ignored = true; }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
   }
 
   async function markSeen() {
@@ -167,6 +184,8 @@
             <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}>{w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
             {#if !w.watched}<Button variant="soft" size="l" onclick={markSeen}>✓ Già visto</Button>{/if}
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
+            <Button variant="soft" size="l" onclick={() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' })}>Avvisami</Button>
+            <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}>{ignored ? 'Non lo propongo più' : 'Non proporre più'}</Button>
           {/if}
         </div>
         {#if listsOpen}
@@ -242,11 +261,12 @@
           <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span><Badge tone="blue">Gratis</Badge></div>
         {/if}
         {#each byKind as k (k.kind)}
-          <div class="wrow"><span><span class="muted small">{k.label}</span><br /><strong>{k.names.join(', ')}</strong></span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
+          <div class="wrow"><span><span class="muted small">{k.label}</span><br /><strong>{k.names.join(', ')}</strong>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
         {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{w.tmdbId ? 'Nessuna disponibilità nota in Italia.' : 'Per «dove lo vedo» serve la chiave TMDB (Impostazioni › Voti dei film).'}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}
+      {#if session.profile}<div id="avvisami"><AlertPanel workId={w.id} /></div>{/if}
     </aside>
   </div>
 {/if}

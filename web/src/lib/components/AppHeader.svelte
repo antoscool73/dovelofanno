@@ -1,6 +1,7 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
   import Avatar from './Avatar.svelte';
+  import NotificationBell from './NotificationBell.svelte';
   import { router, navigate, type Route } from '../router.svelte';
   import { session } from '../session.svelte';
 
@@ -23,6 +24,7 @@
   <div class="spacer"></div>
   <a href="/impostazioni" onclick={navigate} class="settings" aria-current={router.route === 'impostazioni' ? 'page' : undefined}>Impostazioni</a>
   {#if session.profile}
+    <NotificationBell />
     <a href="/profili" onclick={navigate} class="profile" aria-label="Profilo attivo: {session.profile.name}. Cambia profilo">
       <Avatar name={session.profile.name} color={session.profile.avatar} />
       <span class="pname">{session.profile.name}</span>

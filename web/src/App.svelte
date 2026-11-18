@@ -2,7 +2,9 @@
   import AppHeader from './lib/components/AppHeader.svelte';
   import Button from './lib/components/Button.svelte';
   import Profili from './screens/Profili.svelte';
-  import InArrivo from './screens/InArrivo.svelte';
+  import NonTrovata from './screens/NonTrovata.svelte';
+  import Preferenze from './screens/Preferenze.svelte';
+  import Benvenuto from './screens/Benvenuto.svelte';
   import Registrazioni from './screens/Registrazioni.svelte';
   import Impostazioni from './screens/Impostazioni.svelte';
   import Guida from './screens/Guida.svelte';
@@ -17,11 +19,17 @@
   let profiles = $state<Profile[]>([]);
   let loading = $state(true);
   let error = $state('');
+  // primo avvio: dopo il primo profilo, la procedura guidata (una volta sola per server)
+  let setupDone = $state(true);
 
   async function load() {
     error = '';
     try {
-      profiles = await api.profiles();
+      const [list, general, sources] = await Promise.all([api.profiles(), api.generalSettings(), api.sources()]);
+      profiles = list;
+      // un server già configurato prima di questa versione non rivede il primo avvio
+      if (!general.setupDone && sources.length > 0) api.updateGeneralSettings({ setupDone: true }).catch(() => {});
+      setupDone = general.setupDone || sources.length > 0;
       // il profilo ricordato su questo dispositivo, se c'è ancora
       const stored = profiles.find((p) => p.id === session.storedId);
       if (stored && !session.profile) session.profile = stored;
@@ -56,6 +64,8 @@
   </div>
 {:else if showProfiles}
   <Profili {profiles} onchange={load} />
+{:else if !setupDone && !session.profile?.isChild}
+  <Benvenuto ondone={() => (setupDone = true)} />
 {:else if router.route === 'guarda'}
   <Player id={router.itemId} />
 {:else}
@@ -72,11 +82,11 @@
     {:else if router.route === 'registrazioni'}
       <Registrazioni />
     {:else if router.route === 'preferenze'}
-      <InArrivo title="Preferenze" text="Proposte, avvisi, abbonamenti, notifiche e registrazione predefinita." />
+      <Preferenze />
     {:else if router.route === 'impostazioni'}
       <Impostazioni />
     {:else}
-      <InArrivo title="Pagina non trovata" text="L'indirizzo non corrisponde a nessuna schermata." />
+      <NonTrovata />
     {/if}
   </main>
 {/if}

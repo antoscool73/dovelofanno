@@ -3,19 +3,24 @@
   import Button from '../lib/components/Button.svelte';
   import VotiFilm from './VotiFilm.svelte';
   import CartelleLibreria from './CartelleLibreria.svelte';
+  import GestioneProfili from './GestioneProfili.svelte';
+  import LimitiNotifiche from './LimitiNotifiche.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
-  type Tab = 'sorgenti' | 'cartelle' | 'profili' | 'voti' | 'limiti' | 'backup';
+  type Tab = 'sorgenti' | 'cartelle' | 'profili' | 'voti' | 'limiti' | 'notifiche' | 'backup';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'sorgenti', label: 'Sorgenti' },
     { id: 'cartelle', label: 'Cartelle' },
     { id: 'profili', label: 'Profili e abbonamenti' },
     { id: 'voti', label: 'Voti dei film' },
     { id: 'limiti', label: 'Limiti' },
+    { id: 'notifiche', label: 'Notifiche' },
     { id: 'backup', label: 'Backup' },
   ];
-  let tab = $state<Tab>('sorgenti');
+  // la scheda si ricorda nell'indirizzo (/impostazioni#profili), così i collegamenti dalle altre schermate ci arrivano
+  let tab = $state<Tab>(tabs.find((t) => location.hash === '#' + t.id)?.id ?? 'sorgenti');
+  $effect(() => { history.replaceState(null, '', '#' + tab); });
 
   let sources = $state<Source[]>([]);
   let channels = $state<Channel[]>([]);
@@ -258,9 +263,10 @@
         </ul>
       {/if}
       <p class="muted small">Ripristino: a server fermo, si rimette la copia al posto di dlf.db (istruzioni nella guida di installazione).</p>
-    {:else}
-      <div class="head"><h2>{tabs.find((t) => t.id === tab)?.label}</h2></div>
-      <p class="muted">In preparazione: arriva con le prossime wave.</p>
+    {:else if tab === 'profili'}
+      <GestioneProfili />
+    {:else if tab === 'limiti' || tab === 'notifiche'}
+      <LimitiNotifiche section={tab} />
     {/if}
   </div>
 </div>

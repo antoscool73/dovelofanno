@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "DoveLoFanno",
-    "description": "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, backup.",
+    "description": "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, preferenze, proposte, avvisi, notifiche, backup.",
     "version": "v1"
   },
   "paths": {
@@ -97,6 +97,66 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/guide/genres": {
+      "get": {
+        "tags": [
+          "Guida"
+        ],
+        "summary": "Sottogeneri presenti nella guida da adesso in poi (almeno 3 programmi)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GenreCount"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channels/{id}/preview": {
+      "get": {
+        "tags": [
+          "Canali"
+        ],
+        "summary": "Anteprima live muta: un fotogramma JPEG del canale (si rinnova ogni 8 secondi)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -2073,6 +2133,862 @@
         }
       }
     },
+    "/api/v1/profiles/{id}/preferences": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Preferenze del profilo: cosa cercare nella guida per le proposte",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PreferenceRow"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Aggiunge una preferenza (testo anche su regia e attori, genere, sottogenere, voto minimo)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenceRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/preferences/{prefId}": {
+      "put": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Modifica una preferenza o la attiva e disattiva",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "prefId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenceRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Toglie una preferenza",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "prefId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/excluded-groups": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Generi che il profilo non vuole mai tra le proposte",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Cambia i generi esclusi dalle proposte",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/proposals": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Proposte per te: un passaggio per opera, nei prossimi giorni (7 se non indicato, al massimo 14)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Proposal"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/ignored": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Opere da non proporre più",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IgnoredWork"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Non proporre più un'opera",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkRef"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Torna a proporre un'opera (chiave dell'opera)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/alerts": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Avvisi del profilo (di un'opera sola con workId), con il loro stato",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AlertRow"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Crea o modifica l'avviso di un'opera: in chiaro in TV (tv), nei miei abbonamenti (subscription), a noleggio o acquisto (rent_buy)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/alerts/{alertId}": {
+      "delete": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Toglie un avviso",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "alertId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/notifications": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Ultime notifiche del profilo e della famiglia, con quante non sono lette",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/notifications/read": {
+      "post": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Segna come lette le notifiche fino a quella indicata",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/subscriptions": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Abbonamenti del profilo: ereditati dalla famiglia o suoi",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSubscriptions"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Eredita gli abbonamenti della famiglia o tiene una scelta sua",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileSubscriptionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSubscriptions"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/subscriptions": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Abbonamenti della famiglia e piattaforme che si possono scegliere",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilySubscriptions"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Cambia gli abbonamenti della famiglia (valgono per i profili che li ereditano)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilySubscriptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/general": {
+      "get": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Margini e formato predefiniti, limiti, primo avvio fatto, cartella e spazio libero delle registrazioni",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Cambia margini, formato, limiti o segna fatto il primo avvio",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeneralSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/notifications": {
+      "get": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Telegram (solo se è configurato, mai il token) e orari di silenzio",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Collega Telegram (manda un messaggio di prova prima di salvare) o lo scollega; orari di silenzio",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/guide": {
       "get": {
         "tags": [
@@ -2414,6 +3330,152 @@
   },
   "components": {
     "schemas": {
+      "AlertBody": {
+        "required": [
+          "workId",
+          "kind",
+          "active",
+          "channels",
+          "autoRecord",
+          "moments",
+          "services",
+          "offers"
+        ],
+        "type": "object",
+        "properties": {
+          "workId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "active": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "channels": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoRecord": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "moments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "services": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "offers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AlertRow": {
+        "required": [
+          "id",
+          "workId",
+          "workTitle",
+          "workYear",
+          "workKind",
+          "kind",
+          "active",
+          "channels",
+          "autoRecord",
+          "moments",
+          "services",
+          "offers",
+          "lastFiredAt",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "workId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "workTitle": {
+            "type": "string"
+          },
+          "workYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "workKind": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "channels": {
+            "type": "string"
+          },
+          "autoRecord": {
+            "type": "boolean"
+          },
+          "moments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastFiredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "ApiError": {
         "required": [
           "error"
@@ -2497,6 +3559,161 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          }
+        }
+      },
+      "FamilySubscriptions": {
+        "required": [
+          "services",
+          "known"
+        ],
+        "type": "object",
+        "properties": {
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "known": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GeneralSettings": {
+        "required": [
+          "beforeMin",
+          "afterMin",
+          "format",
+          "maxParallel",
+          "minFreeGb",
+          "setupDone",
+          "recordingsDir",
+          "freeGb"
+        ],
+        "type": "object",
+        "properties": {
+          "beforeMin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "afterMin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "format": {
+            "type": "string"
+          },
+          "maxParallel": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minFreeGb": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "setupDone": {
+            "type": "boolean"
+          },
+          "recordingsDir": {
+            "type": "string"
+          },
+          "freeGb": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "GeneralSettingsPatch": {
+        "required": [
+          "beforeMin",
+          "afterMin",
+          "format",
+          "maxParallel",
+          "minFreeGb",
+          "setupDone"
+        ],
+        "type": "object",
+        "properties": {
+          "beforeMin": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "afterMin": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "format": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maxParallel": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "minFreeGb": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "setupDone": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "GenreCount": {
+        "required": [
+          "group",
+          "sub",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "sub": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "GroupsBody": {
+        "required": [
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2758,6 +3975,26 @@
           "running": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "IgnoredWork": {
+        "required": [
+          "workKey",
+          "title",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "workKey": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -3679,6 +4916,135 @@
           }
         }
       },
+      "NotificationList": {
+        "required": [
+          "unread",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationRow"
+            }
+          }
+        }
+      },
+      "NotificationRow": {
+        "required": [
+          "id",
+          "profileId",
+          "kind",
+          "title",
+          "text",
+          "link",
+          "createdAt",
+          "read"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profileId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "read": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationSettings": {
+        "required": [
+          "telegramConfigured",
+          "telegramChat",
+          "quietFrom",
+          "quietTo"
+        ],
+        "type": "object",
+        "properties": {
+          "telegramConfigured": {
+            "type": "boolean"
+          },
+          "telegramChat": {
+            "type": "string"
+          },
+          "quietFrom": {
+            "type": "string"
+          },
+          "quietTo": {
+            "type": "string"
+          }
+        }
+      },
+      "NotificationSettingsPatch": {
+        "required": [
+          "telegramToken",
+          "telegramChat",
+          "clearTelegram",
+          "quietFrom",
+          "quietTo"
+        ],
+        "type": "object",
+        "properties": {
+          "telegramToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "telegramChat": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clearTelegram": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "quietFrom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quietTo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PartRow": {
         "required": [
           "id",
@@ -3740,6 +5106,90 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "PreferenceBody": {
+        "required": [
+          "name",
+          "text",
+          "group",
+          "sub",
+          "minRating",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "group": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sub": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minRating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "PreferenceRow": {
+        "required": [
+          "id",
+          "name",
+          "text",
+          "group",
+          "sub",
+          "minRating",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "sub": {
+            "type": "string"
+          },
+          "minRating": {
+            "type": "number",
+            "format": "double"
+          },
+          "enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -3817,6 +5267,52 @@
           }
         }
       },
+      "ProfileSubscriptions": {
+        "required": [
+          "inherits",
+          "services",
+          "own"
+        ],
+        "type": "object",
+        "properties": {
+          "inherits": {
+            "type": "boolean"
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "own": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ProfileSubscriptionsBody": {
+        "required": [
+          "inherits",
+          "services"
+        ],
+        "type": "object",
+        "properties": {
+          "inherits": {
+            "type": "boolean"
+          },
+          "services": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ProgressBody": {
         "required": [
           "positionS",
@@ -3845,6 +5341,30 @@
         "properties": {
           "watched": {
             "type": "boolean"
+          }
+        }
+      },
+      "Proposal": {
+        "required": [
+          "programme",
+          "preference",
+          "conflict",
+          "otherAirings"
+        ],
+        "type": "object",
+        "properties": {
+          "programme": {
+            "$ref": "#/components/schemas/GuideProgramme"
+          },
+          "preference": {
+            "type": "string"
+          },
+          "conflict": {
+            "type": "boolean"
+          },
+          "otherAirings": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -3910,6 +5430,18 @@
               "null",
               "boolean"
             ]
+          }
+        }
+      },
+      "ReadBody": {
+        "required": [
+          "upTo"
+        ],
+        "type": "object",
+        "properties": {
+          "upTo": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -4088,6 +5620,20 @@
             "format": "int64"
           },
           "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ServicesBody": {
+        "required": [
+          "services"
+        ],
+        "type": "object",
+        "properties": {
+          "services": {
             "type": "array",
             "items": {
               "type": "string"
@@ -4638,6 +6184,9 @@
       "name": "Opere"
     },
     {
+      "name": "Guida"
+    },
+    {
       "name": "Sorgenti"
     },
     {
@@ -4650,7 +6199,7 @@
       "name": "Libreria"
     },
     {
-      "name": "Guida"
+      "name": "Preferenze"
     },
     {
       "name": "Impostazioni"

@@ -28,6 +28,10 @@ public sealed class ServerContext : IDisposable
     public WorkStore Works { get; }
     public LibraryStore Library { get; }
     public ListStore Lists { get; }
+    public NotificationStore Notifications { get; }
+    public SubscriptionStore Subscriptions { get; }
+    public PreferenceStore Preferences { get; }
+    public AlertStore Alerts { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -60,6 +64,10 @@ public sealed class ServerContext : IDisposable
         Works = new WorkStore(DbPath, Guide);
         Library = new LibraryStore(DbPath);
         Lists = new ListStore(DbPath, Guide);
+        Notifications = new NotificationStore(DbPath);
+        Subscriptions = new SubscriptionStore(DbPath);
+        Preferences = new PreferenceStore(DbPath, Guide);
+        Alerts = new AlertStore(DbPath, Guide, Subscriptions);
     }
 
     static string Full(string? configured, string fallback) =>

@@ -34,6 +34,22 @@ export type ListDetail = S['ListDetail'];
 export type ListEntry = S['ListEntry'];
 export type MatchCandidate = S['MatchCandidate'];
 export type MatchBody = S['MatchBody'];
+export type PreferenceRow = S['PreferenceRow'];
+export type PreferenceBody = S['PreferenceBody'];
+export type Proposal = S['Proposal'];
+export type IgnoredWork = S['IgnoredWork'];
+export type AlertRow = S['AlertRow'];
+export type AlertBody = S['AlertBody'];
+export type AlertKind = 'tv' | 'subscription' | 'rent_buy';
+export type NotificationRow = S['NotificationRow'];
+export type NotificationList = S['NotificationList'];
+export type ProfileSubscriptions = S['ProfileSubscriptions'];
+export type FamilySubscriptions = S['FamilySubscriptions'];
+export type GeneralSettings = S['GeneralSettings'];
+export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
+export type NotificationSettings = S['NotificationSettings'];
+export type NotificationSettingsPatch = S['NotificationSettingsPatch'];
+export type GenreCount = S['GenreCount'];
 export type LibrarySection = 'all' | 'films' | 'series' | 'documentaries' | 'programmes' | 'recordings' | 'unmatched' | 'watched';
 export type LibrarySort = 'added' | 'title' | 'rating' | 'stars';
 
@@ -146,6 +162,39 @@ export const api = {
   deleteList: (profileId: number, listId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}`),
   addToList: (profileId: number, listId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/lists/${listId}/items`, { workId }),
   removeFromList: (profileId: number, listId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}/items/${workId}`),
+
+  preferences: (profileId: number) => call<PreferenceRow[]>('GET', `/profiles/${profileId}/preferences`),
+  addPreference: (profileId: number, b: PreferenceBody) => call<PreferenceRow>('POST', `/profiles/${profileId}/preferences`, b),
+  updatePreference: (profileId: number, id: number, b: PreferenceBody) => call<PreferenceRow>('PUT', `/profiles/${profileId}/preferences/${id}`, b),
+  deletePreference: (profileId: number, id: number) => call<void>('DELETE', `/profiles/${profileId}/preferences/${id}`),
+  excludedGroups: (profileId: number) => call<{ groups: string[] }>('GET', `/profiles/${profileId}/excluded-groups`),
+  setExcludedGroups: (profileId: number, groups: string[]) => call<{ groups: string[] }>('PUT', `/profiles/${profileId}/excluded-groups`, { groups }),
+  proposals: (profileId: number, days = 7) => call<Proposal[]>('GET', `/profiles/${profileId}/proposals?days=${days}`),
+  ignored: (profileId: number) => call<IgnoredWork[]>('GET', `/profiles/${profileId}/ignored`),
+  ignore: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/ignored`, { workId }),
+  unignore: (profileId: number, key: string) => call<void>('DELETE', `/profiles/${profileId}/ignored?key=${encodeURIComponent(key)}`),
+  genres: () => call<GenreCount[]>('GET', '/guide/genres'),
+
+  alerts: (profileId: number, workId?: number) => call<AlertRow[]>('GET', `/profiles/${profileId}/alerts` + (workId ? `?workId=${workId}` : '')),
+  saveAlert: (profileId: number, b: AlertBody) => call<AlertRow>('PUT', `/profiles/${profileId}/alerts`, b),
+  deleteAlert: (profileId: number, id: number) => call<void>('DELETE', `/profiles/${profileId}/alerts/${id}`),
+
+  notifications: (profileId: number) => call<NotificationList>('GET', `/profiles/${profileId}/notifications`),
+  markRead: (profileId: number, upTo: number) => call<void>('POST', `/profiles/${profileId}/notifications/read`, { upTo }),
+
+  familySubscriptions: () => call<FamilySubscriptions>('GET', '/subscriptions'),
+  setFamilySubscriptions: (services: string[]) => call<FamilySubscriptions>('PUT', '/subscriptions', { services }),
+  profileSubscriptions: (profileId: number) => call<ProfileSubscriptions>('GET', `/profiles/${profileId}/subscriptions`),
+  setProfileSubscriptions: (profileId: number, inherits: boolean, services: string[] | null) =>
+    call<ProfileSubscriptions>('PUT', `/profiles/${profileId}/subscriptions`, { inherits, services }),
+
+  generalSettings: () => call<GeneralSettings>('GET', '/settings/general'),
+  updateGeneralSettings: (p: Partial<GeneralSettingsPatch>) =>
+    call<GeneralSettings>('PUT', '/settings/general', { beforeMin: null, afterMin: null, format: null, maxParallel: null, minFreeGb: null, setupDone: null, ...p }),
+  notificationSettings: () => call<NotificationSettings>('GET', '/settings/notifications'),
+  updateNotificationSettings: (p: Partial<NotificationSettingsPatch>) =>
+    call<NotificationSettings>('PUT', '/settings/notifications', { telegramToken: null, telegramChat: null, clearTelegram: null, quietFrom: null, quietTo: null, ...p }),
+  previewUrl: (channelId: number) => `/api/v1/channels/${channelId}/preview?t=${Date.now()}`,
 
   backups: () => call<BackupInfo[]>('GET', '/backups'),
   createBackup: () => call<BackupInfo>('POST', '/backups'),

@@ -266,6 +266,9 @@ public static class Api
         // ---------------------------------------------------------------- libreria, player e liste (aggiunta della wave 6)
         LibraryApi.Map(api);
 
+        // ---------------------------------------------------------------- preferenze, proposte, avvisi, notifiche (aggiunta del 18/11/2026)
+        PreferencesApi.Map(api);
+
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");
 

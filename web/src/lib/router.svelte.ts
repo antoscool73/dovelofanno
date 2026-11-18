@@ -37,11 +37,13 @@ class Router {
     window.addEventListener('popstate', () => { this.path = window.location.pathname; });
   }
 
+  /** Va a un indirizzo dell'app; un'ancora (/opera/12#avvisami) resta nell'indirizzo ma non nel percorso. */
   go(path: string, replace = false): void {
-    if (path === this.path) return;
-    if (replace) history.replaceState(null, '', path);
-    else history.pushState(null, '', path);
-    this.path = path;
+    const url = new URL(path, window.location.origin);
+    if (url.pathname === this.path && url.hash === window.location.hash) return;
+    if (replace) history.replaceState(null, '', url.pathname + url.hash);
+    else history.pushState(null, '', url.pathname + url.hash);
+    this.path = url.pathname;
     window.scrollTo(0, 0);
   }
 }
@@ -54,5 +56,5 @@ export function navigate(e: MouseEvent): void {
   const a = e.currentTarget as HTMLAnchorElement;
   if (a.target || a.origin !== window.location.origin) return;
   e.preventDefault();
-  router.go(a.pathname);
+  router.go(a.pathname + a.hash);
 }

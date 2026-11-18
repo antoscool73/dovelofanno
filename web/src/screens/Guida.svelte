@@ -5,6 +5,7 @@
   import { api, ApiError, type GuideProgramme, type GuideStatus } from '../lib/api/client';
   import { byChannelOrder, day, dayChip, midnight, range, time, vote } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
+  import { session } from '../lib/session.svelte';
 
   const PX_PER_MIN = 4;              // un'ora = 240 px, come nel prototipo
   const ROW = 68;
@@ -35,6 +36,14 @@
     // un giorno compare se la guida ne copre almeno 6 ore
     for (let d = today; d.getTime() + 6 * 3_600_000 < until.getTime() && out.length < 14; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) out.push(d);
     return out.length ? out : [today];
+  });
+
+  // proposte del profilo: evidenziate in blu nella griglia e nell'elenco (passaggio proposto)
+  let proposed = $state(new Set<number>());
+  $effect(() => {
+    const prof = session.profile;
+    if (!prof) return;
+    api.proposals(prof.id, 14).then((l) => (proposed = new Set(l.map((x) => x.programme.id)))).catch(() => {});
   });
 
   async function loadStatus() {
@@ -196,9 +205,9 @@
           <div class="row" style:height="{ROW}px">
             <div class="chname" style:width="{CH}px">{#if r.number != null}<span class="chnum">{r.number}</span>{/if}{r.name}</div>
             {#each r.items as p (p.id)}
-              <button type="button" class="prog" class:dim={!matches(p)} class:rec={p.scheduled} class:past={new Date(p.stop) <= now}
+              <button type="button" class="prog" class:dim={!matches(p)} class:rec={p.scheduled} class:prop={proposed.has(p.id) && !p.scheduled} class:past={new Date(p.stop) <= now}
                 style:left="{CH + left(p)}px" style:width="{width(p)}px" onclick={() => (open = p)}
-                aria-label="{p.title}, {range(p.start, p.stop)}, {r.name}{p.scheduled ? ', in programma' : ''}">
+                aria-label="{p.title}, {range(p.start, p.stop)}, {r.name}{p.scheduled ? ', in programma' : ''}{proposed.has(p.id) ? ', proposta per te' : ''}">
                 <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{p.title}</span>
                 <span class="pmeta">{time(p.start)}{p.rating != null ? ` · ★ ${vote(p.rating)}` : ''}{p.sub ? ` · ${p.sub}` : p.group !== 'Altro' ? ` · ${p.group}` : ''}</span>
               </button>
@@ -284,6 +293,7 @@
     color: var(--text); text-align: left; overflow: hidden; cursor: pointer;
   }
   .prog:hover { border-color: var(--line-btn); background: var(--raised); }
+  .prog.prop { background: rgba(110, 155, 255, 0.14); border: 2px solid var(--blue); }
   .prog.rec { background: rgba(255, 90, 95, 0.1); border-color: rgba(255, 90, 95, 0.5); }
   .prog.dim { opacity: 0.35; }
   .prog.past { opacity: 0.6; }

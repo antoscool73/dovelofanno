@@ -3,6 +3,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
+  import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type GuideProgramme } from '../lib/api/client';
   import { day, minutes, between, range, vote } from '../lib/format';
   import { router } from '../lib/router.svelte';
@@ -17,6 +18,14 @@
   let error = $state('');
   let warnings = $state<string[]>([]);
   const ended = $derived(new Date(p.stop).getTime() <= Date.now());
+  const onAir = $derived(new Date(p.start).getTime() <= Date.now() && !ended);
+  let ignored = $state(false);
+  async function noMore() {
+    const prof = session.profile;
+    if (!prof || p.workId == null) return;
+    try { await api.ignore(prof.id, p.workId); ignored = true; onchange(); }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
+  }
 
   // "Aggiungi alla mia serata": si sa se c'è già leggendo la lista del profilo
   let inTonight = $state<boolean | null>(null);
@@ -38,13 +47,19 @@
     }
   }
 
+  // l'indirizzo si calcola prima di chiudere: chiudendo, il programma passato alla finestra diventa null
+  function goTo(path: string) {
+    onclose();
+    router.go(path);
+  }
+
   function dialog(node: HTMLDialogElement) {
     node.showModal();
     node.addEventListener('cancel', (e) => { e.preventDefault(); onclose(); });
   }
 
   async function record() {
-    if (scheduled) { onclose(); router.go('/registrazioni'); return; }
+    if (scheduled) { goTo('/registrazioni'); return; }
     if (p.channelId == null) return;
     busy = true;
     error = '';
@@ -68,7 +83,9 @@
 
 <dialog use:dialog aria-labelledby="pd-title">
   <div class="body">
-    {#if p.icon}<img src={p.icon} alt="" class="icon" loading="lazy" referrerpolicy="no-referrer" />{/if}
+    {#if onAir && p.channelId != null}
+      <LivePreview channelId={p.channelId} label={p.channelName} />
+    {:else if p.icon}<img src={p.icon} alt="" class="icon" loading="lazy" referrerpolicy="no-referrer" />{/if}
     <div class="when">{day(p.start)} · {range(p.start, p.stop)} · {p.channelName || p.guideChannelName}</div>
     <h2 id="pd-title">{p.title}</h2>
     {#if p.subtitle}<div class="sub">{p.subtitle}</div>{/if}
@@ -88,17 +105,23 @@
     <div class="actions">
       {#if p.channelId != null && !ended}
         <RecordButton {scheduled} {busy} label={new Date(p.start).getTime() < Date.now() ? 'Registra da adesso' : 'Registra'} onclick={record} />
-        {#if scheduled}<Button variant="ghost" onclick={() => { onclose(); router.go('/registrazioni'); }}>Vedi in Registrazioni</Button>{/if}
+        {#if scheduled}<Button variant="ghost" onclick={() => goTo('/registrazioni')}>Vedi in Registrazioni</Button>{/if}
       {:else if p.channelId == null}
-        <p class="muted">Questo canale non è in nessuna delle tue playlist: non si può registrare. Gli avvisi («Avvisami») arrivano con le prossime schermate.</p>
+        <p class="muted">Questo canale non è in nessuna delle tue playlist: non si può registrare, ma con «Avvisami» nella scheda ti avviso quando passa.</p>
       {:else}
         <p class="muted">Il programma è finito.</p>
       {/if}
       {#if p.workId != null}
-        <Button variant="soft" onclick={() => { onclose(); router.go(`/opera/${p.workId}`); }}>Apri la scheda</Button>
+        <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}`)}>Apri la scheda</Button>
+      {/if}
+      {#if p.workId != null}
+        <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}#avvisami`)}>Avvisami</Button>
       {/if}
       {#if inTonight !== null}
         <Button variant="soft" pressed={inTonight} onclick={toggleTonight}>{inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
+      {/if}
+      {#if p.workId != null}
+        <Button variant="ghost" disabled={ignored} onclick={noMore}>{ignored ? 'Non lo propongo più' : 'Non proporre più'}</Button>
       {/if}
       <span class="grow"></span>
       <Button variant="secondary" onclick={onclose}>Chiudi</Button>

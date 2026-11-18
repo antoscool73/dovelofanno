@@ -5,7 +5,7 @@
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
-  import { api, ApiError, type GuideProgramme, type Recording, type TonightItem } from '../lib/api/client';
+  import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
@@ -14,6 +14,9 @@
   let recordings = $state<Recording[]>([]);
   let tonightFilms = $state<GuideProgramme[]>([]);
   let weekFilms = $state<GuideProgramme[]>([]);
+  let proposals = $state<Proposal[]>([]);
+  let hasPreferences = $state(true);
+  let continuing = $state<LibraryItem[]>([]);
   let loading = $state(true);
   let error = $state('');
   let open = $state<GuideProgramme | null>(null);
@@ -34,12 +37,18 @@
     const { from, to } = eveningWindow(now);
     const tomorrow = new Date(midnight(now).getTime() + 86_400_000);
     try {
-      const [list, recs, films, week] = await Promise.all([
+      const [list, recs, films, week, props, prefs, cont] = await Promise.all([
         prof ? api.tonight(prof.id) : Promise.resolve([]),
         api.recordings(),
         api.guide({ from, to, group: 'Film', max: 500 }),
         api.guide({ from: tomorrow, to: new Date(tomorrow.getTime() + 6 * 86_400_000), group: 'Film', minRating: 7, max: 1000 }),
+        prof ? api.proposals(prof.id, 2) : Promise.resolve([]),
+        prof ? api.preferences(prof.id) : Promise.resolve([]),
+        prof ? api.continueWatching(prof.id).catch(() => []) : Promise.resolve([]),
       ]);
+      continuing = cont;
+      proposals = props;
+      hasPreferences = prefs.length > 0;
       tonightList = list;
       recordings = recs;
       // stasera: film che iniziano dalle 20 alle 2; quelli già in onda contano solo se è già sera
@@ -125,6 +134,18 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non tolto'; }
   }
 
+  async function noMore(p: Proposal) {
+    const prof = session.profile;
+    if (!prof || p.programme.workId == null) return;
+    try { await api.ignore(prof.id, p.programme.workId); proposals = proposals.filter((x) => x !== p); }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
+  }
+
+  // dopo una notifica "nuove proposte" (/#proposte) si scende alla sezione
+  $effect(() => {
+    if (!loading && location.hash === '#proposte') setTimeout(() => document.getElementById('proposte')?.scrollIntoView({ behavior: 'smooth' }), 100);
+  });
+
   const tonightAvailable = $derived(tonightList.filter((i) => i.next && new Date(i.next.start) < eveningWindow(now).to));
   const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i)));
 </script>
@@ -190,6 +211,52 @@
       {/if}
     </section>
 
+    {#if continuing.length > 0}
+      <section>
+        <div class="sec-head"><h2>Continua a guardare</h2><a href="/libreria" onclick={navigate}>Libreria</a></div>
+        <ul class="tonight">
+          {#each continuing.slice(0, 6) as it (it.id)}
+            <li>
+              <div class="t-main">
+                <span class="t-title">{it.title}</span>
+                {#if it.subtitle}<div class="muted small">{it.subtitle}</div>{/if}
+                <div class="bar" aria-label="Visto al {Math.round((100 * it.positionS) / Math.max(1, it.durationS))}%"><span style:width="{Math.min(100, (100 * it.positionS) / Math.max(1, it.durationS))}%"></span></div>
+              </div>
+              <div class="t-acts"><Button size="s" variant="primary" onclick={() => router.go(`/guarda/${it.id}`)}>▶ Riprendi</Button></div>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
+    <section id="proposte">
+      <div class="sec-head">
+        <h2>Proposte per te</h2>
+        <a href="/preferenze#proposte" onclick={navigate}>{hasPreferences ? 'Cambia le preferenze' : 'Scegli cosa proporti'}</a>
+      </div>
+      {#if proposals.length > 0}
+        <ul class="tonight">
+          {#each proposals.slice(0, 12) as x (x.programme.id)}
+            {@const n = x.programme}
+            <li class:conflict={x.conflict}>
+              <div class="t-main">
+                <button type="button" class="t-title" onclick={() => (open = n)}>{n.title}</button>
+                <div class="muted small">{[n.year || '', n.sub || n.group, n.rating != null ? `★ ${vote(n.rating)} ${n.ratingSource}` : '', `da «${x.preference}»`].filter(Boolean).join(' · ')}</div>
+                <div class="t-where">{when(n)} · {n.channelName || n.guideChannelName}{x.otherAirings > 0 ? ` · altri ${x.otherAirings} passaggi` : ''}</div>
+                {#if x.conflict}<div class="small warn">Si sovrappone ad altre registrazioni oltre il limite</div>{/if}
+              </div>
+              <div class="t-acts">
+                {#if recordable(n)}<RecordButton size="m" scheduled={n.scheduled} busy={busy === n.id} onclick={() => quickRecord(n)} />{/if}
+                <Button size="s" variant="ghost" onclick={() => noMore(x)}>Non proporre più</Button>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="muted small">{hasPreferences ? 'Niente di nuovo per oggi e domani dalle tue preferenze.' : 'Dì a DoveLoFanno cosa ti piace (generi, voto minimo, attori): qui compaiono i programmi giusti di oggi e domani.'}</p>
+      {/if}
+    </section>
+
     {#if live.length > 0 || upcoming.length > 0}
       <section>
         <div class="sec-head"><h2>In registrazione e in arrivo</h2><a href="/registrazioni" onclick={navigate}>Tutte le registrazioni</a></div>
@@ -239,7 +306,7 @@
         <p class="muted">Arriva dalla playlist (se la indica) o da una guida aggiunta in <a href="/impostazioni" onclick={navigate}>Impostazioni</a>. Senza la chiave TMDB i film non hanno voto: si aggiunge in Impostazioni › Voti dei film.</p>
       </div>
     {/if}
-    <p class="muted small">Le proposte su misura arrivano con le preferenze; «Continua a guardare» con la libreria e il player. <a href="/guida" onclick={(e) => { e.preventDefault(); router.go('/guida'); }}>Tutta la guida</a></p>
+    <p class="muted small"><a href="/guida" onclick={(e) => { e.preventDefault(); router.go('/guida'); }}>Tutta la guida</a> · <a href="/libreria" onclick={navigate}>Continua a guardare nella Libreria</a></p>
   </div>
 {/if}
 
@@ -276,6 +343,10 @@
   .t-where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
   .t-acts { display: flex; flex-wrap: wrap; gap: 8px; }
   .later { margin-top: 10px; }
+  .tonight li.conflict { border-color: #4a3a2a; }
+  .warn { color: var(--orange-text); }
+  .bar { height: 4px; border-radius: 2px; background: var(--raised); overflow: hidden; margin-top: 6px; }
+  .bar span { display: block; height: 100%; background: var(--blue); }
   .link { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }
   .recs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .recs li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }

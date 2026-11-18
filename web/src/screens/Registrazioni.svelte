@@ -2,6 +2,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import NuovaRegistrazione from './NuovaRegistrazione.svelte';
+  import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type Recording } from '../lib/api/client';
   import { between, day, fileName, minutes, range, time } from '../lib/format';
 
@@ -142,13 +143,14 @@
   {:else if all.length === 0}
     <div class="empty">
       <p>Nessuna registrazione, per ora.</p>
-      <p class="muted">Programmane una con «Nuova registrazione»; dalla guida arriverà anche il pulsante Registra su ogni programma.</p>
+      <p class="muted">Programmane una con «Nuova registrazione», oppure con «Registra» su un programma della guida o una proposta in Stasera.</p>
     </div>
   {:else}
     {#if filter === 'tutte' && active.length > 0}
       <h2>In corso</h2>
       {#each active as r (r.id)}
         <div class="live">
+          {#if r.state === 'recording'}<div class="live-prev"><LivePreview channelId={r.channelId} label={r.channelName} /></div>{/if}
           <div class="live-body">
             <div class="meta">{r.channelName} · {range(r.start, r.stop)} · con margini {range(r.recordFrom, r.recordTo)}</div>
             <div class="live-title">{r.title}</div>
@@ -244,4 +246,5 @@
   .note { font-size: 13px; color: var(--orange-text); }
   .failed .note { color: var(--rec-text); }
   .acts { display: flex; gap: 8px; }
+  .live-prev { flex: 0 0 260px; max-width: 100%; }
 </style>

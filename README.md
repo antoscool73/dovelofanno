@@ -17,7 +17,13 @@
   sopravvivono alle cadute di rete, unione finale in MP4 (o MP3 per la radio), file `.nfo` per Jellyfin e Kodi.
 - **Libreria** delle cartelle di casa (anche sul NAS): riconoscimento di film e serie dal nome del file, player nel
   browser con ripresa dal punto, sottotitoli, liste personali e di famiglia, voto da 1 a 5 stelle.
-- **Profili** per la famiglia, con PIN facoltativo e profilo bambino.
+- **Proposte per te**: ogni profilo dice cosa gli piace (generi, voto minimo, attori, registi) e Stasera propone
+  i programmi giusti, senza quelli già visti, già in casa o già in programma.
+- **Avvisami**: per ogni titolo tre avvisi indipendenti (quando passa in chiaro in TV, anche con registrazione
+  automatica; quando arriva nei tuoi abbonamenti; quando si può noleggiare o comprare).
+- **Notifiche** nella campanella dell'app, nel browser e, se lo colleghi, su Telegram; orari di silenzio.
+- **Anteprima live** muta dei canali delle playlist nella guida e nelle registrazioni in corso.
+- **Profili** per la famiglia, con PIN facoltativo, profilo bambino e abbonamenti ereditati dalla famiglia.
 
 DoveLoFanno **non include canali né sorgenti**: usa solo le playlist e le guide che l'utente aggiunge, ed è utile anche
 senza IPTV (guida, libreria, liste). Nessun account, nessun servizio in cloud, nessuna raccolta di dati.
@@ -68,7 +74,8 @@ in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 DoveLoFanno ("where is it on?") is a self-hosted home server for Italian households: a TV guide (XMLTV), a recorder
 for the user's own M3U playlists (ffmpeg, stream copy to MPEG-TS segments merged into MP4), a media library for home
-folders with a resumable browser player, and family profiles. It ships no channels or sources and has no cloud
+folders with a resumable browser player, family profiles, personal recommendations from the guide, "notify me" alerts
+(free-to-air, subscriptions, rent/buy, with optional automatic recording) and notifications (in-app, browser, Telegram). It ships no channels or sources and has no cloud
 service, accounts or telemetry. It runs as a Docker container (amd64/arm64) or as a Windows service, and is used from
 any browser on the home network. The user interface is in Italian.
 
