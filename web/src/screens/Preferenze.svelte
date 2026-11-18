@@ -2,6 +2,8 @@
   // Preferenze del profilo: cosa proporre, i miei avvisi, i miei abbonamenti, le notifiche, la registrazione predefinita.
   import Button from '../lib/components/Button.svelte';
   import Badge from '../lib/components/Badge.svelte';
+  import ServicePicker from '../lib/components/ServicePicker.svelte';
+  import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
     api, ApiError, type AlertRow, type GenreCount, type GeneralSettings, type IgnoredWork, type PreferenceRow, type ProfileSubscriptions, type FamilySubscriptions,
   } from '../lib/api/client';
@@ -235,14 +237,10 @@
       {#if mySubs && family}
         <label class="f-check"><input type="checkbox" checked={mySubs.inherits} disabled={busy}
           onchange={(e) => act(() => api.setProfileSubscriptions(prof!.id, e.currentTarget.checked, e.currentTarget.checked ? null : family!.services))} />
-          Uso gli abbonamenti della famiglia{family.services.length > 0 ? ` (${family.services.join(', ')})` : ' (nessuno scelto)'}</label>
+          <span>Uso gli abbonamenti della famiglia
+            {#if family.services.length > 0}<span class="fam">{#each family.services as s (s)}<ServiceIcon name={s} size={20} />{/each}</span>{:else}(nessuno scelto){/if}</span></label>
         {#if !mySubs.inherits}
-          <p class="f-muted">I miei:</p>
-          <div class="f-chips">
-            {#each family.known as s (s)}
-              <button type="button" class="f-chip" aria-pressed={mySubs.own.includes(s)} disabled={busy} onclick={() => toggleSub(s)}>{s}</button>
-            {/each}
-          </div>
+          <ServicePicker known={family.known} selected={mySubs.own} disabled={busy} ontoggle={toggleSub} />
         {/if}
       {/if}
 
@@ -285,6 +283,7 @@
 </div>
 
 <style>
+  .fam { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
   .wrap { display: flex; flex-wrap: wrap; gap: 32px; padding: 28px var(--gutter) 64px; max-width: 1340px; }
   aside { flex: 1 1 220px; max-width: 240px; display: flex; flex-direction: column; gap: 6px; }
   h1 { font-size: 30px; }

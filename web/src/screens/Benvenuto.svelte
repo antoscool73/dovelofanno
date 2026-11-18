@@ -3,6 +3,7 @@
   // abbonamenti della famiglia, riepilogo. Ogni passo si può saltare; tutto si cambia poi in Impostazioni.
   import Button from '../lib/components/Button.svelte';
   import Logo from '../lib/components/Logo.svelte';
+  import ServicePicker from '../lib/components/ServicePicker.svelte';
   import { api, ApiError, type FamilySubscriptions } from '../lib/api/client';
 
   let { ondone }: { ondone: () => void } = $props();
@@ -97,9 +98,7 @@
       <h1>Che abbonamenti avete?</h1>
       <p class="f-muted">«Dove lo vedo» li mette per primi e gli avvisi ti dicono quando un titolo ci arriva. Ogni profilo può poi scegliere i suoi.</p>
       {#if family}
-        <div class="f-chips">
-          {#each family.known as s (s)}<button type="button" class="f-chip" aria-pressed={family.services.includes(s)} onclick={() => toggle(s)}>{s}</button>{/each}
-        </div>
+        <ServicePicker known={family.known} selected={family.services} ontoggle={toggle} />
       {/if}
       <div class="f-row"><Button variant="primary" onclick={() => (step = 5)}>Avanti</Button></div>
     {:else}

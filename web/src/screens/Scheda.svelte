@@ -5,6 +5,9 @@
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
   import AlertPanel from '../lib/components/AlertPanel.svelte';
+  import ServiceIcon from '../lib/components/ServiceIcon.svelte';
+  import StableLabel from '../lib/components/StableLabel.svelte';
+  import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
   import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
   import { router, navigate } from '../lib/router.svelte';
@@ -141,9 +144,23 @@
   const byKind = $derived.by(() => {
     const m = new Map<string, string[]>();
     for (const a of w?.availability ?? []) m.set(a.kind, [...(m.get(a.kind) ?? []), a.platform]);
-    return ['subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: m.get(k)! }));
+    // "Amazon Prime Video with Ads" non si ripete se c'è già "Amazon Prime Video"
+    const tidy = (l: string[]) => l.filter((n) => {
+      const base = n.replace(/ (basic |standard )?with ads$/i, '');
+      return base === n || !l.some((x) => x.toLowerCase() === base.toLowerCase());
+    });
+    return ['subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
   });
   const watchLink = $derived(w?.availability[0]?.link ?? '');
+
+  // banner: la locandina ingrandita e tagliata (più grande per non sgranare); senza locandina l'immagine di scena
+  const heroImage = $derived((w?.poster || first?.icon || '').replace('/t/p/w500/', '/t/p/w780/') || w?.backdrop || '');
+
+  // aperta da un link diretto non c'è una pagina precedente dell'app: si torna a Stasera
+  function goBack() {
+    if (history.length > 1) history.back();
+    else router.go('/');
+  }
   const recordLabel = (a: GuideProgramme) => {
     if (new Date(a.start).getTime() < Date.now()) return 'Registra da adesso';
     const d = day(a.start);
@@ -157,13 +174,18 @@
   <p class="pad muted" role="status">Un momento…</p>
 {:else}
   <section class="hero">
-    {#if w.backdrop}<img class="backdrop" src={w.backdrop} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
+    {#if heroImage}<img class="backdrop" src={heroImage} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
+    <div class="topbar">
+      <button type="button" class="back" onclick={goBack}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        Indietro
+      </button>
+    </div>
     <div class="hero-in">
       <div class="poster">
         <PosterImg src={w.poster || first?.icon || ''} title={w.title} />
       </div>
       <div class="info">
-        <button type="button" class="back" onclick={() => history.back()}>← Indietro</button>
         {#if w.parentId}<a class="parent" href="/opera/{w.parentId}" onclick={navigate}>{w.parentTitle}</a>{/if}
         <h1>{w.title}</h1>
         {#if w.originalTitle && w.originalTitle !== w.title}<div class="orig">{w.originalTitle}</div>{/if}
@@ -195,11 +217,11 @@
           {#if nextRecordable}<RecordButton scheduled={nextRecordable.scheduled} busy={busy === nextRecordable.id} label={recordLabel(nextRecordable)} onclick={() => record(nextRecordable)} />{/if}
           {#if w.trailer}<Button variant="soft" size="l" href={w.trailer}>▶ Trailer</Button>{/if}
           {#if session.profile}
-            <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}>{w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
-            <Button variant="soft" size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}>{w.watched ? 'Visto ✓' : 'Segna come visto'}</Button>
+            <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'} variants={['Nella mia serata ✓', 'Aggiungi alla mia serata']} /></Button>
+            <Button variant="soft" size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}><StableLabel text={w.watched ? 'Visto ✓' : 'Segna come visto'} variants={['Visto ✓', 'Segna come visto']} /></Button>
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
             <Button variant="soft" size="l" onclick={() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' })}>Avvisami</Button>
-            <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}>{ignored ? 'Non lo propongo più' : 'Non proporre più'}</Button>
+            <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}><StableLabel text={ignored ? 'Non lo propongo più' : 'Non proporre più'} variants={['Non lo propongo più', 'Non proporre più']} /></Button>
           {/if}
         </div>
         {#if listsOpen}
@@ -275,7 +297,7 @@
           <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span><Badge tone="blue">Gratis</Badge></div>
         {/if}
         {#each byKind as k (k.kind)}
-          <div class="wrow"><span><span class="muted small">{k.label}</span><br /><strong>{k.names.join(', ')}</strong>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
+          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'subscription' && mySubs.some((m) => m.toLowerCase() === n.toLowerCase())}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if k.kind === 'subscription' && k.names.some((n) => mySubs.some((m) => m.toLowerCase() === n.toLowerCase()))}<br /><Badge tone="green">Nei tuoi abbonamenti</Badge>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
         {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{w.tmdbId ? 'Nessuna disponibilità nota in Italia.' : 'Per «dove lo vedo» serve la chiave TMDB (Impostazioni › Voti dei film).'}</div>{/if}
       </div>
@@ -292,16 +314,26 @@
   .error { color: var(--rec-text); margin: 0; }
   .ok { color: var(--green-text); margin: 0; }
   .hero { position: relative; overflow: hidden; background: #172033; }
-  .backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.3; }
+  .backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; opacity: 0.5; filter: blur(2px) saturate(1.1); transform: scale(1.04); }
+  /* il testo resta leggibile: scuro a sinistra e in basso, la locandina si vede a destra */
+  .hero::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(13, 16, 21, 0.92) 0%, rgba(13, 16, 21, 0.7) 45%, rgba(13, 16, 21, 0.25) 100%), linear-gradient(0deg, var(--bg) 0%, rgba(13, 16, 21, 0) 35%); }
+  .hero > :not(.backdrop):not(.hero-word) { z-index: 1; }
+  .topbar { position: relative; padding: 18px var(--gutter) 0; }
+  .back {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px 0 10px; border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.28); background: rgba(13, 16, 21, 0.55); color: var(--text);
+    font-size: 15px; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px);
+  }
+  .back:hover, .back:focus-visible { background: rgba(255, 255, 255, 0.14); border-color: var(--text); }
   .hero-word { position: absolute; top: 20px; right: var(--gutter); max-width: 70%; text-align: right; font-family: var(--font-display); font-weight: 700; font-size: clamp(60px, 10vw, 150px); line-height: 0.95; color: #1f2b44; text-transform: uppercase; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-  .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 56px var(--gutter) 36px; max-width: 1240px; }
+  .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 28px var(--gutter) 36px; max-width: 1240px; }
   .poster { flex: 0 0 220px; aspect-ratio: 2 / 3; border-radius: 14px; background: #2b3d63; overflow: hidden; display: flex; align-items: flex-end; padding: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); position: relative; }
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }
   .listmenu { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
   .lcheck { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 15px; cursor: pointer; }
   .lcheck input { width: 18px; height: 18px; accent-color: var(--blue); }
-  .back { align-self: flex-start; border: 0; background: none; padding: 0; color: var(--link); font-size: 14px; cursor: pointer; }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1; letter-spacing: -0.02em; }
   .orig { color: var(--muted); font-size: 16px; }
   .facts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 15px; color: var(--text-2); }
@@ -326,6 +358,9 @@
   .where { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
   .wrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .wrow:last-child { border-bottom: 0; }
+  .plats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
+  .plat { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+  .plat.mine :global(.ic) { box-shadow: 0 0 0 2px var(--green); }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
   @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .hero-in { gap: 20px; padding-top: 24px; } }
 </style>

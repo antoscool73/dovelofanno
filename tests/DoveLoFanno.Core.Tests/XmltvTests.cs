@@ -38,6 +38,20 @@ public class XmltvTests
 
     static readonly DateTime Now = new(2026, 11, 16, 12, 0, 0);
 
+    [Fact]
+    public void LaTramaNelPaeseNonEUnPaese()
+    {
+        const string xml = """
+            <tv><channel id="La5.it"><display-name>La 5</display-name></channel>
+              <programme channel="La5.it" start="20261116210000 +0100" stop="20261116230000 +0100"><title>A</title><country>Adattamento turco dell'omonimo cult romantico. Un patto stretto tra due amici.</country></programme>
+              <programme channel="La5.it" start="20261116230000 +0100" stop="20261117010000 +0100"><title>B</title><desc>Trama.</desc><country>USA, Regno Unito</country></programme>
+            </tv>
+            """;
+        var p = XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)), Now).Programmes("La5.it");
+        Assert.Equal(("", "Adattamento turco dell'omonimo cult romantico. Un patto stretto tra due amici."), (p[0].Country, p[0].Desc));
+        Assert.Equal(("USA, Regno Unito", "Trama."), (p[1].Country, p[1].Desc));
+    }
+
     static EpgGuide Load() => XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(Sample)), Now);
 
     static DateTime Local(int day, int hour, int minute = 0) =>

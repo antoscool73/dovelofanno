@@ -76,6 +76,12 @@ public static partial class XmltvReader
                 var ym = YearPrefix().Match(Text(e, "date"));
                 if (ym.Success) p.Year = int.Parse(ym.Value, CultureInfo.InvariantCulture);
                 p.Country = Text(e, "country");
+                // alcune guide (La 5, 27 Twentyseven) mettono la trama nel paese: non è un paese
+                if (p.Country.Length > 40 || p.Country.Contains(". ", StringComparison.Ordinal))
+                {
+                    if (p.Desc.Length == 0) p.Desc = p.Country;
+                    p.Country = "";
+                }
                 var cr = e.Element("credits");
                 if (cr != null)
                 {

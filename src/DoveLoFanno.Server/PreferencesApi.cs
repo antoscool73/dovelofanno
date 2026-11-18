@@ -136,6 +136,21 @@ public static class PreferencesApi
         })
             .WithSummary("Cambia gli abbonamenti della famiglia (valgono per i profili che li ereditano)");
 
+        // piattaforme con logo e ordine di rilievo (TMDB, riletto ogni 7 giorni): servono alle icone e a ordinare gli abbonamenti
+        api.MapGet("/platforms", async (ServerContext ctx, CancellationToken ct) =>
+        {
+            var now = ctx.Clock.GetUtcNow();
+            string key = ctx.Settings.Get("TmdbKey");
+            if (key.Length > 0 && ctx.Platforms.Stale(now))
+            {
+                var job = ctx.Platforms.RefreshAsync(new DoveLoFanno.Ratings.TmdbClient(ctx.Http, key), now, CancellationToken.None);
+                try { await Task.WhenAny(job, Task.Delay(TimeSpan.FromSeconds(6), ct)); } catch (TaskCanceledException) { }
+            }
+            return ctx.Platforms.All(ctx.Subscriptions.Known());
+        })
+            .WithTags("Preferenze")
+            .WithSummary("Piattaforme in Italia dalla più diffusa, con logo, gruppo (i canali dentro Prime Video stanno sotto Prime Video) e nome breve");
+
         api.MapGet("/guide/genres", (ServerContext ctx) => ctx.Preferences.SubGenres(ctx.Clock.GetUtcNow()))
             .WithTags("Guida").WithSummary("Sottogeneri presenti nella guida da adesso in poi (almeno 3 programmi)");
 

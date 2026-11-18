@@ -101,6 +101,29 @@
         }
       }
     },
+    "/api/v1/platforms": {
+      "get": {
+        "tags": [
+          "Preferenze"
+        ],
+        "summary": "Piattaforme in Italia dalla più diffusa, con logo, gruppo (i canali dentro Prime Video stanno sotto Prime Video) e nome breve",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Platform"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/guide/genres": {
       "get": {
         "tags": [
@@ -5155,6 +5178,34 @@
           }
         }
       },
+      "Platform": {
+        "required": [
+          "name",
+          "logo",
+          "priority",
+          "group",
+          "short"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "group": {
+            "type": "string"
+          },
+          "short": {
+            "type": "string"
+          }
+        }
+      },
       "PreferenceBody": {
         "required": [
           "name",
@@ -6230,6 +6281,9 @@
       "name": "Opere"
     },
     {
+      "name": "Preferenze"
+    },
+    {
       "name": "Guida"
     },
     {
@@ -6243,9 +6297,6 @@
     },
     {
       "name": "Libreria"
-    },
-    {
-      "name": "Preferenze"
     },
     {
       "name": "Impostazioni"

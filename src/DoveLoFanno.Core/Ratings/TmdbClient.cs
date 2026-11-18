@@ -126,6 +126,28 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
             original, trailer, link, providers, genres);
     }
 
+    /// <summary>
+    /// Piattaforme di un paese (film e serie insieme) con logo e ordine di rilievo di JustWatch: 0 = la più diffusa.
+    /// </summary>
+    public async Task<IReadOnlyList<PlatformEntry>> WatchProvidersAsync(string region, CancellationToken ct)
+    {
+        var res = new Dictionary<string, PlatformEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (string kind in new[] { "movie", "tv" })
+        {
+            using var doc = await GetAsync("watch/providers/" + kind, "watch_region=" + region + "&language=it-IT", ct);
+            if (!doc.RootElement.TryGetProperty("results", out var arr) || arr.ValueKind != JsonValueKind.Array) continue;
+            foreach (var p in arr.EnumerateArray())
+            {
+                string name = Str(p, "provider_name").Trim();
+                if (name.Length == 0) continue;
+                int prio = p.TryGetProperty("display_priorities", out var dp) && dp.ValueKind == JsonValueKind.Object && dp.TryGetProperty(region, out _)
+                    ? (int)Num(dp, region) : 500 + (int)Num(p, "display_priority");
+                if (!res.TryGetValue(name, out var old) || prio < old.Priority) res[name] = new PlatformEntry(name, Str(p, "logo_path"), prio);
+            }
+        }
+        return [.. res.Values];
+    }
+
     /// <summary>"" se la chiave funziona, altrimenti il motivo.</summary>
     public async Task<string> TestKeyAsync(CancellationToken ct = default)
     {

@@ -32,6 +32,7 @@ public sealed class ServerContext : IDisposable
     public SubscriptionStore Subscriptions { get; }
     public PreferenceStore Preferences { get; }
     public AlertStore Alerts { get; }
+    public DoveLoFanno.Ratings.PlatformCatalog Platforms { get; }
     readonly IKeepAwake keepAwake;
 
     public ServerContext(IConfiguration config, IMediaTools? tools = null, TimeProvider? clock = null, RecorderOptions? recorderOptions = null)
@@ -68,6 +69,7 @@ public sealed class ServerContext : IDisposable
         Subscriptions = new SubscriptionStore(DbPath);
         Preferences = new PreferenceStore(DbPath, Guide);
         Alerts = new AlertStore(DbPath, Guide, Subscriptions);
+        Platforms = new DoveLoFanno.Ratings.PlatformCatalog(Path.Combine(DataDir, "ratings", "platforms-IT.json"));
     }
 
     static string Full(string? configured, string fallback) =>

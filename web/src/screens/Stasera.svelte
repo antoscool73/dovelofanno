@@ -7,6 +7,8 @@
   import RecordButton from '../lib/components/RecordButton.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
   import Section from '../lib/components/Section.svelte';
+  import ServiceIcon from '../lib/components/ServiceIcon.svelte';
+  import { platforms } from '../lib/platforms.svelte';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
@@ -303,12 +305,13 @@
               </span>
               <span class="c-title">{p.title}</span>
               {#if onDemandMode}
-                <span class="onsub small">Su {streamingFor(p, mySubs).join(', ')}</span>
+                {@const on = streamingFor(p, mySubs)}
+                <span class="line onsub small">{#each on as s (s)}<ServiceIcon name={s} size={18} label={false} />{/each}Su {on.map((s) => platforms.of(s).short).join(', ')}</span>
               {:else}
-                <span class="muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
+                <span class="line muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
               {/if}
-              <span class="muted small">{[p.sub, p.year || '', p.country].filter(Boolean).join(' · ')}</span>
-              {#if subs.length > 0}<span class="onsub small">Nei tuoi abbonamenti: {subs.join(', ')}</span>{/if}
+              <span class="line muted small">{[p.sub, p.year || ''].filter(Boolean).join(' · ')}</span>
+              {#if subs.length > 0}<span class="line onsub small">{#each subs as s (s)}<ServiceIcon name={s} size={18} label={false} />{/each}Nei tuoi abbonamenti</span>{/if}
             </button>
           </li>
         {/each}
@@ -317,7 +320,7 @@
 
     {#if tonightFilms.length > 0}
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
-        {#snippet aside()}dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{/snippet}
+        {#snippet aside()}<span class="mysubs">dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{#each platforms.sort(mySubs) as s (s)}<ServiceIcon name={s} size={24} />{/each}</span>{/snippet}
         <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
         {#if filmsMine.length > 0}{@render cards(filmsMine.slice(0, 18))}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
         <h3 class="subrow">On demand <span class="muted small">da vedere quando vuoi nei cataloghi dei tuoi abbonamenti</span></h3>
@@ -391,10 +394,14 @@
   .recs li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
   .rec-live { border-color: #3a2a2e; }
   .r-title { font-weight: 600; }
-  .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
+  .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; align-items: start; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
   .cards li { scroll-snap-align: start; }
-  .card { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
-  .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: block; margin-bottom: 4px; }
+  .card { width: 100%; display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
+  .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: block; margin-bottom: 6px; }
+  /* una riga per voce: un testo lungo non deve allungare tutta la fila */
+  .line { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
+  .line :global(.ic) { margin: -2px 4px 0 0; }
+  .mysubs { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .card:hover .poster, .card:focus-visible .poster { box-shadow: 0 0 0 2px var(--text); }
   /* nei miei abbonamenti: bordo verde del logo (#34C77B) */
   .card.mine .poster { box-shadow: 0 0 0 3px var(--green); }

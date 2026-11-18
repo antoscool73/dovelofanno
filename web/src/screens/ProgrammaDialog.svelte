@@ -3,6 +3,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
+  import StableLabel from '../lib/components/StableLabel.svelte';
   import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type GuideProgramme } from '../lib/api/client';
   import { day, minutes, between, range, vote } from '../lib/format';
@@ -105,7 +106,6 @@
     <div class="actions">
       {#if p.channelId != null && !ended}
         <RecordButton {scheduled} {busy} label={new Date(p.start).getTime() < Date.now() ? 'Registra da adesso' : 'Registra'} onclick={record} />
-        {#if scheduled}<Button variant="ghost" onclick={() => goTo('/registrazioni')}>Vedi in Registrazioni</Button>{/if}
       {:else if p.channelId == null}
         <p class="muted">Questo canale non è in nessuna delle tue playlist: non si può registrare, ma con «Avvisami» nella scheda ti avviso quando passa.</p>
       {:else}
@@ -118,16 +118,19 @@
         <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}#avvisami`)}>Avvisami</Button>
       {/if}
       {#if inTonight !== null}
-        <Button variant="soft" pressed={inTonight} onclick={toggleTonight}>{inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
+        <Button variant="soft" pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'} variants={['Nella mia serata ✓', 'Aggiungi alla mia serata']} /></Button>
       {/if}
+    </div>
+    <!-- seconda riga fissa: "Non proporre più" e "Chiudi" non si spostano quando cambiano i pulsanti sopra -->
+    <div class="actions">
       {#if p.workId != null}
-        <Button variant="ghost" disabled={ignored} onclick={noMore}>{ignored ? 'Non lo propongo più' : 'Non proporre più'}</Button>
+        <Button variant="ghost" disabled={ignored} onclick={noMore}><StableLabel text={ignored ? 'Non lo propongo più' : 'Non proporre più'} variants={['Non lo propongo più', 'Non proporre più']} /></Button>
       {/if}
       <span class="grow"></span>
       <Button variant="secondary" onclick={onclose}>Chiudi</Button>
     </div>
-    {#if p.channelId != null && !scheduled && !ended}
-      <p class="muted small">Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.</p>
+    {#if p.channelId != null && !ended}
+      <p class="muted small">{#if scheduled}In programma. <button type="button" class="link" onclick={() => goTo('/registrazioni')}>Vedi in Registrazioni</button>{:else}Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.{/if}</p>
     {/if}
   </div>
 </dialog>
@@ -148,6 +151,7 @@
   .credits { margin: 0; font-size: 14px; color: var(--muted); }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
   .grow { flex: 1 1 0; }
+  .link { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }
   .muted { margin: 0; color: var(--muted); font-size: 14px; }
   .small { font-size: 13px; }
   .error { margin: 0; color: var(--rec-text); }

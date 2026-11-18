@@ -1,6 +1,7 @@
 <script lang="ts">
   // Il pulsante Registra: un tocco programma con le impostazioni predefinite, un secondo tocco annulla.
-  // Il rosso è riservato alla registrazione.
+  // Il rosso è riservato alla registrazione. La larghezza non cambia tra i due stati (i pulsanti accanto restano fermi).
+  import StableLabel from './StableLabel.svelte';
   let {
     scheduled = false,
     busy = false,
@@ -12,7 +13,7 @@
 
 <button type="button" class="rec {size}" class:on={scheduled} aria-pressed={scheduled} disabled={busy} {onclick}>
   <span class="dot" aria-hidden="true"></span>
-  {#if busy}Un momento…{:else if scheduled}In programma ✓{:else}{label}{/if}
+  <StableLabel text={busy ? 'Un momento…' : scheduled ? 'In programma ✓' : label} variants={['Un momento…', 'In programma ✓', label]} />
 </button>
 
 <style>

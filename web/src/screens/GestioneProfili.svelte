@@ -3,6 +3,7 @@
   import Avatar from '../lib/components/Avatar.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
+  import ServicePicker from '../lib/components/ServicePicker.svelte';
   import { api, ApiError, type FamilySubscriptions, type Profile } from '../lib/api/client';
   import { session } from '../lib/session.svelte';
 
@@ -139,11 +140,7 @@
 <h3>Abbonamenti della famiglia</h3>
 <p class="f-muted">Le piattaforme che avete: «Dove lo vedo» le mette per prime e gli avvisi «nei miei abbonamenti» le controllano. Ogni profilo le eredita, a meno che non scelga le sue in Preferenze.</p>
 {#if family}
-  <div class="f-chips">
-    {#each family.known as s (s)}
-      <button type="button" class="f-chip" aria-pressed={family.services.includes(s)} disabled={busy} onclick={() => toggleService(s)}>{s}</button>
-    {/each}
-  </div>
+  <ServicePicker known={family.known} selected={family.services} disabled={busy} ontoggle={toggleService} />
   <form class="f-row" onsubmit={addCustom}>
     <label class="f-field">Un'altra piattaforma<input bind:value={custom} maxlength="60" placeholder="Nome come su JustWatch" /></label>
     <Button type="submit" disabled={busy || !custom.trim()}>Aggiungi</Button>

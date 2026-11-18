@@ -14,8 +14,8 @@ public sealed class SubscriptionStore(string dbPath)
     /// <summary>Le piattaforme più comuni in Italia, con i nomi che usa TMDB, per scegliere anche prima di averle viste in una scheda.</summary>
     public static readonly string[] Common =
     [
-        "Netflix", "Amazon Prime Video", "Disney Plus", "NOW", "Sky Go", "Apple TV+", "Paramount Plus", "Rai Play",
-        "Mediaset Infinity", "TIMvision", "Discovery+", "DAZN", "MUBI", "Crunchyroll", "Rakuten TV", "Pluto TV",
+        "Netflix", "Amazon Prime Video", "Disney Plus", "Now TV", "Sky Go", "Apple TV", "Paramount Plus", "Rai Play",
+        "Mediaset Infinity", "Timvision", "Discovery+", "DAZN", "HBO Max", "MUBI", "Crunchyroll", "Rakuten TV", "Pluto TV",
     ];
 
     SqliteConnection Open() => Database.Open(dbPath);
@@ -68,7 +68,11 @@ public sealed class SubscriptionStore(string dbPath)
     public List<string> Known()
     {
         using var c = Open();
-        var seen = Db.Query(c, "SELECT DISTINCT platform FROM availability WHERE kind IN ('subscription', 'free')", r => r.GetString(0));
+        // "Amazon Prime Video with Ads" non si sceglie a parte: chi ha Prime Video lo vede già (vedi streamingFor nel client)
+        var seen = Db.Query(c, "SELECT DISTINCT platform FROM availability WHERE kind IN ('subscription', 'free')", r => r.GetString(0))
+            .Where(s => !s.EndsWith(" with Ads", StringComparison.OrdinalIgnoreCase)
+                        && !s.StartsWith("JustWatch ", StringComparison.OrdinalIgnoreCase))   // il canale di JustWatch stesso, non un abbonamento
+            .ToList();
         seen.AddRange(Family());
         return Common.Concat(seen).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
     }
