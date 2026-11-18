@@ -70,6 +70,20 @@ public sealed class TonightTests : IDisposable
     }
 
     [Fact]
+    public void VistoSiAnnulla()
+    {
+        var (t, guide, a, _, padrino) = Setup();
+        var works = new WorkStore(Db, guide);
+        t.Add(a, padrino, Now);
+        Assert.Equal(TonightResult.Ok, t.Watched(a, padrino, Now));
+        Assert.True(works.Detail(padrino, a, Now)!.Watched);
+        Assert.Empty(t.Items(a, Now)!);                                  // visto: esce dalla serata
+        Assert.Equal(TonightResult.Ok, t.Watched(a, padrino, Now, watched: false));
+        Assert.False(works.Detail(padrino, a, Now)!.Watched);
+        Assert.Equal(TonightResult.NoWork, t.Watched(a, 999999, Now, watched: false));
+    }
+
+    [Fact]
     public void SenzaPassaggiFuturiNextVuoto()
     {
         var (t, _, a, _, padrino) = Setup();

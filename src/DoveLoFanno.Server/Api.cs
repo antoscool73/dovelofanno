@@ -238,6 +238,12 @@ public static class Api
             .WithSummary("Segna un'opera come vista dal profilo e la toglie dalla mia serata")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
 
+        // aggiunta del 18/11/2026: "Visto" si annulla dalla Scheda
+        prof.MapDelete("/{id:long}/watched/{workId:long}", IResult (long id, long workId, ServerContext ctx) =>
+            ctx.Tonight.Watched(id, workId, ctx.Clock.GetUtcNow(), watched: false) == TonightResult.Ok ? Results.NoContent() : Results.NotFound())
+            .WithSummary("Segna un'opera (e i suoi file ed episodi) come non vista dal profilo")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+
         prof.MapPut("/{id:long}/works/{workId:long}/stars", IResult (long id, long workId, StarsBody body, ServerContext ctx) =>
             ctx.Works.SetStars(id, workId, body.Stars, ctx.Clock.GetUtcNow()) ? Results.NoContent()
             : body.Stars is < 1 or > 5 ? Results.BadRequest(new ApiError("voto da 1 a 5 stelle")) : Results.NotFound())

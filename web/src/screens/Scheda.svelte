@@ -87,11 +87,24 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
   }
 
-  async function markSeen() {
+  // "Visto" è un interruttore: segna o toglie il visto (anche dei file in casa e degli episodi) e rilegge la scheda
+  let seenBusy = $state(false);
+  async function toggleSeen() {
     const prof = session.profile;
-    if (!prof || !w) return;
-    try { await api.watched(prof.id, w.id); w.watched = true; w.inTonight = false; }
-    catch (e) { error = e instanceof ApiError ? e.message : 'Non segnato'; }
+    if (!prof || !w || seenBusy) return;
+    seenBusy = true;
+    notice = '';
+    try {
+      const was = w.watched;
+      if (was) await api.unwatched(prof.id, w.id);
+      else await api.watched(prof.id, w.id);
+      w = await api.work(w.id, prof.id);
+      notice = was ? 'Segnato come non visto.' : `Segnato come visto${w.files.length > 0 ? ', anche i file in casa' : ''}. Se ti va, dagli le stelle qui sopra.`;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Non segnato';
+    } finally {
+      seenBusy = false;
+    }
   }
 
   // file in casa: si riprende quello iniziato, altrimenti il primo non visto (per le serie, in ordine di episodio)
@@ -183,7 +196,7 @@
           {#if w.trailer}<Button variant="soft" size="l" href={w.trailer}>▶ Trailer</Button>{/if}
           {#if session.profile}
             <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}>{w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'}</Button>
-            {#if !w.watched}<Button variant="soft" size="l" onclick={markSeen}>✓ Già visto</Button>{/if}
+            <Button variant="soft" size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}>{w.watched ? 'Visto ✓' : 'Segna come visto'}</Button>
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
             <Button variant="soft" size="l" onclick={() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' })}>Avvisami</Button>
             <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}>{ignored ? 'Non lo propongo più' : 'Non proporre più'}</Button>

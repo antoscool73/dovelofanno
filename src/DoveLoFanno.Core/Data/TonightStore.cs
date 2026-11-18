@@ -61,20 +61,39 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
         return TonightResult.Ok;
     }
 
-    /// <summary>Segna l'opera come vista dal profilo e la toglie dalla serata.</summary>
-    public TonightResult Watched(long profileId, long workId, DateTimeOffset now)
+    /// <summary>
+    /// Segna l'opera come vista dal profilo (e la toglie dalla serata) o, con <paramref name="watched"/> falso, come non vista.
+    /// Vale anche per i file in casa dell'opera e, per una serie, per i suoi episodi e i loro file: così "Guarda",
+    /// "Continua a guardare" e la scheda dicono la stessa cosa.
+    /// </summary>
+    public TonightResult Watched(long profileId, long workId, DateTimeOffset now, bool watched = true)
     {
         using var c = Open();
         long? list = ListId(c, profileId);
         if (list == null) return TonightResult.NoProfile;
         if (Db.ScalarLong(c, "SELECT id FROM works WHERE id = $w", ("$w", workId)) == null) return TonightResult.NoWork;
+        int v = watched ? 1 : 0;
         using var tx = c.BeginTransaction();
-        int n = Db.Exec(c, "UPDATE watch_states SET watched = 1, updated_at = $t WHERE profile_id = $p AND work_id = $w AND item_id IS NULL",
-            ("$t", Db.Unix(now)), ("$p", profileId), ("$w", workId));
-        if (n == 0)
-            Db.Exec(c, "INSERT INTO watch_states (profile_id, work_id, watched, updated_at) VALUES ($p, $w, 1, $t)",
-                ("$p", profileId), ("$w", workId), ("$t", Db.Unix(now)));
-        Db.Exec(c, "DELETE FROM list_items WHERE list_id = $l AND work_id = $w", ("$l", list), ("$w", workId));
+        var works = Db.Query(c, "SELECT id FROM works WHERE id = $w OR parent_id = $w", r => r.GetInt64(0), ("$w", workId));
+        foreach (long w in works)
+        {
+            int n = Db.Exec(c, "UPDATE watch_states SET watched = $v, updated_at = $t WHERE profile_id = $p AND work_id = $w AND item_id IS NULL",
+                ("$v", v), ("$t", Db.Unix(now)), ("$p", profileId), ("$w", w));
+            // un episodio senza stato non si crea solo per dire "non visto"
+            if (n == 0 && (watched || w == workId))
+                Db.Exec(c, "INSERT INTO watch_states (profile_id, work_id, watched, updated_at) VALUES ($p, $w, $v, $t)",
+                    ("$p", profileId), ("$w", w), ("$v", v), ("$t", Db.Unix(now)));
+            foreach (long item in Db.Query(c, "SELECT id FROM library_items WHERE work_id = $w", r => r.GetInt64(0), ("$w", w)))
+            {
+                // visto: si riparte dall'inizio la prossima volta; non visto: il punto di ripresa resta
+                int m = Db.Exec(c, $"UPDATE watch_states SET watched = $v, {(watched ? "position_s = 0, " : "")}updated_at = $t WHERE profile_id = $p AND item_id = $i",
+                    ("$v", v), ("$t", Db.Unix(now)), ("$p", profileId), ("$i", item));
+                if (m == 0 && watched)
+                    Db.Exec(c, "INSERT INTO watch_states (profile_id, item_id, watched, position_s, updated_at) VALUES ($p, $i, 1, 0, $t)",
+                        ("$p", profileId), ("$i", item), ("$t", Db.Unix(now)));
+            }
+        }
+        if (watched) Db.Exec(c, "DELETE FROM list_items WHERE list_id = $l AND work_id = $w", ("$l", list), ("$w", workId));
         tx.Commit();
         return TonightResult.Ok;
     }

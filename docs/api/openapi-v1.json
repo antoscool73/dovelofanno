@@ -978,6 +978,42 @@
         }
       }
     },
+    "/api/v1/profiles/{id}/watched/{workId}": {
+      "delete": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Segna un'opera (e i suoi file ed episodi) come non vista dal profilo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "workId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/v1/profiles/{id}/works/{workId}/stars": {
       "put": {
         "tags": [
@@ -3855,6 +3891,12 @@
           "poster": {
             "type": "string",
             "default": ""
+          },
+          "streaming": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

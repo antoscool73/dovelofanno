@@ -95,6 +95,7 @@ export const api = {
   setStars: (profileId: number, workId: number, stars: number | null) => call<void>('PUT', `/profiles/${profileId}/works/${workId}/stars`, { stars }),
   work: (id: number, profileId?: number) => call<WorkDetail>('GET', `/works/${id}` + (profileId ? `?profileId=${profileId}` : '')),
   watched: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/watched`, { workId }),
+  unwatched: (profileId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/watched/${workId}`),
 
   sources: () => call<Source[]>('GET', '/sources'),
   addSource: (name: string, url: string) => call<ImportResult>('POST', '/sources', { name, url }),

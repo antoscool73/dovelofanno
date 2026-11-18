@@ -7,7 +7,7 @@
   import RecordButton from '../lib/components/RecordButton.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
   import Section from '../lib/components/Section.svelte';
-  import { inMySubscriptions, payPlatform } from '../lib/pay';
+  import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type TonightItem } from '../lib/api/client';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
@@ -21,6 +21,8 @@
   let hasPreferences = $state(true);
   let continuing = $state<LibraryItem[]>([]);
   let mySubs = $state<string[]>([]);
+  // film della guida dei prossimi giorni: quelli nei cataloghi streaming dei miei abbonamenti sono l'"on demand"
+  let guideFilms = $state<GuideProgramme[]>([]);
   let loading = $state(true);
   let error = $state('');
   let open = $state<GuideProgramme | null>(null);
@@ -41,7 +43,7 @@
     const { from, to } = eveningWindow(now);
     const tomorrow = new Date(midnight(now).getTime() + 86_400_000);
     try {
-      const [list, recs, films, week, props, prefs, cont, subs] = await Promise.all([
+      const [list, recs, films, week, props, prefs, cont, subs, ahead] = await Promise.all([
         prof ? api.tonight(prof.id) : Promise.resolve([]),
         api.recordings(),
         api.guide({ from, to, group: 'Film', max: 500 }),
@@ -50,7 +52,9 @@
         prof ? api.preferences(prof.id) : Promise.resolve([]),
         prof ? api.continueWatching(prof.id).catch(() => []) : Promise.resolve([]),
         prof ? api.profileSubscriptions(prof.id).then((x) => x.services).catch(() => []) : Promise.resolve([]),
+        api.guide({ from: now, to: new Date(now.getTime() + 8 * 86_400_000), group: 'Film', max: 5000 }),
       ]);
+      guideFilms = ahead;
       mySubs = subs;
       continuing = cont;
       proposals = props;
@@ -160,6 +164,10 @@
     const mine = new Set(filmsMine.map((p) => p.title.trim().toLowerCase()));
     return dedupe(tonightFilms.filter((p) => !inMySubscriptions(p, mySubs) && !mine.has(p.title.trim().toLowerCase())));
   });
+  // on demand: film nei cataloghi streaming dei miei abbonamenti (dai film della guida: TMDB li conosce), per voto
+  const onDemand = $derived(
+    dedupe(guideFilms.filter((p) => streamingFor(p, mySubs).length > 0)).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)),
+  );
   const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
 
   const tonightAvailable = $derived(tonightList.filter((i) => i.next && new Date(i.next.start) < eveningWindow(now).to));
@@ -281,19 +289,26 @@
       </Section>
     {/if}
 
-    {#snippet cards(list: GuideProgramme[])}
+    {#snippet cards(list: GuideProgramme[], markMine = false, onDemandMode = false)}
       <ul class="cards">
         {#each list as p (p.id)}
+          {@const subs = markMine ? mySubscriptionsFor(p, mySubs) : []}
           <li>
-            <button type="button" class="card" onclick={() => (open = p)}>
+            <button type="button" class="card" class:mine={subs.length > 0} onclick={() => (open = p)}
+              title={subs.length > 0 ? `Nei tuoi abbonamenti: ${subs.join(', ')}` : undefined}>
               <span class="poster">
                 <PosterImg src={p.poster || p.icon} title={p.title} />
                 {#if p.rating != null}<span class="stars">★ {vote(p.rating)}</span>{/if}
                 {#if p.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
               </span>
               <span class="c-title">{p.title}</span>
-              <span class="muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
+              {#if onDemandMode}
+                <span class="onsub small">Su {streamingFor(p, mySubs).join(', ')}</span>
+              {:else}
+                <span class="muted small">{when(p)} · {p.channelName || p.guideChannelName}</span>
+              {/if}
               <span class="muted small">{[p.sub, p.year || '', p.country].filter(Boolean).join(' · ')}</span>
+              {#if subs.length > 0}<span class="onsub small">Nei tuoi abbonamenti: {subs.join(', ')}</span>{/if}
             </button>
           </li>
         {/each}
@@ -302,8 +317,15 @@
 
     {#if tonightFilms.length > 0}
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
-        {#snippet aside()}film in chiaro e sui canali dei tuoi abbonamenti, dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{/snippet}
-        {#if filmsMine.length > 0}{@render cards(filmsMine.slice(0, 18))}{:else}<p class="muted small">Nessun film stasera in chiaro o nei tuoi abbonamenti.</p>{/if}
+        {#snippet aside()}dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{/snippet}
+        <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
+        {#if filmsMine.length > 0}{@render cards(filmsMine.slice(0, 18))}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
+        <h3 class="subrow">On demand <span class="muted small">da vedere quando vuoi nei cataloghi dei tuoi abbonamenti</span></h3>
+        {#if onDemand.length > 0}
+          {@render cards(onDemand.slice(0, 18), false, true)}
+        {:else}
+          <p class="muted small">{mySubs.length === 0 ? 'Scegli i tuoi abbonamenti (Netflix, Prime Video…) in Preferenze: qui compaiono i film dei loro cataloghi.' : 'Nessun film della guida nei cataloghi dei tuoi abbonamenti, per ora.'}</p>
+        {/if}
       </Section>
       {#if filmsOther.length > 0}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
@@ -314,8 +336,8 @@
     {/if}
     {#if weekFilms.length > 0}
       <Section key="settimana" title="Questa settimana">
-        {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
-        {@render cards(weekFilms)}
+        {#snippet aside()}film con voto 7 e oltre nei prossimi giorni · <span class="legend"></span> nei tuoi abbonamenti{/snippet}
+        {@render cards(weekFilms, true)}
       </Section>
     {/if}
 
@@ -374,6 +396,13 @@
   .card { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
   .poster { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; background: #2b3d63; overflow: hidden; display: block; margin-bottom: 4px; }
   .card:hover .poster, .card:focus-visible .poster { box-shadow: 0 0 0 2px var(--text); }
+  /* nei miei abbonamenti: bordo verde del logo (#34C77B) */
+  .card.mine .poster { box-shadow: 0 0 0 3px var(--green); }
+  .card.mine:hover .poster, .card.mine:focus-visible .poster { box-shadow: 0 0 0 3px var(--green), 0 0 0 5px var(--text); }
+  .onsub { color: var(--green-text); font-weight: 600; }
+  .subrow { font-size: 16px; margin: 4px 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .subrow + :global(ul), .subrow + p { margin-bottom: 20px; }
+  .legend { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--green); vertical-align: -1px; }
   .stars { position: absolute; top: 8px; left: 8px; background: rgba(13, 16, 21, 0.8); border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
   .recdot { position: absolute; top: 10px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
   .c-title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1162,6 +1162,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/{id}/watched/{workId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Segna un'opera (e i suoi file ed episodi) come non vista dal profilo */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    workId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/{id}/works/{workId}/stars": {
         parameters: {
             query?: never;
@@ -3811,6 +3855,7 @@ export interface components {
             channelOrder?: null | number;
             /** @default  */
             poster: string;
+            streaming?: string[];
         };
         GuideSourceRow: {
             /** Format: int64 */
