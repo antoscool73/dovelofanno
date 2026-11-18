@@ -45,6 +45,8 @@
 
   let editId = $state<number | 'new' | null>(null);
   let eName = $state(''), eColor = $state(colors[0]!), eChild = $state(false), ePin = $state(''), eClearPin = $state(false);
+  // abbonamenti: ereditati dalla famiglia (predefinito) o una scelta propria, che parte da quelli della famiglia
+  let eInherits = $state(true);
   function edit(p: Profile | null) {
     editId = p ? p.id : 'new';
     eName = p?.name ?? '';
@@ -52,14 +54,22 @@
     eChild = p?.isChild ?? false;
     ePin = '';
     eClearPin = false;
+    eInherits = p?.inheritsSubscriptions ?? true;
   }
   function save(e: SubmitEvent) {
     e.preventDefault();
     const id = editId;
     if (id === null) return;
     act(async () => {
-      if (id === 'new') await api.createProfile({ name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null });
-      else await api.updateProfile(id, { name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null, clearPin: eClearPin });
+      if (id === 'new') {
+        const p = await api.createProfile({ name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null });
+        if (!eInherits) await api.setProfileSubscriptions(p.id, false, family?.services ?? []);
+      } else {
+        await api.updateProfile(id, { name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null, clearPin: eClearPin });
+        const before = profiles.find((p) => p.id === id)?.inheritsSubscriptions ?? true;
+        // smettendo di ereditare, la scelta propria parte da quella della famiglia
+        if (eInherits !== before) await api.setProfileSubscriptions(id, eInherits, eInherits ? null : family?.services ?? []);
+      }
       editId = null;
     }, 'Profilo salvato.');
   }
@@ -121,6 +131,8 @@
       </div>
     </div>
     <label class="f-check"><input type="checkbox" bind:checked={eChild} /> Profilo bambino (vede solo i titoli per bambini, niente PIN)</label>
+    <label class="f-check"><input type="checkbox" bind:checked={eInherits} /> Usa gli abbonamenti della famiglia
+      {#if !eInherits}<span class="f-muted">(sceglie i suoi in Preferenze › I miei abbonamenti; si parte da quelli della famiglia)</span>{/if}</label>
     {#if !eChild}
       <div class="f-row">
         <label class="f-field">{editId !== 'new' && profiles.find((p) => p.id === editId)?.hasPin ? 'Nuovo PIN (vuoto = resta quello)' : 'PIN facoltativo (4-8 cifre)'}

@@ -250,7 +250,14 @@
                 <AvailBadges a={a} size={20} inline />
                 <span class="muted">{st || (unknownWhere(h) ? 'Dove si vede: apri la scheda' : 'Per ora non si vede: né in TV nei prossimi giorni, né in casa, né in streaming')}</span>
                 <span class="grow"></span>
-                <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                <!-- un avviso serve solo se il titolo non lo vedi già: in casa si guarda, nei miei abbonamenti si apre -->
+                {#if a.home}
+                  <Button size="s" variant="primary" onclick={() => open(h)} disabled={opening != null}>▶ Guarda</Button>
+                {:else if a.mine.length > 0}
+                  <Button size="s" variant="soft" onclick={() => open(h)} disabled={opening != null}>Apri</Button>
+                {:else}
+                  <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                {/if}
               </div>
             </div>
           </li>
@@ -267,7 +274,7 @@
         <AlertPanel workId={selected.workId} />
       {:else}
         <h2>Avvisami</h2>
-        <p class="muted small">Tocca «Avvisami» su un titolo: qui scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia.</p>
+        <p class="muted small">Tocca «Avvisami» su un titolo che oggi non vedi (né in casa né nei tuoi abbonamenti): qui scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia.</p>
       {/if}
     </aside>
   </div>

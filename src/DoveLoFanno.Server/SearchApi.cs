@@ -107,15 +107,14 @@ public static class SearchApi
                             unknown.Add(c);
                     }
 
-                    // titoli solo su TMDB: paese (se il filtro c'è e la ricerca non l'ha già applicato) e piattaforme (se servono)
+                    // titoli solo su TMDB: piattaforme in Italia sempre (per icone, "dove si vede" e il pulsante giusto) e paese
+                    // se il filtro c'è e la ricerca non l'ha già applicato, per i primi MaxLookups; gli altri senza piattaforme
                     bool needCountry = f.Country.Length > 0 && text.Length > 0;
-                    bool needProviders = f.AvailSet.Count > 0;
-                    var checkedOnes = await Throttled(unknown.Take(needCountry || needProviders ? MaxLookups : MaxHits), 4, async c =>
+                    bool needAvail = f.AvailSet.Count > 0;
+                    var checkedOnes = await Throttled(unknown.Take(MaxLookups), 6, async c =>
                     {
-                        IReadOnlyList<string> countries = [];
-                        IReadOnlyList<Provider> prov = [];
-                        if (needCountry) countries = await tmdb.CountriesAsync(c.Hit.Id, c.Hit.Kind, cts.Token);
-                        if (needProviders) prov = await tmdb.ProvidersAsync(c.Hit.Id, c.Hit.Kind, cts.Token);
+                        IReadOnlyList<string> countries = needCountry ? await tmdb.CountriesAsync(c.Hit.Id, c.Hit.Kind, cts.Token) : [];
+                        IReadOnlyList<Provider> prov = await tmdb.ProvidersAsync(c.Hit.Id, c.Hit.Kind, cts.Token);
                         return (c.Hit, c.Credits, Countries: countries, Providers: prov);
                     });
                     foreach (var x in checkedOnes)
@@ -124,11 +123,17 @@ public static class SearchApi
                         if (needCountry && !x.Countries.Contains(f.Country)) continue;
                         var streaming = x.Providers.Where(p => p.Kind is "subscription" or "free").Select(p => p.Name).Distinct().ToList();
                         var paid = x.Providers.Where(p => p.Kind is "rent" or "buy").Select(p => p.Name).Distinct().ToList();
-                        if (needProviders && !AvailOk(f, false, false, streaming, paid, subs)) continue;
-                        // piattaforme non controllate (nessun filtro di disponibilità): null, così il client non dice "non si vede"
-                        hits.Add(FromTmdb(x.Hit, x.Credits, needProviders ? streaming : null, needProviders ? paid : null,
+                        if (needAvail && !AvailOk(f, false, false, streaming, paid, subs)) continue;
+                        hits.Add(FromTmdb(x.Hit, x.Credits, streaming, paid,
                             f.Country.Length > 0 && x.Countries.Contains(f.Country) ? Countries.Name(f.Country) : ""));
                     }
+                    // oltre i titoli controllati, solo se nessun filtro ha bisogno di controllare (piattaforme null = non lette)
+                    if (!needCountry && !needAvail)
+                        foreach (var c in unknown.Skip(MaxLookups))
+                        {
+                            if (hits.Count >= MaxHits) break;
+                            hits.Add(FromTmdb(c.Hit, c.Credits, null, null, ""));
+                        }
                 }
                 catch (TmdbKeyException ex) { note = ex.Message; }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
