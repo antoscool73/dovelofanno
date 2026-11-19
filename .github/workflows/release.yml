@@ -1,7 +1,7 @@
 name: Rilascio
 
 # Un tag vX.Y.Z produce l'installatore Windows (Inno Setup; runtime .NET di Microsoft, non incluso), le immagini Docker
-# esportate in .tar (amd64, arm64: si caricano con docker load o con Synology Container Manager senza accedere a
+# esportate in .tar.gz (amd64, arm64: si caricano con docker load o con Synology Container Manager senza accedere a
 # ghcr.io), lo zip dei sorgenti e la pagina del rilascio; l'immagine Docker X.Y.Z e latest su ghcr.io la pubblica ci.yml
 # sullo stesso tag. Se ci sono i segreti R2_*, i file vanno anche su Cloudflare R2 (download.dovelofanno.it/<versione>/)
 # per la pagina della beta. Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
@@ -98,7 +98,7 @@ jobs:
           if-no-files-found: error
 
   docker:
-    name: Immagini Docker in .tar
+    name: Immagini Docker in .tar.gz
     needs: windows
     runs-on: ubuntu-latest
     env:
@@ -119,11 +119,13 @@ jobs:
               -t "dovelofanno:${VERSION}" \
               --output "type=docker,dest=out/dovelofanno-${VERSION}-docker-${arch}.tar" .
           done
+          # compresse: docker load le legge così come sono (circa la metà da scaricare)
+          gzip -6 out/*.tar
           ls -l out
 
-      - name: Collaudo del .tar amd64 (docker load, poi lo stesso collaudo della CI)
+      - name: Collaudo del .tar.gz amd64 (docker load, poi lo stesso collaudo della CI)
         run: |
-          docker load -i "out/dovelofanno-${VERSION}-docker-amd64.tar"
+          docker load -i "out/dovelofanno-${VERSION}-docker-amd64.tar.gz"
           docker image inspect "dovelofanno:${VERSION}" --format '{{.Architecture}}' | grep -qx amd64
           sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
           bash tools/ci/docker-smoke.sh "dovelofanno:${VERSION}"
@@ -159,7 +161,7 @@ jobs:
 
       - name: Impronte
         run: |
-          cd out && sha256sum *.exe *.zip *.tar > SHA256SUMS.txt && cat SHA256SUMS.txt && ls -l
+          cd out && sha256sum *.exe *.zip *.tar.gz > SHA256SUMS.txt && cat SHA256SUMS.txt && ls -l
 
       - name: Rilascio su GitHub
         env:
@@ -171,14 +173,14 @@ jobs:
           cat > notes.md <<EOF
           ## Installazione
 
-          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\`, oppure \`docker load -i dovelofanno-${VERSION}-docker-<arch>.tar\` (immagine \`dovelofanno:${VERSION}\`) — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
+          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\`, oppure \`docker load -i dovelofanno-${VERSION}-docker-<arch>.tar.gz\` (immagine \`dovelofanno:${VERSION}\`) — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
           - **Windows** (servizio): \`DoveLoFanno-${VERSION}-setup.exe\`. Installa da solo, se mancano, il runtime .NET di Microsoft e ffmpeg (con winget).
 
           > Questa versione per Windows **non è firmata**: SmartScreen può mostrare un avviso e Smart App Control la blocca.
           > Vedi [CODE_SIGNING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CODE_SIGNING.md).
 
           EOF
-          gh release create "$GITHUB_REF_NAME" out/*.exe out/*.zip out/*.tar out/SHA256SUMS.txt $pre \
+          gh release create "$GITHUB_REF_NAME" out/*.exe out/*.zip out/*.tar.gz out/SHA256SUMS.txt $pre \
             --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
 
       - name: Copia su Cloudflare R2 (download.dovelofanno.it)
@@ -196,5 +198,5 @@ jobs:
             echo "Segreti R2_* assenti: niente copia su R2"; exit 0
           fi
           aws s3 cp out/ "s3://${R2_BUCKET}/${VERSION}/" --recursive --endpoint-url "$R2_ENDPOINT" \
-            --exclude "*" --include "*.exe" --include "*.zip" --include "*.tar" --include "SHA256SUMS.txt"
+            --exclude "*" --include "*.exe" --include "*.zip" --include "*.tar.gz" --include "SHA256SUMS.txt"
           aws s3 ls "s3://${R2_BUCKET}/${VERSION}/" --endpoint-url "$R2_ENDPOINT"

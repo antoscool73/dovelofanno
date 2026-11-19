@@ -86,14 +86,14 @@
       <tbody>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-nas"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-amd64.tar">dovelofanno-0.1.0-docker-amd64.tar</a>
+          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-amd64.tar.gz">dovelofanno-0.1.0-docker-amd64.tar.gz</a>
             <div class="hash" data-hash="docker-amd64">—</div></td>
           <td>Docker su processore Intel o AMD: quasi tutti i Synology «+», i QNAP, Unraid, TrueNAS, mini-PC</td>
           <td class="size" data-size="docker-amd64">—</td>
         </tr>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-term"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-arm64.tar">dovelofanno-0.1.0-docker-arm64.tar</a>
+          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-arm64.tar.gz">dovelofanno-0.1.0-docker-arm64.tar.gz</a>
             <div class="hash" data-hash="docker-arm64">—</div></td>
           <td>Docker su processore ARM a 64 bit: Raspberry Pi 4/5, alcuni Synology e QNAP economici</td>
           <td class="size" data-size="docker-arm64">—</td>
@@ -120,14 +120,14 @@
 
   <section id="synology">
     <h2><svg class="ico" aria-hidden="true"><use href="#i-nas"/></svg>Synology</h2>
-    <p class="small">Serve Container Manager (Centro pacchetti), su DSM 7.2 o più recente. Scarica il <code>.tar</code>
+    <p class="small">Serve Container Manager (Centro pacchetti), su DSM 7.2 o più recente. Scarica il <code>.tar.gz</code>
       giusto per il tuo processore: lo vedi in Pannello di controllo › Centro informazioni.</p>
     <ol>
       <li>In File Station crea una cartella <code>docker/dovelofanno</code> con dentro due cartelle:
         <code>data</code> e <code>registrazioni</code>. Per far vedere le registrazioni a Jellyfin o Plex puoi usare
         una cartella che già leggono, al posto di <code>registrazioni</code>.</li>
       <li>Container Manager › <strong>Immagine</strong> › Aggiungi › Aggiungi da file: scegli il file
-        <code>.tar</code> scaricato. Compare l'immagine <code>dovelofanno</code> con il tag <code>0.1.0</code>.</li>
+        <code>.tar.gz</code> scaricato, senza decomprimerlo. Compare l'immagine <code>dovelofanno</code> con il tag <code>0.1.0</code>.</li>
       <li>Container Manager › <strong>Progetto</strong> › Crea: nome <code>dovelofanno</code>, percorso la cartella del
         passo 1, «Crea docker-compose.yml» e incolla:
 <pre><code>services:
@@ -161,7 +161,7 @@
     <ol>
       <li>In File Station, nella cartella condivisa <code>Container</code>, crea <code>dovelofanno</code> con dentro
         <code>data</code> e <code>registrazioni</code>.</li>
-      <li>Container Station › <strong>Immagini</strong> › <strong>Importa</strong>: scegli il file <code>.tar</code>
+      <li>Container Station › <strong>Immagini</strong> › <strong>Importa</strong>: scegli il file <code>.tar.gz</code>
         scaricato.</li>
       <li>Container Station › <strong>Applicazioni</strong> › <strong>Crea</strong>: nome <code>dovelofanno</code> e incolla:
 <pre><code>services:
@@ -188,7 +188,7 @@
       il comando <code>docker compose</code>.</p>
     <ol>
       <li>Carica l'immagine (<code>arm64</code> al posto di <code>amd64</code> su Raspberry e ARM):
-<pre><code>docker load -i dovelofanno-0.1.0-docker-amd64.tar</code></pre></li>
+<pre><code>docker load -i dovelofanno-0.1.0-docker-amd64.tar.gz</code></pre></li>
       <li>In una cartella a scelta crea <code>data</code>, <code>registrazioni</code> e un file
         <code>compose.yaml</code> come quello del Synology, con la riga <code>user</code> fatta dei numeri del tuo utente
         (<code>id -u</code> e <code>id -g</code>).</li>
