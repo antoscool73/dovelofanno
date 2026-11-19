@@ -6,9 +6,11 @@
   import { api, ApiError, type Recording } from '../lib/api/client';
   import { between, day, fileName, minutes, range, time } from '../lib/format';
 
-  type Filter = 'tutte' | 'scheduled' | 'completed' | 'incomplete' | 'failed';
+  type Filter = 'tutte' | 'active' | 'scheduled' | 'completed' | 'incomplete' | 'failed';
   const filters: { id: Filter; label: string }[] = [
     { id: 'tutte', label: 'Tutte' },
+    // le pastiglie seguono le sezioni della pagina: la somma fa sempre «Tutte» (19/11/2026)
+    { id: 'active', label: 'In corso' },
     { id: 'scheduled', label: 'In programma' },
     { id: 'completed', label: 'Completate' },
     { id: 'incomplete', label: 'Incomplete' },
@@ -57,6 +59,7 @@
 
   const count = (f: Filter) =>
     f === 'tutte' ? all.filter((r) => r.state !== 'cancelled').length
+    : f === 'active' ? active.length
     : f === 'failed' ? all.filter((r) => r.state === 'failed').length
     : f === 'completed' ? all.filter((r) => r.state === 'completed' || r.state === 'stopped').length
     : all.filter((r) => r.state === f).length;
@@ -146,7 +149,7 @@
       <p class="muted">Programmane una con «Nuova registrazione», oppure con «Registra» su un programma della guida o un titolo di La mia serata.</p>
     </div>
   {:else}
-    {#if filter === 'tutte' && active.length > 0}
+    {#if (filter === 'tutte' || filter === 'active') && active.length > 0}
       <h2>In corso</h2>
       {#each active as r (r.id)}
         <div class="live">
@@ -182,7 +185,11 @@
       </ul>
     {/if}
 
-    {#if filter !== 'scheduled' && shownFinished.length > 0}
+    {#if filter === 'active' && active.length === 0}
+      <p class="muted">Nessuna registrazione in corso.</p>
+    {/if}
+
+    {#if filter !== 'scheduled' && filter !== 'active' && shownFinished.length > 0}
       <h2>{filter === 'tutte' ? 'Finite' : filters.find((f) => f.id === filter)?.label}</h2>
       <ul class="list">
         {#each shownFinished as r (r.id)}
