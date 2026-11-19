@@ -209,17 +209,24 @@ public static class SearchApi
     }
 
     /// <summary>
-    /// Disponibilità: nessuna casella = ovunque; altrimenti ne basta una (in TV, nei miei abbonamenti, a pagamento, in casa).
-    /// "A pagamento" = noleggio, acquisto o streaming fuori dai miei abbonamenti.
+    /// Disponibilità: nessuna casella = ovunque. Con delle caselle, un titolo compare se ogni modo in cui si vede è tra
+    /// quelle scelte (19/11/2026, richiesta di Antonio: una categoria tolta dai filtri non si deve vedere). I modi sono le
+    /// icone delle locandine: in TV, in casa, nei miei abbonamenti, e "a pagamento" (noleggio, acquisto o streaming fuori
+    /// dai miei abbonamenti) solo se non si vede in nessuno degli altri, come la € gialla. Un titolo che non si vede in
+    /// nessun modo compare solo con "Ovunque" (nessuna casella).
     /// </summary>
     internal static bool AvailOk(SearchFilter f, bool tv, bool home, IReadOnlyList<string> streaming, IReadOnlyList<string> paid, IReadOnlyList<string> subs)
     {
         var a = f.AvailSet;
         if (a.Count == 0) return true;
         bool Mine(string s) => subs.Any(m => s.Equals(m, StringComparison.OrdinalIgnoreCase) || s.StartsWith(m + " ", StringComparison.OrdinalIgnoreCase));
-        return (a.Contains("tv") && tv) || (a.Contains("home") && home)
-            || (a.Contains("mine") && streaming.Any(Mine))
-            || (a.Contains("paid") && (paid.Count > 0 || streaming.Any(s => !Mine(s))));
+        bool mine = streaming.Any(Mine);
+        var ways = new List<string>();
+        if (tv) ways.Add("tv");
+        if (home) ways.Add("home");
+        if (mine) ways.Add("mine");
+        if (ways.Count == 0 && (paid.Count > 0 || streaming.Any(s => !Mine(s)))) ways.Add("paid");
+        return ways.Count > 0 && ways.All(a.Contains);
     }
 
     static string KindOf(TmdbSearchHit h) => h.GenreIds.Contains(99) ? "documentary" : h.Kind == "tv" ? "series" : "film";

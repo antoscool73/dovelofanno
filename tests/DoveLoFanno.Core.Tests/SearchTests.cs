@@ -177,6 +177,17 @@ public sealed class SearchTests(ITestOutputHelper output) : IDisposable
         Assert.True(SearchApi.AvailOk(F("paid"), false, false, [], ["Apple TV Store"], subs));
         Assert.True(SearchApi.AvailOk(F("tv", "home"), false, true, [], [], subs));
         Assert.False(SearchApi.AvailOk(F("tv"), false, true, [], [], subs));
+        // a pagamento = solo se non lo vedo già in altro modo (come la € sulle locandine)
+        Assert.False(SearchApi.AvailOk(F("paid"), false, true, [], ["Apple TV Store"], subs));                       // in casa
+        Assert.False(SearchApi.AvailOk(F("paid"), false, false, ["Netflix"], ["Apple TV Store"], subs));             // nei miei abbonamenti
+        Assert.False(SearchApi.AvailOk(F("paid"), true, false, [], ["Apple TV Store"], subs));                       // in TV
+        Assert.True(SearchApi.AvailOk(F("paid", "home"), false, true, [], ["Apple TV Store"], subs));                // con «In casa» sì
+        // una categoria tolta non si vede: in TV e in casa, con la sola «In TV», no; con tutte e due sì
+        Assert.False(SearchApi.AvailOk(F("tv"), true, true, [], [], subs));
+        Assert.True(SearchApi.AvailOk(F("tv", "home"), true, true, [], [], subs));
+        Assert.False(SearchApi.AvailOk(F("mine"), true, false, ["Netflix"], [], subs));                              // anche in TV
+        Assert.True(SearchApi.AvailOk(F("mine"), false, false, ["Netflix"], ["Apple TV Store"], subs));              // noleggiabile, ma la € non c'è
+        Assert.False(SearchApi.AvailOk(F("tv", "mine", "paid", "home"), false, false, [], [], subs));                // non si vede: solo con «Ovunque»
     }
 
     // filmografia di una persona (person/{id}/combined_credits ridotta): regia prima, poi recitazione, senza doppioni

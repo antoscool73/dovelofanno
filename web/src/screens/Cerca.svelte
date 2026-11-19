@@ -463,7 +463,7 @@
           <label class="check"><input type="checkbox" checked={f.avail.includes(a.id)} onchange={() => toggleAvail(a.id)} />
             <span class="ic" aria-hidden="true"><AvailBadges a={iconOf(a.id)} size={18} /></span>{a.label}</label>
         {/each}
-        <span class="muted small">Le icone sono quelle delle locandine.</span>
+        <span class="muted small">Le icone sono quelle delle locandine: compaiono solo i titoli con tutte le icone tra quelle scelte. Un film che hai in casa e passa in TV, con la sola «In TV», non c'è.</span>
       </fieldset>
       {#if selected}
         <div id="avvisi" class="panel alerts" aria-label="Avvisi per il titolo scelto">
