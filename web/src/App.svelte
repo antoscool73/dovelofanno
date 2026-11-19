@@ -1,5 +1,6 @@
 <script lang="ts">
   import AppHeader from './lib/components/AppHeader.svelte';
+  import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import Button from './lib/components/Button.svelte';
   import Profili from './screens/Profili.svelte';
   import NonTrovata from './screens/NonTrovata.svelte';
@@ -93,6 +94,9 @@
     {/if}
   </main>
 {/if}
+
+<!-- conferme delle azioni che cancellano o fermano qualcosa -->
+<ConfirmDialog />
 
 <style>
   .center { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text-2); }

@@ -1,5 +1,6 @@
 <script lang="ts">
   // Impostazioni › Profili e abbonamenti: nome, colore, bambino, PIN ed eliminazione dei profili; abbonamenti della famiglia.
+  import { ask } from '../lib/confirm.svelte';
   import Avatar from '../lib/components/Avatar.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -73,8 +74,8 @@
       editId = null;
     }, 'Profilo salvato.');
   }
-  function remove(p: Profile) {
-    if (!confirm(`Eliminare il profilo «${p.name}» con le sue liste, preferenze e avvisi? Non si torna indietro.`)) return;
+  async function remove(p: Profile) {
+    if (!(await ask({ title: `Eliminare il profilo «${p.name}»?`, text: 'Con le sue liste, preferenze e avvisi. Non si torna indietro.', ok: 'Elimina il profilo' }))) return;
     act(async () => {
       await api.deleteProfile(p.id);
       if (session.profile?.id === p.id) session.leave();

@@ -1,5 +1,6 @@
 <script lang="ts">
   // Impostazioni › Limiti e Impostazioni › Notifiche (Telegram, orari di silenzio): valgono per tutta la famiglia.
+  import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type GeneralSettings, type NotificationSettings } from '../lib/api/client';
 
@@ -68,7 +69,7 @@
       </div>
       <div class="f-row">
         <Button variant="primary" type="submit" disabled={busy || (!token && !notif.telegramConfigured) || !chat}>{notif.telegramConfigured ? 'Salva e prova' : 'Collega e prova'}</Button>
-        {#if notif.telegramConfigured}<Button variant="ghost" disabled={busy} onclick={() => act(() => api.updateNotificationSettings({ clearTelegram: true }), 'Telegram scollegato.')}>Scollega</Button>{/if}
+        {#if notif.telegramConfigured}<Button variant="ghost" disabled={busy} onclick={async () => { if (await ask({ title: 'Scollegare Telegram?', text: 'Gli avvisi non arriveranno più su Telegram; per ricollegarlo serviranno di nuovo il token del bot e la chat.', ok: 'Scollega' })) act(() => api.updateNotificationSettings({ clearTelegram: true }), 'Telegram scollegato.'); }}>Scollega</Button>{/if}
       </div>
     </form>
     <form class="card" onsubmit={(e) => { e.preventDefault(); act(() => api.updateNotificationSettings({ quietFrom, quietTo }), 'Orari di silenzio salvati.'); }}>

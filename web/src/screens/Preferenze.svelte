@@ -2,6 +2,7 @@
   // Preferenze del profilo: le liste nella pagina La mia serata (e gli esclusi dalle ricerche), i miei avvisi, i miei
   // abbonamenti, le notifiche, la registrazione predefinita. Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
   // liste dinamiche: qui si sceglie solo quali liste mostrare.
+  import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import ServicePicker from '../lib/components/ServicePicker.svelte';
@@ -156,7 +157,7 @@
               {#if a.kind === 'tv' && a.autoRecord}<Badge tone="red">Registra da solo</Badge>{/if}
               <span class="f-muted grow">{a.status}{a.lastFiredAt ? ` · ultimo avviso ${day(a.lastFiredAt).toLowerCase()} ${time(a.lastFiredAt)}` : ''}</span>
               <Button size="s" onclick={() => router.go(`/opera/${a.workId}`)}>Modifica</Button>
-              <Button size="s" variant="ghost" onclick={() => act(() => api.deleteAlert(prof!.id, a.id), 'Avviso tolto.')}>Togli</Button>
+              <Button size="s" variant="ghost" onclick={async () => { if (await ask({ title: `Togliere l'avviso su «${a.workTitle}»?`, text: 'Si perdono anche le sue impostazioni (quando avvisare, canali, registrazione automatica).', ok: 'Togli l\'avviso' })) act(() => api.deleteAlert(prof!.id, a.id), 'Avviso tolto.'); }}>Togli</Button>
             </li>
           {/each}
         </ul>

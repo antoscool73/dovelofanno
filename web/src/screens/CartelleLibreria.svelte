@@ -1,5 +1,6 @@
 <script lang="ts">
   // Impostazioni › Cartelle: cartelle del NAS nella libreria (Film, Serie...), scansione e copie per il browser.
+  import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type LibraryFolder, type LibraryStatus } from '../lib/api/client';
@@ -39,8 +40,8 @@
     act(async () => { await api.addFolder(path.trim(), kind); path = ''; }, 'Cartella aggiunta: la scansione è partita.');
   }
 
-  function remove(f: LibraryFolder) {
-    if (!confirm(`Togliere «${f.path}» dalla libreria? I file restano sul disco; le liste e i voti restano.`)) return;
+  async function remove(f: LibraryFolder) {
+    if (!(await ask({ title: `Togliere «${f.path}» dalla libreria?`, text: 'I file restano sul disco; le liste e i voti restano.', ok: 'Togli la cartella' }))) return;
     act(() => api.deleteFolder(f.id), 'Cartella tolta.');
   }
 

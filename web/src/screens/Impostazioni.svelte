@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import VotiFilm from './VotiFilm.svelte';
@@ -149,8 +150,8 @@
       editing = null;
     }, 'Playlist aggiornata.');
   }
-  function remove(s: Source) {
-    if (!confirm(`Togliere la playlist «${s.name}»? I canali restano, i suoi flussi no.`)) return;
+  async function remove(s: Source) {
+    if (!(await ask({ title: `Togliere la playlist «${s.name}»?`, text: 'I canali restano, i suoi flussi no.', ok: 'Togli la playlist' }))) return;
     act('del', async () => { await api.deleteSource(s.id); editing = null; }, 'Playlist tolta.');
   }
 

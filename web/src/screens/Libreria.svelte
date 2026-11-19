@@ -1,6 +1,7 @@
 <script lang="ts">
   // Libreria: liste personali e di famiglia, opere in casa per sezione (film, serie, documentari, programmi,
   // registrazioni) e file da sistemare. Le stelle sono il voto personale del profilo, accanto al voto IMDb.
+  import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
@@ -143,17 +144,17 @@
     const id = detail.list.id;
     act(() => api.updateList(prof.id, id, { name: renaming.trim() }).then(() => { isRenaming = false; }), 'Nome cambiato.');
   }
-  function toFamily() {
+  async function toFamily() {
     const prof = session.profile;
     if (!prof || !detail) return;
-    if (!confirm(`Spostare «${detail.list.name}» nelle liste della famiglia? La vedranno e la cambieranno tutti gli adulti.`)) return;
+    if (!(await ask({ title: `Spostare «${detail.list.name}» nelle liste della famiglia?`, text: 'La vedranno e la cambieranno tutti gli adulti. Non si torna indietro.', ok: 'Sposta in famiglia' }))) return;
     const id = detail.list.id;
     act(() => api.updateList(prof.id, id, { family: true }), 'Lista spostata in famiglia.');
   }
-  function removeList() {
+  async function removeList() {
     const prof = session.profile;
     if (!prof || !detail) return;
-    if (!confirm(`Cancellare la lista «${detail.list.name}»? I titoli restano nella libreria.`)) return;
+    if (!(await ask({ title: `Cancellare la lista «${detail.list.name}»?`, text: 'I titoli restano nella libreria.', ok: 'Cancella la lista' }))) return;
     const id = detail.list.id;
     act(() => api.deleteList(prof.id, id).then(() => router.go('/libreria')), 'Lista cancellata.');
   }
@@ -175,12 +176,12 @@
   }
 
   // ---- da sistemare
-  function removeItem(e: LibraryEntry, deleteFile: boolean) {
+  async function removeItem(e: LibraryEntry, deleteFile: boolean) {
     if (e.itemId == null) return;
     const q = deleteFile
-      ? `Cancellare dal disco il file «${e.title}»? Non si può annullare.`
-      : `Togliere «${e.title}» dalla libreria? Il file resta sul disco e torna alla prossima scansione se è in una cartella della libreria.`;
-    if (!confirm(q)) return;
+      ? 'Il file viene cancellato dal disco. Non si può annullare.'
+      : 'Il file resta sul disco e torna alla prossima scansione se è in una cartella della libreria.';
+    if (!(await ask({ title: deleteFile ? `Cancellare il file «${e.title}»?` : `Togliere «${e.title}» dalla libreria?`, text: q, ok: deleteFile ? 'Cancella il file' : 'Togli' }))) return;
     const id = e.itemId;
     act(() => api.removeItem(id, deleteFile), deleteFile ? 'File cancellato.' : 'Tolto dalla libreria.');
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import NuovaRegistrazione from './NuovaRegistrazione.svelte';
@@ -99,6 +100,7 @@
   }
 
   async function stop(r: Recording) {
+    if (!(await ask({ title: `Fermare «${r.title}»?`, text: 'La registrazione si ferma adesso: quello registrato finora resta e diventa il file.', ok: 'Ferma la registrazione' }))) return;
     busyId = r.id;
     try { await api.stopRecording(r.id); await load(); }
     catch (e) { error = e instanceof ApiError ? e.message : 'Non fermata'; }
@@ -106,6 +108,7 @@
   }
 
   async function cancel(r: Recording) {
+    if (!(await ask({ title: `Annullare «${r.title}»?`, text: `Non verrà registrata ${day(r.start, now).toLowerCase()} alle ${time(r.start)}.`, ok: 'Annulla la registrazione', cancel: 'Tienila' }))) return;
     busyId = r.id;
     try { await api.cancelRecording(r.id); await load(); }
     catch (e) { error = e instanceof ApiError ? e.message : 'Non annullata'; }
