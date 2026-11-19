@@ -149,6 +149,8 @@
   // cerca 400 ms dopo l'ultima modifica; una risposta vecchia non copre quella nuova. I filtri vanno anche
   // nell'indirizzo (si possono salvare e condividere in casa)
   const PAGE = 40;
+  // ordinati per voto, anno o titolo si chiedono subito più titoli: ordinare solo i primi 40 darebbe un ordine falso
+  const SORT_PAGE = 200;
   let limit = PAGE;
   let more = $state(false);
   let current = $state<SearchQuery>({ ...start, genres: [...start.genres], avail: [...start.avail] });
@@ -180,7 +182,7 @@
     const h = listId && applied === savedJson ? searchHash({}, listId) : searchHash(snap, listId);
     try { history.replaceState(history.state, '', '/cerca' + h); } catch { /* indirizzo non aggiornato: pazienza */ }
     if (!canSearch) { hits = []; note = ''; error = ''; searched = false; loading = false; more = false; seq++; return; }
-    run(snap, PAGE);
+    run(snap, sortKey === 'rel' ? PAGE : SORT_PAGE);
   }
   let started = false;
   $effect(() => {
@@ -198,6 +200,37 @@
     const io = new IntersectionObserver((e) => { if (e.some((x) => x.isIntersecting)) loadMore(); }, { rootMargin: '400px' });
     io.observe(sentinel);
     return () => io.disconnect();
+  });
+
+  // ---------------------------------------------------------------- ordine dei risultati
+  // Pertinenza = l'ordine del server (prima le opere note, poi TMDB). Voto, anno e titolo: su o giù; i titoli senza voto
+  // o senza anno vanno in fondo. L'ordine non è un filtro: si applica subito, senza «Cerca». Si ricorda su questo dispositivo.
+  type SortKey = 'rel' | 'rating' | 'year' | 'title';
+  const SORT_STORE = 'dlf.cerca.ordine';
+  const sorts: { id: SortKey; label: string; first: 'asc' | 'desc' }[] = [
+    { id: 'rel', label: 'Pertinenza', first: 'desc' }, { id: 'rating', label: 'Voto', first: 'desc' },
+    { id: 'year', label: 'Anno', first: 'desc' }, { id: 'title', label: 'Titolo', first: 'asc' },
+  ];
+  const savedSort = (() => { try { return JSON.parse(localStorage.getItem(SORT_STORE) ?? 'null'); } catch { return null; } })();
+  let sortKey = $state<SortKey>(sorts.some((x) => x.id === savedSort?.key) ? savedSort.key : 'rel');
+  let sortDir = $state<'asc' | 'desc'>(savedSort?.dir === 'asc' ? 'asc' : 'desc');
+  function setSort(k: SortKey) {
+    if (k === sortKey && k !== 'rel') sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    else { sortKey = k; sortDir = sorts.find((x) => x.id === k)!.first; }
+    try { localStorage.setItem(SORT_STORE, JSON.stringify({ key: sortKey, dir: sortDir })); } catch { /* solo per questa visita */ }
+    if (sortKey !== 'rel' && more && !loading && canSearch && limit < SORT_PAGE) run(current, SORT_PAGE);
+  }
+  const collator = new Intl.Collator('it', { sensitivity: 'base', numeric: true });
+  const shown = $derived.by(() => {
+    if (sortKey === 'rel') return hits;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const val = (h: SearchHit): number | null => (sortKey === 'rating' ? h.rating ?? null : h.year > 0 ? h.year : null);
+    return [...hits].sort((a, b) => {
+      if (sortKey === 'title') return dir * collator.compare(a.title, b.title);
+      const x = val(a), y = val(b);
+      if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1;   // senza valore: in fondo
+      return dir * (x - y) || collator.compare(a.title, b.title);
+    });
   });
 
   const metaOf = (h: SearchHit) => {
@@ -406,13 +439,24 @@
       {:else if loading}
         <p class="sum" role="status">Cerco…</p>
       {:else if searched}
-        <p class="sum" role="status">{hits.length === 0 ? 'Nessun titolo' : `${hits.length}${more ? '+' : ''} ${hits.length === 1 ? 'titolo' : 'titoli'}`}{summary ? ` · ${summary}` : ''}</p>
+        <p class="sum" role="status">{hits.length === 0 ? 'Nessun titolo' : `${hits.length}${more ? '+' : ''} ${hits.length === 1 ? 'titolo' : 'titoli'}`}{summary ? ` · ${summary}` : ''}{sortKey !== 'rel' && more ? ` · in ordine i primi ${hits.length}` : ''}</p>
       {/if}
 
       <!-- durante una nuova ricerca i risultati di prima restano, sbiaditi -->
+      {#if hits.length > 1}
+        <div class="sortbar" role="group" aria-label="Ordina i risultati">
+          <span class="muted small">Ordina</span>
+          {#each sorts as o (o.id)}
+            <button type="button" class="sortbtn" aria-pressed={sortKey === o.id} onclick={() => setSort(o.id)}
+              title={o.id === 'rel' ? 'L\'ordine della ricerca' : sortKey === o.id ? 'Tocca per invertire' : ''}>
+              {o.label}{#if sortKey === o.id && o.id !== 'rel'}<span class="arrow" aria-label={sortDir === 'asc' ? 'crescente' : 'decrescente'}>{sortDir === 'asc' ? '↑' : '↓'}</span>{/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
       <!-- risultati di prima: sbiaditi mentre cerca, attenuati finché i filtri cambiati non sono cercati -->
       <ul class="rows" class:stale={loading && !more} class:outdated={changed && !loading}>
-        {#each hits as h (keyOf(h))}
+        {#each shown as h (keyOf(h))}
           {@const a = availFor(h)}
           {@const st = statusText(a)}
           <li class:sel={selected != null && h.workId === selected.workId}>
@@ -518,6 +562,12 @@
 
   .results { flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .sum { margin: 0; font-size: 14px; color: var(--muted); }
+  .sortbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .sortbar .muted { margin-right: 4px; }
+  .sortbtn { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-btn);
+    background: none; color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer; }
+  .sortbtn[aria-pressed='true'] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .arrow { font-weight: 700; }
   .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   /* schede tutte alte uguali: locandina, quattro righe (titolo, genere, persone o trama, dove si vede), azione a destra */
   .rows li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 0 14px; height: 120px; box-sizing: border-box;
