@@ -3883,6 +3883,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Versione installata, ultima versione pubblicata sul sito, ultimo controllo */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateStatus"];
+                    };
+                };
+            };
+        };
+        /** Accende o spegne il controllo automatico (una volta al giorno) degli aggiornamenti */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSettingsPatch"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateStatus"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/updates/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Controlla subito se c'è una versione nuova (non scarica né installa niente) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateStatus"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backups": {
         parameters: {
             query?: never;
@@ -4763,6 +4859,21 @@ export interface components {
             codec: string;
             language: string;
             title: string;
+        };
+        UpdateSettingsPatch: {
+            enabled: null | boolean;
+        };
+        UpdateStatus: {
+            enabled: boolean;
+            current: string;
+            latest: null | string;
+            updateAvailable: boolean;
+            date: null | string;
+            notes: null | string;
+            url: null | string;
+            /** Format: date-time */
+            checkedAt: null | string;
+            error: string;
         };
         WorkAvailability: {
             platform: string;

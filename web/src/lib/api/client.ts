@@ -24,6 +24,7 @@ export type GuideStatus = S['GuideStatus'];
 export type TonightItem = S['TonightItem'];
 export type WorkDetail = S['WorkDetail'];
 export type RatingSettingsPatch = S['RatingSettingsPatch'];
+export type UpdateStatus = S['UpdateStatus'];
 export type LibraryEntry = S['LibraryEntry'];
 export type LibraryFile = S['LibraryFile'];
 export type LibraryItem = S['LibraryItemDetail'];
@@ -157,6 +158,10 @@ export const api = {
 
   ratingSettings: () => call<RatingSettings>('GET', '/settings/ratings'),
   updateRatingSettings: (p: RatingSettingsPatch) => call<RatingSettings>('PUT', '/settings/ratings', p),
+
+  updates: () => call<UpdateStatus>('GET', '/settings/updates'),
+  setUpdateCheck: (enabled: boolean) => call<UpdateStatus>('PUT', '/settings/updates', { enabled }),
+  checkUpdates: () => call<UpdateStatus>('POST', '/settings/updates/check'),
 
   library: (section: LibrarySection, profileId?: number, sort: LibrarySort = 'added', text = '') => {
     const p = new URLSearchParams({ section, sort });

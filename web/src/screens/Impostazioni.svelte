@@ -6,10 +6,11 @@
   import CartelleLibreria from './CartelleLibreria.svelte';
   import GestioneProfili from './GestioneProfili.svelte';
   import LimitiNotifiche from './LimitiNotifiche.svelte';
+  import Aggiornamenti from './Aggiornamenti.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
-  type Tab = 'sorgenti' | 'cartelle' | 'profili' | 'voti' | 'limiti' | 'notifiche' | 'backup';
+  type Tab = 'sorgenti' | 'cartelle' | 'profili' | 'voti' | 'limiti' | 'notifiche' | 'backup' | 'aggiornamenti';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'sorgenti', label: 'Sorgenti' },
     { id: 'cartelle', label: 'Cartelle' },
@@ -18,6 +19,7 @@
     { id: 'limiti', label: 'Limiti' },
     { id: 'notifiche', label: 'Notifiche' },
     { id: 'backup', label: 'Backup' },
+    { id: 'aggiornamenti', label: 'Aggiornamenti' },
   ];
   // la scheda si ricorda nell'indirizzo (/impostazioni#profili), così i collegamenti dalle altre schermate ci arrivano
   let tab = $state<Tab>(tabs.find((t) => location.hash === '#' + t.id)?.id ?? 'sorgenti');
@@ -264,6 +266,8 @@
         </ul>
       {/if}
       <p class="muted small">Ripristino: a server fermo, si rimette la copia al posto di dlf.db (istruzioni nella guida di installazione).</p>
+    {:else if tab === 'aggiornamenti'}
+      <Aggiornamenti />
     {:else if tab === 'profili'}
       <GestioneProfili />
     {:else if tab === 'limiti' || tab === 'notifiche'}

@@ -346,6 +346,20 @@ public static class Api
             .WithSummary("Salva la chiave TMDB dopo averla provata con TMDB, o la toglie; attiva o spegne i voti IMDb (licenza solo personale)")
             .Produces<RatingSettings>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
+        // ---------------------------------------------------------------- aggiornamenti (19/11/2026)
+        set.MapGet("/updates", (UpdateHost updates) => updates.Status())
+            .WithSummary("Versione installata, ultima versione pubblicata sul sito, ultimo controllo");
+
+        set.MapPut("/updates", (UpdateSettingsPatch body, UpdateHost updates) =>
+        {
+            if (body.Enabled is bool on) updates.SetEnabled(on);
+            return updates.Status();
+        })
+            .WithSummary("Accende o spegne il controllo automatico (una volta al giorno) degli aggiornamenti");
+
+        set.MapPost("/updates/check", async (UpdateHost updates, CancellationToken ct) => await updates.CheckAsync(ct))
+            .WithSummary("Controlla subito se c'è una versione nuova (non scarica né installa niente)");
+
         // ---------------------------------------------------------------- backup
         var bak = api.MapGroup("/backups").WithTags("Sistema");
         bak.MapGet("", (ServerContext ctx) => ctx.Backups.List()).WithSummary("Copie del database (ogni notte alle 3, si tengono le ultime 7)");

@@ -28,12 +28,14 @@ builder.Services.AddSingleton<LibraryHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LibraryHost>());
 builder.Services.AddSingleton<NotifyHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NotifyHost>());
+builder.Services.AddSingleton<UpdateHost>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateHost>());
 builder.Services.AddSingleton<PreviewService>();
 builder.Services.AddOpenApi("v1", o => o.AddDocumentTransformer((doc, _, _) =>
 {
     doc.Info.Title = "DoveLoFanno";
     doc.Info.Version = Api.Version;
-    doc.Info.Description = "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, preferenze, proposte, avvisi, notifiche, backup.";
+    doc.Info.Description = "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, preferenze, proposte, avvisi, notifiche, aggiornamenti, backup.";
     doc.Servers?.Clear();
     return Task.CompletedTask;
 }));

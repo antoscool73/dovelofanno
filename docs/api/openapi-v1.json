@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "DoveLoFanno",
-    "description": "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, preferenze, proposte, avvisi, notifiche, backup.",
+    "description": "API del server domestico DoveLoFanno: sorgenti, canali, registrazioni, guida, libreria, liste, preferenze, proposte, avvisi, notifiche, aggiornamenti, backup.",
     "version": "v1"
   },
   "paths": {
@@ -3585,6 +3585,74 @@
         }
       }
     },
+    "/api/v1/settings/updates": {
+      "get": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Versione installata, ultima versione pubblicata sul sito, ultimo controllo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Accende o spegne il controllo automatico (una volta al giorno) degli aggiornamenti",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/updates/check": {
+      "post": {
+        "tags": [
+          "Impostazioni"
+        ],
+        "summary": "Controlla subito se c'è una versione nuova (non scarica né installa niente)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backups": {
       "get": {
         "tags": [
@@ -6663,6 +6731,79 @@
             "type": "string"
           },
           "title": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateSettingsPatch": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "UpdateStatus": {
+        "required": [
+          "enabled",
+          "current",
+          "latest",
+          "updateAvailable",
+          "date",
+          "notes",
+          "url",
+          "checkedAt",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "current": {
+            "type": "string"
+          },
+          "latest": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updateAvailable": {
+            "type": "boolean"
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "checkedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "error": {
             "type": "string"
           }
         }
