@@ -247,7 +247,8 @@
             <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'} variants={['Nella mia serata ✓', 'Aggiungi alla mia serata']} /></Button>
             <Button variant="soft" size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}><StableLabel text={w.watched ? 'Visto ✓' : 'Segna come visto'} variants={['Visto ✓', 'Segna come visto']} /></Button>
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
-            <Button variant="soft" size="l" pressed={alertsOpen} onclick={() => (alertsOpen ? (alertsOpen = false) : openAlerts())}><StableLabel text={activeAlerts > 0 ? 'Avvisi attivi ✓' : 'Avvisami'} variants={['Avvisi attivi ✓', 'Avvisami']} /></Button>
+            <!-- con avvisi accesi colori invertiti, per distinguerlo dagli altri pulsanti -->
+            <Button variant={activeAlerts > 0 ? 'primary' : 'soft'} size="l" pressed={alertsOpen} onclick={() => (alertsOpen ? (alertsOpen = false) : openAlerts())}><StableLabel text={activeAlerts > 0 ? 'Avvisi attivi ✓' : 'Avvisami'} variants={['Avvisi attivi ✓', 'Avvisami']} /></Button>
             <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}><StableLabel text={ignored ? 'Non lo propongo più' : 'Non proporre più'} variants={['Non lo propongo più', 'Non proporre più']} /></Button>
           {/if}
         </div>
