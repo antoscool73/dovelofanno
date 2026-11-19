@@ -292,7 +292,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini */
+        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più» */
         get: {
             parameters: {
                 query?: {
@@ -306,6 +306,9 @@ export interface paths {
                     minRating?: number;
                     avail?: string;
                     limit?: number;
+                    genres?: string;
+                    hideSeen?: boolean;
+                    hideHome?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -2263,7 +2266,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Nuova lista del profilo o della famiglia (solo gli adulti) */
+        /** Nuova lista del profilo o della famiglia (solo gli adulti); con query è una lista dinamica (ricerca avanzata salvata) */
         post: {
             parameters: {
                 query?: never;
@@ -2412,7 +2415,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Rinomina una lista o la sposta in famiglia */
+        /** Rinomina una lista, la sposta in famiglia, cambia la ricerca di una lista dinamica o la mette (onHome) nella pagina principale del profilo */
         patch: {
             parameters: {
                 query?: never;
@@ -2474,6 +2477,54 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/profiles/{id}/lists/{listId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** I titoli di una lista dinamica: i risultati della sua ricerca avanzata (limit come in /search) */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                    listId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchResult"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/profiles/{id}/lists/{listId}/items": {
@@ -4270,6 +4321,8 @@ export interface components {
         ListPatch: {
             name: null | string;
             family: null | boolean;
+            query?: null | components["schemas"]["SavedQuery"];
+            onHome?: null | boolean;
         };
         ListSummary: {
             /** Format: int64 */
@@ -4283,6 +4336,8 @@ export interface components {
             canEdit: boolean;
             /** Format: date-time */
             createdAt: string;
+            query?: null | components["schemas"]["SavedQuery"];
+            onHome?: boolean;
         };
         LostRange: {
             /** Format: date-time */
@@ -4323,6 +4378,7 @@ export interface components {
         NewList: {
             name: string;
             family: boolean;
+            query?: null | components["schemas"]["SavedQuery"];
         };
         NewProfile: {
             name: string;
@@ -4523,6 +4579,35 @@ export interface components {
             /** Format: date-time */
             recordTo?: string;
         };
+        SavedQuery: {
+            /** @default  */
+            q: string;
+            /** @default all */
+            kind: string;
+            genres?: null | number[];
+            /**
+             * Format: int32
+             * @default 0
+             */
+            yearFrom: number;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            yearTo: number;
+            /** @default  */
+            country: string;
+            /**
+             * Format: double
+             * @default 0
+             */
+            minRating: number;
+            avail?: null | string[];
+            /** @default false */
+            hideSeen: boolean;
+            /** @default false */
+            hideHome: boolean;
+        };
         ScanReport: {
             /** Format: int32 */
             folders: number;
@@ -4578,6 +4663,7 @@ export interface components {
             country: string;
             /** @default  */
             credits: string;
+            excluded?: boolean;
         };
         SearchOption: {
             id: string;

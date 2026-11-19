@@ -143,7 +143,7 @@
   {:else if all.length === 0}
     <div class="empty">
       <p>Nessuna registrazione, per ora.</p>
-      <p class="muted">Programmane una con «Nuova registrazione», oppure con «Registra» su un programma della guida o una proposta in Stasera.</p>
+      <p class="muted">Programmane una con «Nuova registrazione», oppure con «Registra» su un programma della guida o un titolo di La mia serata.</p>
     </div>
   {:else}
     {#if filter === 'tutte' && active.length > 0}

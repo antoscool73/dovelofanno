@@ -31,6 +31,8 @@ public sealed class ServerContext : IDisposable
     public NotificationStore Notifications { get; }
     public SubscriptionStore Subscriptions { get; }
     public PreferenceStore Preferences { get; }
+    /// <summary>Note sulla conversione delle preferenze in liste dinamiche fatta all'avvio (per il registro).</summary>
+    public IReadOnlyList<string> ConvertedPreferences { get; }
     public AlertStore Alerts { get; }
     public DoveLoFanno.Ratings.PlatformCatalog Platforms { get; }
     readonly IKeepAwake keepAwake;
@@ -68,6 +70,8 @@ public sealed class ServerContext : IDisposable
         Notifications = new NotificationStore(DbPath);
         Subscriptions = new SubscriptionStore(DbPath);
         Preferences = new PreferenceStore(DbPath, Guide);
+        // le preferenze di prima («Cosa proporre») diventano liste dinamiche, una volta sola (19/11/2026)
+        ConvertedPreferences = Preferences.ConvertToLists(Clock.GetUtcNow());
         Alerts = new AlertStore(DbPath, Guide, Subscriptions);
         Platforms = new DoveLoFanno.Ratings.PlatformCatalog(Path.Combine(DataDir, "ratings", "platforms-IT.json"));
     }

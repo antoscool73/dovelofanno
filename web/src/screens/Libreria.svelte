@@ -82,7 +82,11 @@
   async function loadDetail() {
     const prof = session.profile;
     if (!prof || !listId) { detail = null; return; }
-    try { detail = await api.list(prof.id, listId, sort); }
+    try {
+      const d = await api.list(prof.id, listId, sort);
+      if (d.list.query) { router.go(`/cerca#list=${d.list.id}`); return; }   // lista dinamica: la sua pagina è la ricerca
+      detail = d;
+    }
     catch (e) { detail = null; error = e instanceof ApiError ? (e.status === 404 ? 'Lista non trovata.' : e.message) : 'Lista non letta'; }
   }
 
@@ -240,7 +244,7 @@
             {:else}
               <h2>{detail.list.name}</h2>
             {/if}
-            <div class="muted small">{detail.items.length} {detail.items.length === 1 ? 'titolo' : 'titoli'} · {detail.list.isTonight ? 'fissa: i titoli disponibili compaiono in Stasera' : detail.list.family ? 'lista della famiglia' : `lista personale di ${session.profile?.name}`}</div>
+            <div class="muted small">{detail.items.length} {detail.items.length === 1 ? 'titolo' : 'titoli'} · {detail.list.isTonight ? 'fissa: i titoli disponibili compaiono in La mia serata' : detail.list.family ? 'lista della famiglia' : `lista personale di ${session.profile?.name}`}</div>
           </div>
           <label class="sel"><span class="sr-only">Ordina</span>
             <select bind:value={sort}>{#each sorts as s (s.id)}<option value={s.id}>Ordina: {s.label.toLowerCase()}</option>{/each}</select>
@@ -307,8 +311,11 @@
 
     <section class="pad block">
       <div class="shead">
-        <div><h2>Le mie liste</h2><p class="muted small">«La mia serata in TV» è fissa: i titoli che ci metti compaiono in Stasera appena sono disponibili e finché non li hai visti.</p></div>
-        <Button variant="primary" onclick={() => (newFamily = false)}>+ Nuova lista</Button>
+        <div><h2>Le mie liste</h2><p class="muted small">«La mia serata in TV» è fissa: i titoli che ci metti compaiono in La mia serata appena sono disponibili e finché non li hai visti. Le liste <strong>dinamiche</strong> sono ricerche salvate: i titoli li trova la ricerca, da sola.</p></div>
+        <div class="newbtns">
+          <Button variant="primary" onclick={() => (newFamily = false)}>+ Nuova lista</Button>
+          <Button href="/cerca" onclick={navigate}>+ Nuova lista dinamica</Button>
+        </div>
       </div>
       {#if newFamily === false}{@render newForm()}{/if}
       <div class="cards">
@@ -400,14 +407,14 @@
 {/if}
 
 {#snippet listCard(l: ListSummary)}
-  <a class="lcard" class:tonight={l.isTonight} href="/libreria/liste/{l.id}" onclick={navigate}>
+  <a class="lcard" class:tonight={l.isTonight} class:dynamic={!!l.query} href={l.query ? `/cerca#list=${l.id}` : `/libreria/liste/${l.id}`} onclick={navigate}>
     <span class="mosaic" aria-hidden="true">
       {#each [0, 1, 2] as i (i)}
         <span>{#if l.posters[i]}<img src={l.posters[i]} alt="" referrerpolicy="no-referrer" loading="lazy" />{/if}</span>
       {/each}
     </span>
     <span class="lname">{l.name}</span>
-    <span class="muted small">{l.count} {l.count === 1 ? 'titolo' : 'titoli'} · {l.isTonight ? 'Fissa' : l.family ? 'Famiglia' : 'Personale'}</span>
+    <span class="muted small">{l.query ? 'Dinamica' : `${l.count} ${l.count === 1 ? 'titolo' : 'titoli'}`} · {l.isTonight ? 'Fissa' : l.family ? 'Famiglia' : 'Personale'}{l.onHome ? ' · in La mia serata' : ''}</span>
   </a>
 {/snippet}
 
@@ -437,6 +444,7 @@
   .small { font-size: 13px; }
   .error { color: var(--rec-text); margin: 0; }
   .ok { color: var(--green-text); margin: 0; }
+  .newbtns { display: flex; flex-wrap: wrap; gap: 8px; }
   .grow { flex: 1 1 0; min-width: 0; }
   .shead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
   .shead p { margin-top: 4px; }
@@ -446,6 +454,7 @@
   .lcard { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--line-strong); border-radius: 14px; padding: 14px; }
   .lcard:hover { border-color: var(--line-btn); color: var(--text); }
   .lcard.tonight { background: #1a2033; border: 2px solid #ffd36e; }
+  .lcard.dynamic .lname::before { content: "⟳ "; color: var(--blue); }
   .mosaic { display: flex; gap: 6px; height: 96px; }
   .mosaic span { flex: 1 1 0; border-radius: 6px; background: var(--raised); overflow: hidden; }
   .mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }

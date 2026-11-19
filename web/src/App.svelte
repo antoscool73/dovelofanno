@@ -45,7 +45,7 @@
   load();
 
   const titles: Record<string, string> = {
-    stasera: 'Stasera', cerca: 'Cerca', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
+    stasera: 'La mia serata', cerca: 'Cerca', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
     preferenze: 'Preferenze', impostazioni: 'Impostazioni', profili: 'Chi guarda?', 'non-trovata': 'Pagina non trovata',
   };
 

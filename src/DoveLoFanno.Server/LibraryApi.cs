@@ -15,8 +15,10 @@ public sealed record ProgressBody(int PositionS, int? DurationS);
 public sealed record ProgressReply(bool Watched);
 public sealed record MatchBody(string Title, int Year, string Kind, int? TmdbId, int? Season, int? Episode);
 public sealed record MatchCandidate(int TmdbId, string Kind, string Title, string OriginalTitle, int Year, int Votes);
-public sealed record NewList(string Name, bool Family);
-public sealed record ListPatch(string? Name, bool? Family);
+/// <summary>Nuova lista; con Query è dinamica (la ricerca avanzata salvata).</summary>
+public sealed record NewList(string Name, bool Family, SavedQuery? Query = null);
+/// <summary>Modifica di una lista: nome, famiglia, ricerca (solo dinamiche), presenza nella pagina principale del profilo.</summary>
+public sealed record ListPatch(string? Name, bool? Family, SavedQuery? Query = null, bool? OnHome = null);
 
 /// <summary>API della libreria, del player e delle liste (aggiunte compatibili della wave 6).</summary>
 public static class LibraryApi
@@ -239,10 +241,11 @@ public static class LibraryApi
 
         prof.MapPost("/{id:long}/lists", IResult (long id, NewList body, ServerContext ctx) =>
         {
-            var (r, listId) = ctx.Lists.Create(id, body.Name, body.Family, ctx.Clock.GetUtcNow());
+            if (body.Query?.Validate() is { Length: > 0 } why) return Results.BadRequest(new ApiError(why));
+            var (r, listId) = ctx.Lists.Create(id, body.Name, body.Family, ctx.Clock.GetUtcNow(), body.Query);
             return r == ListResult.Ok ? Results.Created($"/api/v1/profiles/{id}/lists/{listId}", ctx.Lists.Lists(id)!.First(x => x.Id == listId)) : ListError(r);
         })
-            .WithSummary("Nuova lista del profilo o della famiglia (solo gli adulti)")
+            .WithSummary("Nuova lista del profilo o della famiglia (solo gli adulti); con query è una lista dinamica (ricerca avanzata salvata)")
             .Produces<ListSummary>(StatusCodes.Status201Created).Produces(StatusCodes.Status404NotFound)
             .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status403Forbidden);
 
@@ -251,12 +254,26 @@ public static class LibraryApi
             .WithSummary("I titoli di una lista con voto, stelle del profilo, file in casa e prossimo passaggio (sort = added, title, rating, stars)")
             .Produces<ListDetail>().Produces(StatusCodes.Status404NotFound);
 
-        prof.MapPatch("/{id:long}/lists/{listId:long}", IResult (long id, long listId, ListPatch body, ServerContext ctx) =>
-            ctx.Lists.Update(id, listId, body.Name, body.Family) is var r && r == ListResult.Ok
-                ? Results.Ok(ctx.Lists.Lists(id)!.First(x => x.Id == listId)) : ListError(r))
-            .WithSummary("Rinomina una lista o la sposta in famiglia")
+        prof.MapPatch("/{id:long}/lists/{listId:long}", IResult (long id, long listId, ListPatch body, ServerContext ctx, NotifyHost notify) =>
+        {
+            if (body.Query?.Validate() is { Length: > 0 } why) return Results.BadRequest(new ApiError(why));
+            var r = ctx.Lists.Update(id, listId, body.Name, body.Family, body.Query, body.OnHome, ctx.Clock.GetUtcNow());
+            if (r != ListResult.Ok) return ListError(r);
+            if (body.Query != null || body.OnHome != null) notify.ProposalsChanged();
+            return Results.Ok(ctx.Lists.Lists(id)!.First(x => x.Id == listId));
+        })
+            .WithSummary("Rinomina una lista, la sposta in famiglia, cambia la ricerca di una lista dinamica o la mette (onHome) nella pagina principale del profilo")
             .Produces<ListSummary>().Produces(StatusCodes.Status404NotFound)
             .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status403Forbidden).Produces<ApiError>(StatusCodes.Status409Conflict);
+
+        prof.MapGet("/{id:long}/lists/{listId:long}/results", async Task<IResult> (long id, long listId, int? limit, ServerContext ctx, CancellationToken ct) =>
+        {
+            if (ctx.Profiles.Get(id) == null || ctx.Lists.QueryOf(id, listId) is not { } q) return Results.NotFound();
+            // la stessa ricerca della pagina Cerca, senza i titoli «Non proporre più»
+            return Results.Ok(await SearchApi.RunAsync(ctx, (q.Q ?? "").Trim(), q.ToFilter(), id, limit ?? 40, dropExcluded: true, useTmdb: true, ct));
+        })
+            .WithSummary("I titoli di una lista dinamica: i risultati della sua ricerca avanzata (limit come in /search)")
+            .Produces<SearchResult>().Produces(StatusCodes.Status404NotFound);
 
         prof.MapDelete("/{id:long}/lists/{listId:long}", IResult (long id, long listId, ServerContext ctx) =>
             ctx.Lists.Delete(id, listId) is var r && r == ListResult.Ok ? Results.NoContent() : ListError(r))
@@ -302,6 +319,7 @@ public static class LibraryApi
         ListResult.Forbidden => Results.Json(new ApiError("le liste di famiglia le cambiano solo gli adulti"), statusCode: StatusCodes.Status403Forbidden),
         ListResult.Fixed => Results.Conflict(new ApiError("«La mia serata in TV» non si rinomina e non si cancella")),
         ListResult.NoWork => Results.BadRequest(new ApiError("opera sconosciuta")),
+        ListResult.Dynamic => Results.BadRequest(new ApiError("è una lista dinamica: i titoli vengono dalla sua ricerca")),
         _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 60 caratteri, o lista già di famiglia")),
     };
 

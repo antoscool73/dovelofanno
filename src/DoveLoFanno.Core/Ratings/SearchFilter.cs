@@ -4,15 +4,18 @@ using DoveLoFanno.Epg;
 namespace DoveLoFanno.Ratings;
 
 /// <summary>
-/// Filtri della ricerca (tutti facoltativi): tipo (all, film, series, documentary), genere (codice TMDB dei film, 0 =
-/// tutti), anni, paese di produzione (ISO, "" = tutti), voto minimo, disponibilità (tv, mine, paid, home: vale uno
-/// qualsiasi di quelli scelti; nessuno = ovunque, anche non disponibile).
+/// Filtri della ricerca (tutti facoltativi): tipo (all, film, series, documentary), generi (codici TMDB dei film: vale uno
+/// qualsiasi; nessuno = tutti), anni, paese di produzione (ISO, "" = tutti), voto minimo, disponibilità (tv, mine, paid,
+/// home: vale uno qualsiasi di quelli scelti; nessuno = ovunque, anche non disponibile). HideSeen e HideHome tolgono i
+/// titoli già visti dal profilo e quelli già in casa (19/11/2026, liste dinamiche).
 /// </summary>
-public sealed record SearchFilter(string Kind = "all", int Genre = 0, int YearFrom = 0, int YearTo = 0, string Country = "",
-    double MinRating = 0, IReadOnlySet<string>? Avail = null)
+public sealed record SearchFilter(string Kind = "all", IReadOnlyList<int>? Genres = null, int YearFrom = 0, int YearTo = 0, string Country = "",
+    double MinRating = 0, IReadOnlySet<string>? Avail = null, bool HideSeen = false, bool HideHome = false)
 {
     public IReadOnlySet<string> AvailSet => Avail ?? new HashSet<string>();
-    public bool Any => Kind != "all" || Genre > 0 || YearFrom > 0 || YearTo > 0 || Country.Length > 0 || MinRating > 0 || AvailSet.Count > 0;
+    public IReadOnlyList<int> GenreList => Genres ?? [];
+    public bool Any => Kind != "all" || GenreList.Count > 0 || YearFrom > 0 || YearTo > 0 || Country.Length > 0 || MinRating > 0 || AvailSet.Count > 0
+        || HideSeen || HideHome;
 
     public bool KindOk(string kind) => Kind switch
     {
@@ -58,6 +61,10 @@ public static class TmdbGenres
         return g == null ? [genre] : [g.Id, .. g.Tv];
     }
 
+    /// <summary>Un'opera è di uno dei generi (nessuno = tutti): dai codici TMDB, oppure (senza codici, solo guida) dal genere scritto dalla guida.</summary>
+    public static bool Matches(IReadOnlyList<int> genres, IReadOnlyCollection<int> ids, string guideText) =>
+        genres.Count == 0 || genres.Any(g => Matches(g, ids, guideText));
+
     /// <summary>Un'opera è del genere: dai codici TMDB, oppure (senza codici, solo guida) dal genere scritto dalla guida.</summary>
     public static bool Matches(int genre, IReadOnlyCollection<int> ids, string guideText)
     {
@@ -70,6 +77,27 @@ public static class TmdbGenres
         return t.Contains(n.Length > 6 ? n[..6] : n, StringComparison.Ordinal)
             || (genre == 10749 && t.Contains("sentimental", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// Il genere TMDB più vicino a un sottogenere della guida ("Poliziesco" = Crime, "Giallo" = Mistero), 0 se non c'è:
+    /// serve a convertire le preferenze di prima (generi della guida) in liste dinamiche.
+    /// </summary>
+    public static int FromGuide(string sub)
+    {
+        string k = Titles.TitleKey(sub);
+        if (k.Length == 0) return 0;
+        foreach (var (word, id) in GuideWords)
+            if (k.Contains(word, StringComparison.Ordinal)) return id;
+        return All.FirstOrDefault(g => Titles.TitleKey(g.Name) == k)?.Id ?? 0;
+    }
+
+    static readonly (string Word, int Id)[] GuideWords =
+    [
+        ("thriller", 53), ("poliziesc", 80), ("crime", 80), ("noir", 80), ("giallo", 9648), ("mister", 9648), ("comic", 35), ("commedia", 35),
+        ("dramm", 18), ("dramma", 18), ("azione", 28), ("avventur", 12), ("animazion", 16), ("cartoni", 16), ("horror", 27), ("fantascienz", 878),
+        ("fantasy", 14), ("fantastic", 14), ("guerra", 10752), ("western", 37), ("romantic", 10749), ("sentimental", 10749), ("documentar", 99),
+        ("music", 10402), ("famiglia", 10751), ("storic", 36), ("biografic", 36),
+    ];
 
     static bool Overlaps(this IReadOnlyCollection<int> a, HashSet<int> b) => a.Any(b.Contains);
 }

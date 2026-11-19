@@ -1,35 +1,35 @@
 <script lang="ts">
-  // Preferenze del profilo: cosa proporre, i miei avvisi, i miei abbonamenti, le notifiche, la registrazione predefinita.
+  // Preferenze del profilo: le liste nella pagina La mia serata (e gli esclusi dalle ricerche), i miei avvisi, i miei
+  // abbonamenti, le notifiche, la registrazione predefinita. Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
+  // liste dinamiche: qui si sceglie solo quali liste mostrare.
   import Button from '../lib/components/Button.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import ServicePicker from '../lib/components/ServicePicker.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
-    api, ApiError, type AlertRow, type GenreCount, type GeneralSettings, type IgnoredWork, type PreferenceRow, type ProfileSubscriptions, type FamilySubscriptions,
+    api, ApiError, type AlertRow, type GeneralSettings, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
   } from '../lib/api/client';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
   import { day, time } from '../lib/format';
 
-  type Tab = 'proposte' | 'avvisi' | 'abbonamenti' | 'notifiche' | 'registrazione';
+  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'notifiche' | 'registrazione';
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'proposte', label: 'Proposte' },
+    { id: 'serata', label: 'La mia serata' },
     { id: 'avvisi', label: 'I miei avvisi' },
     { id: 'abbonamenti', label: 'I miei abbonamenti' },
     { id: 'notifiche', label: 'Notifiche' },
     { id: 'registrazione', label: 'Registrazione predefinita' },
   ];
-  let tab = $state<Tab>((['proposte', 'avvisi', 'abbonamenti', 'notifiche', 'registrazione'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'proposte');
+  // senza scheda nell'indirizzo (o con #proposte, quello di prima) si apre «La mia serata»
+  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'notifiche', 'registrazione'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
   $effect(() => { history.replaceState(null, '', '#' + tab); });
 
-  const groups = ['Film', 'Serie TV', 'Documentari', 'Notizie', 'Sport', 'Intrattenimento', 'Bambini', 'Altro'];
   const prof = $derived(session.profile);
   const child = $derived(!!prof?.isChild);
 
-  let prefs = $state<PreferenceRow[]>([]);
-  let excluded = $state<string[]>([]);
+  let lists = $state<ListSummary[]>([]);
   let ignored = $state<IgnoredWork[]>([]);
-  let genres = $state<GenreCount[]>([]);
   let alerts = $state<AlertRow[]>([]);
   let mySubs = $state<ProfileSubscriptions | null>(null);
   let family = $state<FamilySubscriptions | null>(null);
@@ -42,11 +42,10 @@
     const p = session.profile;
     if (!p) return;
     try {
-      const [a, b, c, d, e, f, g, h] = await Promise.all([
-        api.preferences(p.id), api.excludedGroups(p.id), api.ignored(p.id), api.genres(), api.alerts(p.id),
-        api.profileSubscriptions(p.id), api.familySubscriptions(), api.generalSettings(),
+      const [a, c, e, f, g, h] = await Promise.all([
+        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(), api.generalSettings(),
       ]);
-      prefs = a; excluded = b.groups; ignored = c; genres = d; alerts = e; mySubs = f; family = g; general = h;
+      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g; general = h;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Preferenze non lette';
@@ -62,33 +61,10 @@
     finally { busy = false; }
   }
 
-  // ---------------------------------------------------------------- preferenze
-  let editing = $state<number | 'new' | null>(null);
-  let fName = $state(''), fText = $state(''), fGroup = $state(''), fSub = $state(''), fMin = $state('0');
-  function edit(p: PreferenceRow | null) {
-    editing = p ? p.id : 'new';
-    fName = p?.name ?? ''; fText = p?.text ?? ''; fGroup = p?.group ?? ''; fSub = p?.sub ?? ''; fMin = String(p?.minRating ?? 0);
-  }
-  const subOptions = $derived(genres.filter((g) => !fGroup || g.group === fGroup).map((g) => g.sub).filter((s, i, a) => a.indexOf(s) === i));
-  function savePref(e: SubmitEvent) {
-    e.preventDefault();
-    const p = session.profile;
-    if (!p || editing === null) return;
-    const body = { name: fName, text: fText, group: fGroup || null, sub: fSub || null, minRating: Number(fMin.replace(',', '.')) || 0, enabled: true };
-    const id = editing;
-    act(async () => {
-      if (id === 'new') await api.addPreference(p.id, body);
-      else await api.updatePreference(p.id, id, { ...body, enabled: prefs.find((x) => x.id === id)?.enabled ?? true });
-      editing = null;
-    }, 'Preferenza salvata: le proposte si aggiornano subito in Stasera.');
-  }
-  const describe = (p: PreferenceRow) =>
-    [p.group ? (p.sub ? `${p.group}: ${p.sub}` : p.group) : '', p.text ? `«${p.text}»` : '', p.minRating > 0 ? `voto ≥ ${p.minRating}` : ''].filter(Boolean).join(' · ');
-  const examples = [
-    { name: 'Film belli', group: 'Film', minRating: 7, text: '' },
-    { name: 'Documentari', group: 'Documentari', minRating: 0, text: '' },
-    { name: 'Commedie', group: 'Film', sub: 'Commedia', minRating: 6, text: '' },
-  ];
+  // ---------------------------------------------------------------- liste nella pagina La mia serata
+  const listKind = (l: ListSummary) =>
+    [l.query ? 'Dinamica' : `${l.count} ${l.count === 1 ? 'titolo' : 'titoli'}`, l.family ? 'della famiglia' : 'personale'].join(', ');
+  const listHref = (l: ListSummary) => (l.query ? `/cerca#list=${l.id}` : `/libreria/liste/${l.id}`);
 
   // ---------------------------------------------------------------- abbonamenti
   function toggleSub(s: string) {
@@ -131,80 +107,35 @@
     {#if error}<p class="f-error" role="alert">{error}</p>{/if}
     {#if message}<p class="f-ok" role="status">{message}</p>{/if}
 
-    {#if tab === 'proposte'}
-      <h2>Cosa proporre</h2>
-      <p class="f-muted">Ogni preferenza cerca nella guida dei prossimi giorni; quello che trova compare in Stasera tra le «Proposte per te», una volta per titolo, senza ciò che hai già visto, già in casa o già in programma. Le proposte non si registrano da sole: per quello c'è «Avvisami» con la registrazione automatica.</p>
-      {#if child}<p class="f-muted">Profilo bambino: si propongono solo i programmi per bambini.</p>{/if}
-      {#if prefs.length > 0}
+    {#if tab === 'serata'}
+      <h2>La mia serata</h2>
+      <p class="f-muted">Scegli quali delle tue liste compaiono nella pagina La mia serata, sotto «Da vedere stasera». Le liste si creano in <a href="/libreria" onclick={navigate}>Libreria</a> (a mano) o dalla <a href="/cerca" onclick={navigate}>ricerca</a> con «Salva come lista» (dinamiche: i titoli li trova la ricerca, da sola). Dei titoli nuovi in TV nelle liste dinamiche scelte arriva una notifica.</p>
+      {#if child}<p class="f-muted">Profilo bambino: le liste mostrano solo i titoli per bambini.</p>{/if}
+      {#if lists.length === 0}
+        <div class="empty"><p>Nessuna lista ancora. Apri la <a href="/cerca" onclick={navigate}>ricerca</a>, scegli i filtri (per esempio Film, Thriller, voto 7 e oltre, In TV) e tocca «Salva come lista».</p></div>
+      {:else}
         <ul class="f-list">
-          {#each prefs as p (p.id)}
+          {#each lists as l (l.id)}
             <li>
-              <label class="f-check"><input type="checkbox" checked={p.enabled} disabled={busy} aria-label="Attiva {p.name}"
-                onchange={(e) => act(() => api.updatePreference(prof!.id, p.id, { name: p.name, text: p.text, group: p.group || null, sub: p.sub || null, minRating: p.minRating, enabled: e.currentTarget.checked }))} /></label>
-              <span class="pname">{p.name}</span>
-              <span class="f-muted grow">{describe(p)}</span>
-              <Button size="s" onclick={() => edit(p)}>Modifica</Button>
-              <Button size="s" variant="ghost" onclick={() => act(() => api.deletePreference(prof!.id, p.id), 'Preferenza tolta.')}>Togli</Button>
+              <label class="f-check"><input type="checkbox" checked={l.onHome} disabled={busy} aria-label="Mostra {l.name} in La mia serata"
+                onchange={(e) => act(() => api.updateList(prof!.id, l.id, { onHome: e.currentTarget.checked }))} /></label>
+              <span class="pname">{l.name}</span>
+              <span class="f-muted grow">{listKind(l)}</span>
+              <Button size="s" href={listHref(l)} onclick={navigate}>{l.query ? 'Cambia la ricerca' : 'Apri'}</Button>
             </li>
           {/each}
         </ul>
-      {:else if editing === null}
-        <div class="empty">
-          <p>Nessuna preferenza ancora. Qualche idea per cominciare:</p>
-          <div class="f-chips">
-            {#each examples as x (x.name)}
-              <button type="button" class="f-chip" disabled={busy} onclick={() => act(() => api.addPreference(prof!.id, { name: x.name, text: x.text, group: x.group, sub: x.sub ?? null, minRating: x.minRating, enabled: true }), 'Preferenza aggiunta.')}>+ {x.name}</button>
-            {/each}
-          </div>
-        </div>
       {/if}
-      {#if editing === null}
-        <div><Button variant="primary" onclick={() => edit(null)}>Nuova preferenza</Button></div>
-      {:else}
-        <form class="card" onsubmit={savePref}>
-          <h3>{editing === 'new' ? 'Nuova preferenza' : 'Modifica preferenza'}</h3>
-          <div class="f-row">
-            <label class="f-field w2">Nome<input bind:value={fName} maxlength="60" placeholder="Film belli" required /></label>
-            <label class="f-field w2">Titolo, regista o attore (facoltativo)<input bind:value={fText} placeholder="Verdone" /></label>
-          </div>
-          <div class="f-row">
-            <label class="f-field">Genere
-              <select bind:value={fGroup} onchange={() => (fSub = '')}>
-                <option value="">Tutti</option>
-                {#each groups as g (g)}<option value={g}>{g}</option>{/each}
-              </select>
-            </label>
-            <label class="f-field">Sottogenere
-              <select bind:value={fSub}>
-                <option value="">Tutti</option>
-                {#each subOptions as s (s)}<option value={s}>{s}</option>{/each}
-              </select>
-            </label>
-            <label class="f-field">Voto minimo (0 = qualsiasi)<input bind:value={fMin} inputmode="decimal" size="4" /></label>
-          </div>
-          <div class="f-row">
-            <Button variant="primary" type="submit" disabled={busy}>Salva</Button>
-            <Button variant="ghost" onclick={() => (editing = null)}>Annulla</Button>
-          </div>
-        </form>
-      {/if}
-
-      <h3>Generi da non propormi mai</h3>
-      <div class="f-chips">
-        {#each groups as g (g)}
-          <button type="button" class="f-chip" aria-pressed={excluded.includes(g)} disabled={busy}
-            onclick={() => act(() => api.setExcludedGroups(prof!.id, excluded.includes(g) ? excluded.filter((x) => x !== g) : [...excluded, g]))}>{g}</button>
-        {/each}
-      </div>
 
       <h3>Da non proporre più</h3>
+      <p class="f-muted">Questi titoli non compaiono nelle liste dinamiche né nelle ricerche fatte con i soli filtri; cercati per nome ci sono, segnati «Escluso».</p>
       {#if ignored.length === 0}
-        <p class="f-muted">Nessun titolo. Si aggiungono con «Non proporre più» dalle proposte o dalla scheda.</p>
+        <p class="f-muted">Nessun titolo. Si aggiungono con «Non proporre più» da La mia serata o dalla scheda.</p>
       {:else}
         <ul class="f-list">
           {#each ignored as i (i.workKey)}
             <li><span class="grow">{i.title}</span><span class="f-muted">dal {day(i.addedAt).toLowerCase()}</span>
-              <Button size="s" variant="ghost" onclick={() => act(() => api.unignore(prof!.id, i.workKey), 'Tornerà tra le proposte.')}>Riproponi</Button></li>
+              <Button size="s" variant="ghost" onclick={() => act(() => api.unignore(prof!.id, i.workKey), 'Tornerà nelle liste e nelle ricerche.')}>Riammetti</Button></li>
           {/each}
         </ul>
       {/if}
@@ -296,7 +227,6 @@
   .atitle { font-weight: 600; }
   .grow { flex: 1 1 180px; }
   .card { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
-  .w2 { flex: 1 1 240px; }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
   .empty p { margin: 0; }
   @media (max-width: 720px) { aside { max-width: none; flex-basis: 100%; flex-direction: row; flex-wrap: wrap; } aside h1, aside p { width: 100%; } }

@@ -140,10 +140,11 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
         // genere: per i film il suo codice, per le serie gli equivalenti (Azione = Action & Adventure); i documentari = 99
         var must = new List<string>();
         if (f.Kind == "documentary") must.Add("99");
-        if (f.Genre > 0)
+        if (f.GenreList.Count > 0)
         {
-            int[] ids = tv ? TmdbGenres.All.FirstOrDefault(g => g.Id == f.Genre)?.Tv ?? [] : [f.Genre];
-            if (ids.Length == 0) return [];
+            // più generi = uno qualsiasi ("|" per TMDB); per le serie gli equivalenti, e senza equivalenti niente serie
+            var ids = (tv ? f.GenreList.SelectMany(id => TmdbGenres.All.FirstOrDefault(g => g.Id == id)?.Tv ?? []) : f.GenreList).Distinct().ToList();
+            if (ids.Count == 0) return [];
             must.Add(string.Join("|", ids));
         }
         if (must.Count > 0) q.Add("with_genres=" + Uri.EscapeDataString(string.Join(",", must)));

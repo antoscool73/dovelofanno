@@ -50,11 +50,34 @@ export type SearchHit = S['SearchHit'];
 export type SearchResult = S['SearchResult'];
 export type FromTmdbBody = S['FromTmdbBody'];
 export type SearchOptions = S['SearchOptions'];
-/** Filtri della ricerca avanzata: tutti facoltativi (vuoto o 0 = filtro spento). */
+/**
+ * Filtri della ricerca avanzata: tutti facoltativi (vuoto o 0 = filtro spento). genres: uno qualsiasi; hideSeen e
+ * hideHome tolgono i titoli già visti e quelli in casa. È anche la ricerca salvata di una lista dinamica (SavedQuery).
+ */
 export type SearchQuery = {
-  q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genre: number; yearFrom: number; yearTo: number;
-  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[]; limit?: number;
+  q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genres: number[]; yearFrom: number; yearTo: number;
+  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[]; hideSeen: boolean; hideHome: boolean; limit?: number;
 };
+export type SavedQuery = S['SavedQuery'];
+export const EMPTY_QUERY: SearchQuery = { q: '', kind: 'all', genres: [], yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [], hideSeen: false, hideHome: false };
+const AVAILS = ['tv', 'mine', 'paid', 'home'] as const;
+/** Ricerca salvata di una lista dinamica → filtri della pagina Cerca. */
+export function fromSaved(q: SavedQuery | null | undefined): SearchQuery {
+  if (!q) return { ...EMPTY_QUERY, genres: [], avail: [] };
+  const kind = q.kind === 'film' || q.kind === 'series' || q.kind === 'documentary' ? q.kind : 'all';
+  return {
+    q: q.q ?? '', kind, genres: [...(q.genres ?? [])], yearFrom: q.yearFrom ?? 0, yearTo: q.yearTo ?? 0, country: q.country ?? '',
+    minRating: q.minRating ?? 0, avail: (q.avail ?? []).filter((a): a is SearchQuery['avail'][number] => (AVAILS as readonly string[]).includes(a)),
+    hideSeen: !!q.hideSeen, hideHome: !!q.hideHome,
+  };
+}
+/** Filtri della pagina Cerca → ricerca da salvare in una lista dinamica. */
+export function toSaved(f: SearchQuery): SavedQuery {
+  return {
+    q: f.q.trim(), kind: f.kind, genres: [...f.genres], yearFrom: f.yearFrom, yearTo: f.yearTo, country: f.country,
+    minRating: f.minRating, avail: [...f.avail], hideSeen: f.hideSeen, hideHome: f.hideHome,
+  };
+}
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
 export type NotificationSettings = S['NotificationSettings'];
@@ -167,9 +190,12 @@ export const api = {
 
   lists: (profileId: number) => call<ListSummary[]>('GET', `/profiles/${profileId}/lists`),
   list: (profileId: number, listId: number, sort: LibrarySort = 'added') => call<ListDetail>('GET', `/profiles/${profileId}/lists/${listId}?sort=${sort}`),
-  createList: (profileId: number, name: string, family: boolean) => call<ListSummary>('POST', `/profiles/${profileId}/lists`, { name, family }),
-  updateList: (profileId: number, listId: number, p: { name?: string | null; family?: boolean | null }) =>
-    call<ListSummary>('PATCH', `/profiles/${profileId}/lists/${listId}`, { name: p.name ?? null, family: p.family ?? null }),
+  createList: (profileId: number, name: string, family: boolean, query: SavedQuery | null = null) =>
+    call<ListSummary>('POST', `/profiles/${profileId}/lists`, { name, family, query }),
+  /** I titoli di una lista dinamica: i risultati della sua ricerca, come in Cerca. */
+  listResults: (profileId: number, listId: number, limit = 40) => call<SearchResult>('GET', `/profiles/${profileId}/lists/${listId}/results?limit=${limit}`),
+  updateList: (profileId: number, listId: number, p: { name?: string | null; family?: boolean | null; query?: SavedQuery | null; onHome?: boolean | null }) =>
+    call<ListSummary>('PATCH', `/profiles/${profileId}/lists/${listId}`, { name: p.name ?? null, family: p.family ?? null, query: p.query ?? null, onHome: p.onHome ?? null }),
   deleteList: (profileId: number, listId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}`),
   addToList: (profileId: number, listId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/lists/${listId}/items`, { workId }),
   removeFromList: (profileId: number, listId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/lists/${listId}/items/${workId}`),
@@ -200,12 +226,14 @@ export const api = {
     if (s.q.trim()) p.set('q', s.q.trim());
     if (profileId) p.set('profileId', String(profileId));
     if (s.kind !== 'all') p.set('kind', s.kind);
-    if (s.genre) p.set('genre', String(s.genre));
+    if (s.genres.length) p.set('genres', s.genres.join(','));
     if (s.yearFrom) p.set('yearFrom', String(s.yearFrom));
     if (s.yearTo) p.set('yearTo', String(s.yearTo));
     if (s.country) p.set('country', s.country);
     if (s.minRating) p.set('minRating', String(s.minRating));
     if (s.avail.length) p.set('avail', s.avail.join(','));
+    if (s.hideSeen) p.set('hideSeen', 'true');
+    if (s.hideHome) p.set('hideHome', 'true');
     if (s.limit) p.set('limit', String(s.limit));
     return call<SearchResult>('GET', '/search?' + p.toString());
   },

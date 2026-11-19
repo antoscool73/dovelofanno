@@ -1,55 +1,78 @@
 <script lang="ts" module>
-  import type { SearchQuery } from '../lib/api/client';
+  import { EMPTY_QUERY, type SearchQuery } from '../lib/api/client';
   // i filtri restano tornando indietro dalla Scheda (per la durata della pagina)
-  const EMPTY: SearchQuery = { q: '', kind: 'all', genre: 0, yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [] };
-  let last: SearchQuery = { ...EMPTY };
+  let last: SearchQuery = { ...EMPTY_QUERY };
 
-  /** Filtri nell'indirizzo: /cerca#kind=film&avail=mine (così Stasera porta qui con i filtri di una riga). */
-  export function searchHash(s: Partial<SearchQuery>): string {
+  /**
+   * Filtri nell'indirizzo: /cerca#kind=film&avail=mine (così Stasera porta qui con i filtri di una riga). Con list=N la
+   * pagina mostra e modifica la lista dinamica N (la sua ricerca salvata).
+   */
+  export function searchHash(s: Partial<SearchQuery>, listId: number | null = null): string {
     const p = new URLSearchParams();
+    if (listId) p.set('list', String(listId));
     if (s.q?.trim()) p.set('q', s.q.trim());
     if (s.kind && s.kind !== 'all') p.set('kind', s.kind);
-    if (s.genre) p.set('genre', String(s.genre));
+    if (s.genres?.length) p.set('genres', s.genres.join(','));
     if (s.yearFrom) p.set('yearFrom', String(s.yearFrom));
     if (s.yearTo) p.set('yearTo', String(s.yearTo));
     if (s.country) p.set('country', s.country);
     if (s.minRating) p.set('minRating', String(s.minRating));
     if (s.avail?.length) p.set('avail', s.avail.join(','));
+    if (s.hideSeen) p.set('hideSeen', '1');
+    if (s.hideHome) p.set('hideHome', '1');
     const t = p.toString();
     return t ? '#' + t : '';
   }
 
-  function fromHash(hash: string): SearchQuery | null {
-    if (hash.length < 2) return null;
+  /** Lista dinamica e filtri dell'indirizzo; query null se l'indirizzo non ha filtri. */
+  function fromHash(hash: string): { listId: number | null; query: SearchQuery | null } {
+    if (hash.length < 2) return { listId: null, query: null };
     const p = new URLSearchParams(hash.slice(1));
+    const listId = Number(p.get('list')) || null;
+    p.delete('list');
+    if ([...p.keys()].length === 0) return { listId, query: null };
     const kind = p.get('kind');
     const avail = (p.get('avail') ?? '').split(',').filter((a): a is SearchQuery['avail'][number] => ['tv', 'mine', 'paid', 'home'].includes(a));
+    // genre (un genere solo) è dei link di prima
+    const genres = [...(p.get('genres') ?? '').split(','), p.get('genre') ?? ''].map(Number).filter((g) => g > 0);
     return {
-      q: p.get('q') ?? '', kind: kind === 'film' || kind === 'series' || kind === 'documentary' ? kind : 'all',
-      genre: Number(p.get('genre')) || 0, yearFrom: Number(p.get('yearFrom')) || 0, yearTo: Number(p.get('yearTo')) || 0,
-      country: p.get('country') ?? '', minRating: Number(p.get('minRating')) || 0, avail,
+      listId,
+      query: {
+        q: p.get('q') ?? '', kind: kind === 'film' || kind === 'series' || kind === 'documentary' ? kind : 'all',
+        genres: [...new Set(genres)], yearFrom: Number(p.get('yearFrom')) || 0, yearTo: Number(p.get('yearTo')) || 0,
+        country: p.get('country') ?? '', minRating: Number(p.get('minRating')) || 0, avail,
+        hideSeen: p.get('hideSeen') === '1', hideHome: p.get('hideHome') === '1',
+      },
     };
   }
 </script>
 
 <script lang="ts">
   // Cerca (la lente in alto): l'unica ricerca dell'app, quella avanzata del prototipo. Titolo, regista o attore e filtri
-  // facoltativi (tipo, genere, anni, paese, voto minimo, disponibilità); risultati con dove si vede; a destra gli avvisi
-  // del titolo scelto. Prima le opere note (guida, casa, liste), poi TMDB (anche solo in streaming o non disponibili).
+  // facoltativi (tipo, generi, anni, paese, voto minimo, disponibilità, senza i già visti o quelli in casa); risultati con
+  // dove si vede; a destra gli avvisi del titolo scelto. Prima le opere note (guida, casa, liste), poi TMDB (anche solo in
+  // streaming o non disponibili). È anche la pagina delle liste dinamiche (19/11/2026): una ricerca si salva come lista,
+  // e una lista dinamica (#list=N) si apre qui con la sua ricerca, che si cambia e si salva di nuovo.
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
   import AlertPanel from '../lib/components/AlertPanel.svelte';
   import Button from '../lib/components/Button.svelte';
   import { availOf, type Avail } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
-  import { api, ApiError, type SearchHit, type SearchOptions } from '../lib/api/client';
+  import { api, ApiError, fromSaved, toSaved, type ListSummary, type SearchHit, type SearchOptions } from '../lib/api/client';
   import { day, time, vote } from '../lib/format';
-  import { router } from '../lib/router.svelte';
+  import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
-  // filtri: dall'indirizzo (link da Stasera, preferiti) o quelli dell'ultima ricerca
-  const start = fromHash(location.hash) ?? last;
-  let f = $state<SearchQuery>({ ...start, avail: [...start.avail] });
+  // filtri: dall'indirizzo (link da Stasera, preferiti), dalla lista dinamica aperta o quelli dell'ultima ricerca
+  const fromUrl = fromHash(location.hash);
+  const start = fromUrl.query ?? (fromUrl.listId ? { ...EMPTY_QUERY } : last);
+  let f = $state<SearchQuery>({ ...start, genres: [...start.genres], avail: [...start.avail] });
+  // lista dinamica aperta: la sua ricerca si carica (se l'indirizzo non ha già filtri) e si può salvare di nuovo
+  let listId = $state<number | null>(fromUrl.listId);
+  let list = $state<ListSummary | null>(null);
+  let savedJson = $state('');
+  let ready = $state(fromUrl.listId == null);
   let yearFromText = $state(start.yearFrom ? String(start.yearFrom) : '');
   let yearToText = $state(start.yearTo ? String(start.yearTo) : '');
   let hits = $state<SearchHit[]>([]);
@@ -69,6 +92,23 @@
     if (p) api.profileSubscriptions(p.id).then((s) => (mySubs = s.services)).catch(() => {});
   });
   api.searchOptions().then((o) => (options = o)).catch(() => {});
+  async function openList(id: number) {
+    const p = session.profile;
+    if (!p) { ready = true; return; }
+    try {
+      const l = (await api.lists(p.id)).find((x) => x.id === id && x.query);
+      if (!l) { error = 'Lista dinamica non trovata.'; listId = null; ready = true; return; }
+      list = l;
+      savedJson = JSON.stringify(toSaved(fromSaved(l.query)));
+      if (!fromUrl.query) {
+        f = fromSaved(l.query);
+        yearFromText = f.yearFrom ? String(f.yearFrom) : '';
+        yearToText = f.yearTo ? String(f.yearTo) : '';
+      }
+    } catch (e) { error = e instanceof ApiError ? e.message : 'Lista non letta'; }
+    ready = true;
+  }
+  if (fromUrl.listId) openList(fromUrl.listId);
   $effect(() => { input?.focus(); });
 
   const kinds = [
@@ -81,8 +121,13 @@
   const ratings = [{ v: 0, label: 'Qualsiasi' }, { v: 6, label: '6 e oltre' }, { v: 7, label: '7 e oltre' }, { v: 8, label: '8 e oltre' }];
 
   const activeFilters = $derived(
-    (f.kind !== 'all' ? 1 : 0) + (f.genre ? 1 : 0) + (f.yearFrom || f.yearTo ? 1 : 0) + (f.country ? 1 : 0) + (f.minRating ? 1 : 0) + (f.avail.length ? 1 : 0),
+    (f.kind !== 'all' ? 1 : 0) + (f.genres.length ? 1 : 0) + (f.yearFrom || f.yearTo ? 1 : 0) + (f.country ? 1 : 0) + (f.minRating ? 1 : 0)
+      + (f.avail.length ? 1 : 0) + (f.hideSeen || f.hideHome ? 1 : 0),
   );
+  function toggleGenre(id: number) {
+    f.genres = f.genres.includes(id) ? f.genres.filter((x) => x !== id) : [...f.genres, id];
+  }
+  const genreNames = $derived(f.genres.map((g) => options?.genres.find((x) => x.id === String(g))?.name ?? '').filter(Boolean));
   const canSearch = $derived(f.q.trim().length >= 2 || activeFilters > 0);
 
   function toggleAvail(id: 'tv' | 'mine' | 'paid' | 'home') {
@@ -94,7 +139,7 @@
     f.yearTo = b >= 1900 && b <= 2100 ? b : 0;
   }
   function reset() {
-    f = { q: f.q, kind: 'all', genre: 0, yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [] };
+    f = { ...EMPTY_QUERY, q: f.q, genres: [], avail: [] };
     yearFromText = ''; yearToText = '';
   }
 
@@ -103,7 +148,7 @@
   const PAGE = 40;
   let limit = PAGE;
   let more = $state(false);
-  let current: SearchQuery = { ...start, avail: [...start.avail] };
+  let current: SearchQuery = { ...start, genres: [...start.genres], avail: [...start.avail] };
   let seq = 0;
   async function run(snap: SearchQuery, lim: number) {
     const my = ++seq;
@@ -120,10 +165,13 @@
     }
   }
   $effect(() => {
-    const snap: SearchQuery = { ...f, avail: [...f.avail] };
-    last = snap;
+    const snap: SearchQuery = { ...f, genres: [...f.genres], avail: [...f.avail] };
+    if (!ready) return;                          // la lista dinamica non è ancora letta
+    if (!listId) last = snap;
     current = snap;
-    try { history.replaceState(history.state, '', '/cerca' + searchHash(snap)); } catch { /* indirizzo non aggiornato: pazienza */ }
+    // con una lista aperta l'indirizzo tiene solo la lista finché la ricerca non cambia
+    const h = listId && JSON.stringify(toSaved(snap)) === savedJson ? searchHash({}, listId) : searchHash(snap, listId);
+    try { history.replaceState(history.state, '', '/cerca' + h); } catch { /* indirizzo non aggiornato: pazienza */ }
     if (!canSearch) { hits = []; note = ''; error = ''; searched = false; loading = false; more = false; seq++; return; }
     const t = setTimeout(() => run(snap, PAGE), 400);
     return () => clearTimeout(t);
@@ -191,20 +239,90 @@
   const summary = $derived.by(() => {
     const parts: string[] = [];
     if (f.kind !== 'all') parts.push(kinds.find((k) => k.id === f.kind)!.label.toLowerCase());
-    if (f.genre) parts.push(options?.genres.find((g) => g.id === String(f.genre))?.name.toLowerCase() ?? '');
+    if (genreNames.length) parts.push(genreNames.map((n) => n.toLowerCase()).join(' o '));
     if (f.q.trim().length >= 2) parts.push(`«${f.q.trim()}»`);
     if (f.country) parts.push(options?.countries.find((c) => c.id === f.country)?.name ?? f.country);
     if (f.yearFrom || f.yearTo) parts.push(`${f.yearFrom || '…'}–${f.yearTo || '…'}`);
     if (f.minRating) parts.push(`voto ${f.minRating} e oltre`);
     if (f.avail.length) parts.push(f.avail.map((a) => availItems.find((x) => x.id === a)!.label.toLowerCase()).join(' o '));
+    if (f.hideSeen) parts.push('senza i già visti');
+    if (f.hideHome) parts.push('senza quelli in casa');
     return parts.filter(Boolean).join(', ');
   });
+
+  // ---------------------------------------------------------------- liste dinamiche
+  const dirty = $derived(!!list && JSON.stringify(toSaved(f)) !== savedJson);
+  let saving = $state(false);
+  let saveOpen = $state(false);
+  let saveName = $state('');
+  let saveFamily = $state(false);
+  let saveHome = $state(true);
+  let saved = $state('');
+  function startSave() {
+    saveName = (f.q.trim() || summary || 'La mia ricerca').slice(0, 60);
+    saveName = saveName.charAt(0).toUpperCase() + saveName.slice(1);
+    saveFamily = false; saveHome = true; saved = ''; saveOpen = true;
+  }
+  async function saveNew(e: SubmitEvent) {
+    e.preventDefault();
+    const p = session.profile;
+    if (!p || !saveName.trim() || saving) return;
+    saving = true;
+    try {
+      const l = await api.createList(p.id, saveName.trim(), saveFamily, toSaved(f));
+      list = saveHome ? await api.updateList(p.id, l.id, { onHome: true }) : l;
+      listId = l.id;
+      savedJson = JSON.stringify(toSaved(f));
+      saveOpen = false;
+      saved = `Lista «${l.name}» salvata${saveHome ? ': la trovi anche nella pagina La mia serata' : ''}.`;
+      error = '';
+    } catch (err) { error = err instanceof ApiError ? err.message : 'Lista non salvata'; }
+    finally { saving = false; }
+  }
+  async function saveChanges() {
+    const p = session.profile;
+    if (!p || !list || saving) return;
+    saving = true;
+    try {
+      list = await api.updateList(p.id, list.id, { query: toSaved(f) });
+      savedJson = JSON.stringify(toSaved(f));
+      saved = 'Modifiche salvate.';
+      error = '';
+    } catch (err) { error = err instanceof ApiError ? err.message : 'Modifiche non salvate'; }
+    finally { saving = false; }
+  }
+  async function toggleHome() {
+    const p = session.profile;
+    if (!p || !list) return;
+    try { list = await api.updateList(p.id, list.id, { onHome: !list.onHome }); }
+    catch (err) { error = err instanceof ApiError ? err.message : 'Non salvato'; }
+  }
+  function closeList() {
+    list = null; listId = null; savedJson = ''; saved = '';
+  }
+
+  // «Non proporre più»: cercato per nome il titolo compare, segnato; qui lo si può riammettere
+  async function readmit(h: SearchHit) {
+    const p = session.profile;
+    if (!p) return;
+    try {
+      const it = (await api.ignored(p.id)).find((i) => i.title === h.title);
+      if (it) await api.unignore(p.id, it.workKey);
+      h.excluded = false;
+    } catch (err) { error = err instanceof ApiError ? err.message : 'Non riammesso'; }
+  }
 </script>
 
 <div class="page">
   <header class="head">
-    <h1>Cerca</h1>
-    <p class="muted">Titolo, regista o attore, con i filtri che ti servono: in TV, nei tuoi abbonamenti, a noleggio, in casa. Se un titolo non è disponibile, fatti avvisare.</p>
+    {#if list}
+      <a class="back" href="/libreria" onclick={navigate}>← Le mie liste</a>
+      <h1>{list.name}</h1>
+      <p class="muted">Lista dinamica{list.family ? ' della famiglia' : ''}: i titoli sono i risultati di questa ricerca e cambiano da soli. Cambia i filtri e salva le modifiche.</p>
+    {:else}
+      <h1>Cerca</h1>
+      <p class="muted">Titolo, regista o attore, con i filtri che ti servono: in TV, nei tuoi abbonamenti, a noleggio, in casa. Se un titolo non è disponibile, fatti avvisare. Una ricerca che ti piace salvala come lista.</p>
+    {/if}
   </header>
 
   <div class="cols">
@@ -231,12 +349,19 @@
           </div>
         </fieldset>
 
-        <label class="field">Genere
-          <select bind:value={f.genre}>
-            <option value={0}>Tutti</option>
-            {#each options?.genres ?? [] as g (g.id)}<option value={Number(g.id)}>{g.name}</option>{/each}
-          </select>
-        </label>
+        <div class="field">
+          <span id="lbl-generi">Generi</span>
+          <details class="multi" aria-labelledby="lbl-generi">
+            <summary>{genreNames.length === 0 ? 'Tutti' : genreNames.join(', ')}</summary>
+            <div class="mlist">
+              {#each options?.genres ?? [] as g (g.id)}
+                <label class="check"><input type="checkbox" checked={f.genres.includes(Number(g.id))} onchange={() => toggleGenre(Number(g.id))} />{g.name}</label>
+              {/each}
+              {#if f.genres.length > 0}<button type="button" class="linkbtn" onclick={() => (f.genres = [])}>Tutti i generi</button>{/if}
+            </div>
+          </details>
+          {#if f.genres.length > 1}<span class="hint">Vale uno qualsiasi</span>{/if}
+        </div>
 
         <div class="two">
           <label class="field">Anno da<input inputmode="numeric" maxlength="4" placeholder="1960" bind:value={yearFromText} oninput={setYears} /></label>
@@ -264,12 +389,42 @@
           {/each}
         </fieldset>
 
+        {#if session.profile}
+          <fieldset>
+            <legend>Togli</legend>
+            <label class="check"><input type="checkbox" bind:checked={f.hideSeen} />Quelli che ho già visto</label>
+            <label class="check"><input type="checkbox" bind:checked={f.hideHome} />Quelli che ho in casa</label>
+          </fieldset>
+        {/if}
+
         {#if activeFilters > 0}<Button variant="ghost" onclick={reset}>Togli i filtri</Button>{/if}
       </div>
     </form>
 
     <section class="results" aria-label="Risultati" aria-busy={loading}>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
+      {#if session.profile && canSearch}
+        <div class="savebar">
+          {#if list}
+            <Button variant={dirty ? 'primary' : 'soft'} size="s" disabled={!dirty || saving} onclick={saveChanges}>Salva le modifiche</Button>
+            <Button variant={list.onHome ? 'primary' : 'soft'} size="s" pressed={list.onHome} onclick={toggleHome}>In La mia serata</Button>
+            <Button variant="ghost" size="s" onclick={startSave}>Salva come nuova lista</Button>
+            <Button variant="ghost" size="s" onclick={closeList}>Chiudi la lista</Button>
+          {:else if !saveOpen}
+            <Button variant="soft" size="s" onclick={startSave}>Salva come lista</Button>
+          {/if}
+          {#if saved}<span class="ok small" role="status">{saved}</span>{/if}
+        </div>
+        {#if saveOpen}
+          <form class="saveform" onsubmit={saveNew}>
+            <label class="field grow">Nome della lista<input bind:value={saveName} maxlength="60" /></label>
+            <label class="check"><input type="checkbox" bind:checked={saveHome} />Mostrala in La mia serata</label>
+            {#if !session.profile.isChild}<label class="check"><input type="checkbox" bind:checked={saveFamily} />Della famiglia</label>{/if}
+            <Button variant="primary" size="s" type="submit" disabled={!saveName.trim() || saving}>Salva</Button>
+            <Button variant="ghost" size="s" onclick={() => (saveOpen = false)}>Annulla</Button>
+          </form>
+        {/if}
+      {/if}
       {#if !canSearch}
         <p class="muted">Scrivi almeno 2 lettere o scegli un filtro: trovi quello che passa in TV, i film di casa e qualunque film o serie, anche in streaming o non disponibile.</p>
       {:else if loading && hits.length === 0}
@@ -293,6 +448,8 @@
                 {#if h.year}<span class="muted">{h.year}</span>{/if}
                 {#if h.rating != null}<span class="rate">★ {vote(h.rating)}{h.ratingSource ? ` ${h.ratingSource}` : ''}</span>
                 {:else if h.kind !== 'programme'}<span class="rate na" title="Voto non ancora disponibile">★ N/A</span>{/if}
+                {#if h.excluded}<span class="excl" title="L'hai tolto con «Non proporre più»: con i soli filtri non compare">Escluso</span>
+                  <button type="button" class="linkbtn small" onclick={() => readmit(h)}>Riammetti</button>{/if}
               </div>
               <div class="meta">{[kindLabel[h.kind] ?? '', (h.genres ?? []).slice(0, 3).join(', '), h.country].filter(Boolean).join(' · ')}</div>
               {#if h.credits}<div class="meta muted">{h.credits}</div>{:else if h.overview}<div class="meta muted plot">{h.overview}</div>{/if}
@@ -379,7 +536,21 @@
   .status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; font-size: 13px; }
   .grow { flex: 1 1 0; }
   .sentinel { height: 1px; }
-  .linkbtn { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }
+  .linkbtn { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; text-align: left; }
+  .back { font-size: 14px; font-weight: 600; text-decoration: none; }
+  .multi { position: relative; }
+  .multi summary { list-style: none; display: flex; align-items: center; min-height: 42px; padding: 0 30px 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text); font-size: 15px; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .multi summary::-webkit-details-marker { display: none; }
+  .multi summary::after { content: '▾'; position: absolute; right: 12px; color: var(--muted); }
+  .multi[open] summary { border-color: var(--blue); }
+  .mlist { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding: 8px 10px; max-height: 280px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--card); }
+  .hint { font-size: 12px; color: var(--muted); }
+  .savebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .saveform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
+  .saveform .grow { flex: 1 1 220px; }
+  .saveform .check { min-height: 42px; }
+  .ok { margin: 0; color: var(--green-text); }
+  .excl { font-size: 12px; font-weight: 700; color: var(--orange-text); border: 1px solid currentColor; border-radius: 6px; padding: 1px 6px; }
 
   .alerts { flex: 1 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; position: sticky; top: 76px; }
   .alerts h2 { margin: 0; font-size: 20px; }

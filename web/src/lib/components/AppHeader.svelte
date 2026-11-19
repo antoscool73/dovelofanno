@@ -6,7 +6,7 @@
   import { session } from '../session.svelte';
 
   const items: { route: Route; path: string; label: string }[] = [
-    { route: 'stasera', path: '/', label: 'Stasera' },
+    { route: 'stasera', path: '/', label: 'La mia serata' },
     { route: 'guida', path: '/guida', label: 'Guida' },
     { route: 'libreria', path: '/libreria', label: 'Libreria' },
     { route: 'registrazioni', path: '/registrazioni', label: 'Registrazioni' },

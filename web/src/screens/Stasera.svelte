@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Home: risponde a "stasera che si guarda?". In evidenza il titolo migliore della serata, poi "La mia serata in TV",
-  // le registrazioni in corso e in arrivo, i film di stasera e quelli della settimana per voto.
+  // Home («La mia serata»): risponde a "stasera che si guarda?". In evidenza il titolo migliore della serata, poi
+  // "Da vedere stasera" (la lista della mia serata), le liste che il profilo ha scelto (dinamiche: i risultati della loro
+  // ricerca; a mano: i loro titoli), le registrazioni in corso e in arrivo, i film di stasera e della settimana per voto.
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -14,7 +15,9 @@
   import AvailLegend from '../lib/components/AvailLegend.svelte';
   import { availOf, type Avail } from '../lib/avail';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
-  import { api, ApiError, type GuideProgramme, type LibraryItem, type Proposal, type Recording, type SearchQuery, type TonightItem } from '../lib/api/client';
+  import {
+    api, ApiError, type GuideProgramme, type LibraryItem, type ListEntry, type ListSummary, type Recording, type SearchHit, type SearchQuery, type TonightItem,
+  } from '../lib/api/client';
   import { searchHash } from './Cerca.svelte';
   import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
@@ -24,8 +27,6 @@
   let recordings = $state<Recording[]>([]);
   let tonightFilms = $state<GuideProgramme[]>([]);
   let weekFilms = $state<GuideProgramme[]>([]);
-  let proposals = $state<Proposal[]>([]);
-  let hasPreferences = $state(true);
   let continuing = $state<LibraryItem[]>([]);
   let mySubs = $state<string[]>([]);
   // film della guida dei prossimi giorni: quelli nei cataloghi streaming dei miei abbonamenti sono l'"on demand"
@@ -50,13 +51,11 @@
     const { from, to } = eveningWindow(now);
     const tomorrow = new Date(midnight(now).getTime() + 86_400_000);
     try {
-      const [list, recs, films, week, props, prefs, cont, subs, ahead] = await Promise.all([
+      const [list, recs, films, week, cont, subs, ahead] = await Promise.all([
         prof ? api.tonight(prof.id) : Promise.resolve([]),
         api.recordings(),
         api.guide({ from, to, group: 'Film', max: 500 }),
         api.guide({ from: tomorrow, to: new Date(tomorrow.getTime() + 6 * 86_400_000), group: 'Film', minRating: 7, max: 1000 }),
-        prof ? api.proposals(prof.id, 2) : Promise.resolve([]),
-        prof ? api.preferences(prof.id) : Promise.resolve([]),
         prof ? api.continueWatching(prof.id).catch(() => []) : Promise.resolve([]),
         prof ? api.profileSubscriptions(prof.id).then((x) => x.services).catch(() => []) : Promise.resolve([]),
         api.guide({ from: now, to: new Date(now.getTime() + 8 * 86_400_000), group: 'Film', max: 5000 }),
@@ -64,8 +63,6 @@
       guideFilms = ahead;
       mySubs = subs;
       continuing = cont;
-      proposals = props;
-      hasPreferences = prefs.length > 0;
       tonightList = list;
       recordings = recs;
       // stasera: film che iniziano dalle 20 alle 2; quelli già in onda contano solo se è già sera
@@ -83,6 +80,36 @@
   load();
   $effect(() => {
     const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  });
+
+  // ---------------------------------------------------------------- le mie liste nella pagina
+  // le liste scelte (Preferenze › La mia serata, o «In La mia serata» in Cerca): si leggono a parte, perché una lista
+  // dinamica è una ricerca (anche su TMDB) e può metterci qualche secondo; si rileggono ogni 10 minuti
+  type HomeRow = { list: ListSummary; hits: SearchHit[]; entries: ListEntry[]; loading: boolean; error: string };
+  let homeRows = $state<HomeRow[]>([]);
+  let homeLoaded = $state(false);
+  async function loadHome() {
+    const prof = session.profile;
+    if (!prof) { homeRows = []; homeLoaded = true; return; }
+    try {
+      const lists = (await api.lists(prof.id)).filter((l) => l.onHome && !l.isTonight);
+      const old = new Map(homeRows.map((r) => [r.list.id, r]));
+      homeRows = lists.map((l) => ({ list: l, hits: old.get(l.id)?.hits ?? [], entries: old.get(l.id)?.entries ?? [], loading: true, error: '' }));
+      homeLoaded = true;
+      await Promise.all(homeRows.map(async (r) => {
+        try {
+          if (r.list.query) r.hits = (await api.listResults(prof.id, r.list.id, 18)).hits;
+          else r.entries = (await api.list(prof.id, r.list.id)).items.slice(0, 18);
+          r.error = '';
+        } catch (e) { r.error = e instanceof ApiError ? e.message : 'Lista non letta'; }
+        r.loading = false;
+      }));
+    } catch { homeLoaded = true; }
+  }
+  loadHome();
+  $effect(() => {
+    const t = setInterval(loadHome, 600_000);
     return () => clearInterval(t);
   });
 
@@ -152,16 +179,30 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non tolto'; }
   }
 
-  async function noMore(p: Proposal) {
+  // «Non proporre più» su un titolo di una lista dinamica: sparisce dalle liste e dalle ricerche con i soli filtri
+  async function noMore(r: HomeRow, h: SearchHit) {
     const prof = session.profile;
-    if (!prof || p.programme.workId == null) return;
-    try { await api.ignore(prof.id, p.programme.workId); proposals = proposals.filter((x) => x !== p); }
+    if (!prof || h.workId == null) return;
+    try { await api.ignore(prof.id, h.workId); r.hits = r.hits.filter((x) => x !== h); }
     catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
   }
+  // un titolo solo su TMDB diventa un'opera al primo tocco, poi si apre la scheda
+  async function openHit(h: SearchHit) {
+    let id = h.workId ?? null;
+    if (id == null && h.tmdbId != null) {
+      try {
+        id = (await api.workFromTmdb({
+          tmdbId: h.tmdbId, kind: h.tmdbKind, title: h.title, originalTitle: h.originalTitle || h.title, year: h.year,
+          voteAverage: h.voteAverage, voteCount: h.voteCount, genreIds: h.genreIds,
+        })).workId;
+      } catch (e) { error = e instanceof ApiError ? e.message : 'Titolo non aperto'; }
+    }
+    if (id != null) router.go(`/opera/${id}`);
+  }
 
-  // dopo una notifica "nuove proposte" (/#proposte) si scende alla sezione
+  // dopo una notifica "nuove proposte" (/#proposte) si scende alle mie liste
   $effect(() => {
-    if (!loading && location.hash === '#proposte') setTimeout(() => document.getElementById('proposte')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    if (!loading && homeLoaded && location.hash === '#proposte') setTimeout(() => document.getElementById('proposte')?.scrollIntoView({ behavior: 'smooth' }), 100);
   });
 
   // Stasera in TV divisa: quello che si vede (in chiaro o con i miei abbonamenti) e quello a pagamento fuori abbonamento
@@ -262,12 +303,32 @@
     };
   }
 
-  function proposalCard(x: Proposal): Card {
-    const c = programmeCard(x.programme);
+  // titolo di una lista dinamica (un risultato della ricerca): come in Cerca, in TV con il giorno e l'ora
+  function hitCard(r: HomeRow, h: SearchHit): Card {
+    let avail = availOf(h, mySubs);
+    if (h.nextAiring) avail = { ...avail, tv: `${day(h.nextAiring, now).toLowerCase()} ${time(h.nextAiring)}`, pay: [] };
+    const meta = genreYear((h.genres ?? [])[0] ?? kindLabel[h.kind] ?? '', h.year);
+    const lines = h.nextAiring ? [`In TV ${day(h.nextAiring, now).toLowerCase()} ${time(h.nextAiring)}`, meta]
+      : avail.mine.length > 0 ? [`Su ${shortNames(avail.mine)}`, meta]
+      : avail.home ? ['In casa', meta]
+      : avail.pay.length > 0 ? [`A pagamento: ${shortNames(avail.pay)}`, meta] : [meta];
     return {
-      ...c, key: `x${x.programme.id}`, accent: `da «${x.preference}»${x.otherAirings > 0 ? ` · altri ${x.otherAirings} passaggi` : ''}`,
-      warn: x.conflict ? 'Oltre il limite di registrazioni' : undefined,
-      rec: recordable(x.programme) ? x.programme : null, drop: () => noMore(x), dropLabel: 'Non proporre più',
+      key: h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`, poster: h.poster, title: h.title, rating: h.rating ?? null,
+      rated: RATED_KINDS.includes(h.kind), scheduled: false, avail, lines, open: () => openHit(h),
+      drop: h.workId != null ? () => noMore(r, h) : undefined, dropLabel: 'Non proporre più',
+    };
+  }
+  // titolo di una lista a mano
+  function entryCard(e: ListEntry): Card {
+    const avail = availOf(e, mySubs, e.next, e.next ? tvText(e.next) : '');
+    const meta = genreYear(e.next?.sub || e.next?.group || kindLabel[e.kind] || '', e.year);
+    const lines = e.next ? [channelOf(e.next), slot(e.next), meta]
+      : avail.mine.length > 0 ? [`Su ${shortNames(avail.mine)}`, meta]
+      : e.inHouse ? ['In casa', meta] : ['Per ora non si vede', meta];
+    return {
+      key: `e${e.workId}`, poster: e.poster || e.next?.poster || e.next?.icon || '', title: e.title, rating: e.rating ?? null,
+      rated: RATED_KINDS.includes(e.kind), scheduled: !!e.next?.scheduled, avail, lines, open: () => router.go(`/opera/${e.workId}`),
+      rec: e.next && recordable(e.next) ? e.next : null,
     };
   }
 
@@ -309,7 +370,7 @@
 
   <div class="pad sections">
     <AvailLegend />
-    <Section key="serata" title="La mia serata">
+    <Section key="serata" title="Da vedere stasera">
       {#snippet tools()}
         {#if tonightPast.length > 0}
           <label class="switch">
@@ -346,14 +407,27 @@
       </Section>
     {/if}
 
-    <Section key="proposte" id="proposte" title="Proposte per te">
-      {#snippet aside()}<a href="/preferenze#proposte" onclick={navigate}>{hasPreferences ? 'Cambia le preferenze' : 'Scegli cosa proporti'}</a>{/snippet}
-      {#if proposals.length > 0}
-        {@render row(proposals.slice(0, 12).map(proposalCard))}
-      {:else}
-        <p class="muted small">{hasPreferences ? 'Niente di nuovo per oggi e domani dalle tue preferenze.' : 'Dì a DoveLoFanno cosa ti piace (generi, voto minimo, attori): qui compaiono i programmi giusti di oggi e domani.'}</p>
+    <div id="proposte" class="mylists">
+      {#each homeRows as r (r.list.id)}
+        {@const dynamic = !!r.list.query}
+        {@const href = dynamic ? `/cerca#list=${r.list.id}` : `/libreria/liste/${r.list.id}`}
+        <Section key={'lista-' + r.list.id} title={r.list.name}>
+          {#snippet aside()}<a {href} onclick={navigate}>{dynamic ? 'Cambia la ricerca' : 'Apri la lista'}</a>{/snippet}
+          {#if r.error}<p class="error small">{r.error}</p>
+          {:else if dynamic && r.hits.length > 0}
+            {@render row(r.hits.map((h) => hitCard(r, h)), { href, label: 'Tutta la lista', hint: 'con la sua ricerca' })}
+          {:else if !dynamic && r.entries.length > 0}
+            {@render row(r.entries.map(entryCard), { href, label: 'Tutta la lista', hint: `${r.list.count} ${r.list.count === 1 ? 'titolo' : 'titoli'}` })}
+          {:else if r.loading}<p class="muted small" role="status">Cerco i titoli…</p>
+          {:else}<p class="muted small">{dynamic ? 'Per ora nessun titolo con questa ricerca.' : 'La lista è vuota.'}</p>{/if}
+        </Section>
+      {/each}
+      {#if homeLoaded && homeRows.length === 0 && session.profile}
+        <Section key="liste" title="Le mie liste">
+          <p class="muted small">Qui compaiono le liste che scegli in <a href="/preferenze#serata" onclick={navigate}>Preferenze › La mia serata</a>. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
+        </Section>
       {/if}
-    </Section>
+    </div>
 
     {#if live.length > 0 || upcoming.length > 0}
       <Section key="registrazioni" title="In registrazione e in arrivo">
@@ -369,7 +443,7 @@
       </Section>
     {/if}
 
-    {#snippet row(list: Card[], all: { filter: Partial<SearchQuery>; label: string; hint: string } | null = null)}
+    {#snippet row(list: Card[], all: { filter?: Partial<SearchQuery>; href?: string; label: string; hint: string } | null = null)}
       <ul class="cards" use:dragScroll>
         {#each list as c (c.key)}
           <li class:dim={c.dim}>
@@ -404,7 +478,7 @@
         {#if all}
           <!-- ultima locandina: la lista completa è la ricerca con i filtri di questa riga -->
           <li>
-            <a class="card all" href={'/cerca' + searchHash(all.filter)} onclick={navigate}>
+            <a class="card all" href={all.href ?? '/cerca' + searchHash(all.filter ?? {})} onclick={navigate}>
               <span class="poster more"><span class="plus" aria-hidden="true">→</span><span>{all.label}</span></span>
               <span class="c-title">Vedi tutti</span>
               <span class="line muted small">{all.hint}</span>
@@ -473,6 +547,8 @@
   .credits { margin: 0; font-size: 14px; color: var(--muted); }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
   .sections { display: flex; flex-direction: column; gap: 32px; padding-top: 28px; padding-bottom: 56px; }
+  .mylists { display: flex; flex-direction: column; gap: 32px; }
+  .mylists:empty { display: none; }
   .tonight { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
   .tonight li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; }
   .t-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }

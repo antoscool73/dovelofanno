@@ -209,7 +209,7 @@
         "tags": [
           "Opere"
         ],
-        "summary": "Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini",
+        "summary": "Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più»",
         "parameters": [
           {
             "name": "q",
@@ -285,6 +285,27 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "genres",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hideSeen",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "hideHome",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -1995,7 +2016,7 @@
         "tags": [
           "Profili"
         ],
-        "summary": "Nuova lista del profilo o della famiglia (solo gli adulti)",
+        "summary": "Nuova lista del profilo o della famiglia (solo gli adulti); con query è una lista dinamica (ricerca avanzata salvata)",
         "parameters": [
           {
             "name": "id",
@@ -2107,7 +2128,7 @@
         "tags": [
           "Profili"
         ],
-        "summary": "Rinomina una lista o la sposta in famiglia",
+        "summary": "Rinomina una lista, la sposta in famiglia, cambia la ricerca di una lista dinamica o la mette (onHome) nella pagina principale del profilo",
         "parameters": [
           {
             "name": "id",
@@ -2235,6 +2256,57 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/lists/{listId}/results": {
+      "get": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "I titoli di una lista dinamica: i risultati della sua ricerca avanzata (limit come in /search)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -4949,6 +5021,22 @@
               "null",
               "boolean"
             ]
+          },
+          "query": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SavedQuery"
+              }
+            ]
+          },
+          "onHome": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -4994,6 +5082,19 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "query": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SavedQuery"
+              }
+            ]
+          },
+          "onHome": {
+            "type": "boolean"
           }
         }
       },
@@ -5133,6 +5234,16 @@
           },
           "family": {
             "type": "boolean"
+          },
+          "query": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SavedQuery"
+              }
+            ]
           }
         }
       },
@@ -5905,6 +6016,65 @@
           }
         }
       },
+      "SavedQuery": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "default": ""
+          },
+          "kind": {
+            "type": "string",
+            "default": "all"
+          },
+          "genres": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "yearFrom": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "yearTo": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "country": {
+            "type": "string",
+            "default": ""
+          },
+          "minRating": {
+            "type": "number",
+            "format": "double",
+            "default": 0
+          },
+          "avail": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "hideSeen": {
+            "type": "boolean",
+            "default": false
+          },
+          "hideHome": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "ScanReport": {
         "required": [
           "folders",
@@ -6101,6 +6271,9 @@
           "credits": {
             "type": "string",
             "default": ""
+          },
+          "excluded": {
+            "type": "boolean"
           }
         }
       },

@@ -132,6 +132,76 @@ public sealed class PreferenceStore(string dbPath, GuideStore guide)
         return Db.Exec(c, "DELETE FROM ignored_works WHERE profile_id = $p AND work_key = $k", ("$p", profileId), ("$k", workKey)) > 0;
     }
 
+    /// <summary>Opere «Non proporre più» del profilo: la ricerca le toglie (con i soli filtri) o le segna.</summary>
+    public HashSet<long> ExcludedWorkIds(long profileId)
+    {
+        using var c = Open();
+        return Db.Query(c, "SELECT w.id FROM ignored_works i JOIN works w ON w.work_key = i.work_key WHERE i.profile_id = $p",
+            r => r.GetInt64(0), ("$p", profileId)).ToHashSet();
+    }
+
+    /// <summary>Opere già viste dal profilo (per «Nascondi quelli già visti»).</summary>
+    public HashSet<long> WatchedWorkIds(long profileId)
+    {
+        using var c = Open();
+        return Db.Query(c, "SELECT work_id FROM watch_states WHERE profile_id = $p AND watched = 1 AND item_id IS NULL",
+            r => r.GetInt64(0), ("$p", profileId)).ToHashSet();
+    }
+
+    /// <summary>
+    /// Trasforma le preferenze («Cosa proporre», generi della guida) in liste dinamiche del profilo (19/11/2026): testo,
+    /// tipo dal gruppo (Film, Serie TV, Documentari), genere TMDB dal sottogenere, voto minimo; «In TV», senza i già visti
+    /// e senza quelli in casa, come le proposte di prima. Le attive vanno nella pagina principale. Una volta sola per
+    /// preferenza. Restituisce, per il registro, le conversioni non esatte (gruppo o sottogenere senza equivalente).
+    /// </summary>
+    public List<string> ConvertToLists(DateTimeOffset now)
+    {
+        var notes = new List<string>();
+        using var c = Open();
+        var prefs = Db.Query(c, "SELECT id, profile_id, name, text, group_name, sub_genre, min_rating, enabled FROM preferences WHERE converted = 0 ORDER BY id",
+            r => (Id: r.GetInt64(0), Profile: r.GetInt64(1), Name: r.GetString(2), Text: r.GetString(3), Group: r.GetString(4), Sub: r.GetString(5),
+                Min: r.GetDouble(6), Enabled: r.GetInt64(7) == 1));
+        if (prefs.Count == 0) return notes;
+        using var tx = c.BeginTransaction();
+        foreach (var p in prefs)
+        {
+            string kind = p.Group switch { "Film" => "film", "Serie TV" => "series", "Documentari" => "documentary", _ => "all" };
+            var genres = new List<int>();
+            if (p.Group == "Bambini") genres.AddRange([16, 10751]);
+            int g = Ratings.TmdbGenres.FromGuide(p.Sub);
+            if (g > 0) genres.Add(g);
+            if (p.Sub.Length > 0 && g == 0) notes.Add($"«{p.Name}»: il genere «{p.Sub}» non ha un equivalente, tolto");
+            if (p.Group is "Notizie" or "Sport" or "Intrattenimento" or "Altro") notes.Add($"«{p.Name}»: il genere «{p.Group}» non c'è nella ricerca, tolto");
+            var q = new SavedQuery(p.Text, kind, genres, 0, 0, "", p.Min, ["tv"], HideSeen: true, HideHome: true);
+            string name = p.Name.Trim().Length is > 0 and <= 60 ? p.Name.Trim() : "Preferenza " + p.Id;
+            long list = Db.Insert(c, "INSERT INTO lists (profile_id, name, created_at, query) VALUES ($p, $n, $t, $q)",
+                ("$p", p.Profile), ("$n", name), ("$t", Db.Unix(now)), ("$q", q.ToJson()));
+            if (p.Enabled)
+                Db.Exec(c, "INSERT OR IGNORE INTO list_home (profile_id, list_id, added_at) VALUES ($p, $l, $t)", ("$p", p.Profile), ("$l", list), ("$t", Db.Unix(now)));
+            Db.Exec(c, "UPDATE preferences SET converted = 1 WHERE id = $id", ("$id", p.Id));
+        }
+        tx.Commit();
+        return notes;
+    }
+
+    /// <summary>
+    /// Chiavi non ancora notificate (per le liste: opera@passaggio) e le segna come viste. Alla prima volta per il profilo
+    /// (nessuna chiave con lo stesso prefisso) le segna senza restituirle, per non notificare tutto insieme.
+    /// </summary>
+    public List<string> TakeNewKeys(long profileId, string prefix, IEnumerable<string> keys, DateTimeOffset now)
+    {
+        using var c = Open();
+        bool first = (Db.ScalarLong(c, "SELECT count(*) FROM proposals_seen WHERE profile_id = $p AND substr(key, 1, length($x)) = $x",
+            ("$p", profileId), ("$x", prefix)) ?? 0) == 0;
+        var fresh = new List<string>();
+        using var tx = c.BeginTransaction();
+        foreach (string k in keys.Distinct())
+            if (Db.Exec(c, "INSERT OR IGNORE INTO proposals_seen (profile_id, key, seen_at) VALUES ($p, $k, $t)",
+                ("$p", profileId), ("$k", prefix + k), ("$t", Db.Unix(now))) > 0 && !first) fresh.Add(k);
+        tx.Commit();
+        return fresh;
+    }
+
     public bool IsIgnored(long profileId, long workId)
     {
         using var c = Open();

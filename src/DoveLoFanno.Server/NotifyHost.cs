@@ -21,6 +21,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
     {
         ctx.Scheduler.Finished += OnFinished;
         ctx.Notifications.Added += n => _ = ForwardAsync(n);
+        foreach (string note in ctx.ConvertedPreferences) log.LogWarning("Preferenza convertita in lista dinamica: {Note}", note);
         try { await Task.Delay(TimeSpan.FromSeconds(20), ctx.Clock, ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {
@@ -30,7 +31,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             if (now - lastProposals > TimeSpan.FromHours(1))
             {
                 lastProposals = now;
-                try { RunProposals(now); }
+                try { await RunProposalsAsync(now, ct); }
                 catch (Exception ex) { log.LogError(ex, "Errore nel calcolo delle proposte"); }
             }
             if (now - lastOnline > TimeSpan.FromHours(6))
@@ -84,16 +85,27 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         }
     }
 
-    void RunProposals(DateTimeOffset now)
+    /// <summary>
+    /// Proposte (19/11/2026): per le liste dinamiche che il profilo ha nella pagina principale, i titoli nuovi che passano
+    /// in TV nei prossimi 2 giorni (la stessa ricerca della pagina Cerca, solo tra le opere note, senza «Non proporre più»).
+    /// </summary>
+    async Task RunProposalsAsync(DateTimeOffset now, CancellationToken ct)
     {
-        foreach (var p in ctx.Profiles.List())
+        foreach (var g in ctx.Lists.HomeDynamic().GroupBy(x => x.ProfileId))
         {
-            var list = ctx.Preferences.Proposals(p.Id, now, 2, ctx.Settings.GetInt("MaxParallel"), ctx.Settings.GetInt("BeforeMin"), ctx.Settings.GetInt("AfterMin"));
-            if (list == null || list.Count == 0) continue;
-            var fresh = ctx.Preferences.TakeNew(p.Id, list, now);
+            if (ctx.Profiles.Get(g.Key) == null) continue;
+            var found = new Dictionary<string, string>();          // opera@passaggio -> titolo
+            foreach (var l in g)
+            {
+                var r = await SearchApi.RunAsync(ctx, (l.Query.Q ?? "").Trim(), l.Query.ToFilter(), g.Key, 400, dropExcluded: true, useTmdb: false, ct);
+                foreach (var h in r.Hits.Where(h => h.WorkId != null && h.NextAiring is { } t && t > now && t < now.AddDays(2)))
+                    found.TryAdd($"{h.WorkId}@{h.NextAiring!.Value.ToUnixTimeSeconds()}", h.Title);
+            }
+            var fresh = ctx.Preferences.TakeNewKeys(g.Key, "L:", found.Keys, now);
             if (fresh.Count == 0) continue;
-            string names = string.Join(", ", fresh.Take(3).Select(x => x.Programme.Title)) + (fresh.Count > 3 ? $" e altri {fresh.Count - 3}" : "");
-            ctx.Notifications.Add(p.Id, "proposals", fresh.Count == 1 ? "Una nuova proposta per te" : $"{fresh.Count} nuove proposte per te", names, "/#proposte", now);
+            var titles = fresh.Select(k => found[k]).Distinct().ToList();
+            string names = string.Join(", ", titles.Take(3)) + (titles.Count > 3 ? $" e altri {titles.Count - 3}" : "");
+            ctx.Notifications.Add(g.Key, "proposals", titles.Count == 1 ? "Una nuova proposta per te" : $"{titles.Count} nuove proposte per te", names, "/#proposte", now);
         }
     }
 
