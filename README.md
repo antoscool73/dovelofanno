@@ -34,9 +34,9 @@ Istruzioni complete in [docs/installazione.md](docs/installazione.md).
 
 - **Docker** (NAS Synology, mini-PC, Linux, amd64 e arm64): `ghcr.io/antoscool73/dovelofanno`, esempio in
   [deploy/compose.yaml](deploy/compose.yaml).
-- **Windows**: archivio `DoveLoFanno-<versione>-win-x64.zip` dalla pagina
-  [Releases](https://github.com/antoscool73/dovelofanno/releases), installato come servizio con
-  `deploy/windows/Install-DoveLoFanno.ps1`.
+- **Windows**: installatore `DoveLoFanno-<versione>-setup.exe` dalla pagina
+  [Releases](https://github.com/antoscool73/dovelofanno/releases): installa il servizio e, se mancano, il runtime .NET
+  di Microsoft e ffmpeg.
 
 Poi si apre `http://<indirizzo-del-server>:8765` dal browser.
 

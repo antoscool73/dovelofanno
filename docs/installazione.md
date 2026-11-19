@@ -31,23 +31,27 @@ services:
 
 ## Solo un PC Windows (servizio)
 
-1. ffmpeg: `winget install Gyan.FFmpeg`.
-2. Pacchetto: l'archivio `DoveLoFanno-<versione>-win-x64.zip` dalla pagina
-   [Releases](https://github.com/antoscool73/dovelofanno/releases), estratto in una cartella qualunque: contiene
-   `app\` (il programma), gli script di installazione, la licenza e `SHA256SUMS.txt` con le impronte dei file.
-3. Da PowerShell come amministratore, nella cartella estratta:
+1. Scaricare `DoveLoFanno-<versione>-setup.exe` e aprirlo (chiede i permessi di amministratore).
+2. Scegliere dove salvare le registrazioni (proposta: `C:\Users\Public\Videos\DoveLoFanno`).
+3. L'installatore fa il resto:
+   - runtime ASP.NET Core 10 di Microsoft, se manca: lo scarica da `aka.ms/dotnet`, controlla che sia firmato da
+     Microsoft e lo installa (il programma non lo include: le correzioni di sicurezza arrivano da Microsoft);
+   - ffmpeg, se manca: `winget install Gyan.FFmpeg` per tutto il PC (lo deve vedere anche il servizio);
+   - programma in `C:\Program Files\DoveLoFanno\server`, dati in `C:\ProgramData\DoveLoFanno`, servizio "DoveLoFanno"
+     con avvio automatico e riavvio in caso di errore, porta 8765 aperta solo sulle reti private.
+   Registro: `C:\ProgramData\DoveLoFanno\logs\installazione.log`.
+4. Aggiornare: lanciare l'installatore della versione nuova (dati e registrazioni restano).
+5. Disinstallare: Impostazioni › App › DoveLoFanno. Chiede se togliere anche database, backup e log; le registrazioni
+   restano sempre.
 
-   ```powershell
-   .\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"
-   ```
+Senza finestre (per chi installa su più PC): `DoveLoFanno-<versione>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES
+/RECORDINGS="D:\Registrazioni"`.
 
-   Programma in `C:\Program Files\DoveLoFanno`, dati in `C:\ProgramData\DoveLoFanno`, servizio "DoveLoFanno" con avvio
-   automatico e riavvio in caso di errore, porta 8765 aperta solo sulle reti private. Lo stesso comando, lanciato
-   dall'archivio di una versione nuova, aggiorna un'installazione esistente senza toccare dati e registrazioni.
-4. Disinstallare: `.\Uninstall-DoveLoFanno.ps1` (i dati restano; `-RemoveData` toglie database, backup e log).
-
-Per compilare da sé il pacchetto: `cd web && npm ci && npm run build`, poi
-`dotnet publish src/DoveLoFanno.Server -c Release -r win-x64 --self-contained -o app`; gli script sono in `deploy\windows`.
+Installazione a mano, senza installatore: `dotnet publish src/DoveLoFanno.Server -c Release -r win-x64
+--self-contained false -o app` (dopo `cd web && npm ci && npm run build`), poi da PowerShell come amministratore
+`deploy\windows\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"` (serve il runtime ASP.NET
+Core 10 e ffmpeg); `Uninstall-DoveLoFanno.ps1` per togliere. L'installatore si compila con
+`tools\ci\build-installer.ps1` (Inno Setup 6).
 
 Il servizio tiene sveglio il PC durante le registrazioni (`powercfg /requests` mostra "DoveLoFanno: registrazione in
 corso"); non impedisce la sospensione da coperchio o tasto.

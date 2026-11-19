@@ -70,9 +70,9 @@
           <td class="size" data-size="docker-arm64">—</td>
         </tr>
         <tr>
-          <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-win-x64.zip">DoveLoFanno-0.1.0-win-x64.zip</a>
+          <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-setup.exe">DoveLoFanno-0.1.0-setup.exe</a>
             <div class="hash" data-hash="win-x64">—</div></td>
-          <td>PC Windows 10/11 a 64 bit</td>
+          <td>PC Windows 10/11 a 64 bit (installatore)</td>
           <td class="size" data-size="win-x64">—</td>
         </tr>
         <tr>
@@ -141,27 +141,25 @@
         <li>Se nel PC è attivo <strong>Smart App Control</strong> (Sicurezza di Windows › Controllo app e browser),
           Windows lo blocca e non c'è modo di autorizzarlo: su quel PC per ora non si può installare (non spegnerlo
           apposta: protegge il PC). Meglio un NAS, o un altro PC.</li>
-        <li>Altrimenti può comparire un avviso di SmartScreen: «Ulteriori informazioni» › «Esegui comunque».</li>
+        <li>Altrimenti compare l'avviso di SmartScreen «Windows ha protetto il PC»: «Ulteriori informazioni» ›
+          «Esegui comunque».</li>
       </ul>
     </div>
     <ol>
-      <li><strong>ffmpeg</strong> (serve per registrare). Apri PowerShell e scrivi:
-<pre><code>winget install Gyan.FFmpeg</code></pre></li>
-      <li>Scarica <code>DoveLoFanno-0.1.0-win-x64.zip</code>, tasto destro › Proprietà › spunta <strong>Annulla
-        blocco</strong> › OK, poi estrai tutto in una cartella (per esempio <code>Download\DoveLoFanno-0.1.0</code>).</li>
-      <li>Apri PowerShell <strong>come amministratore</strong> (tasto destro su Start › Terminale (amministratore)),
-        entra nella cartella estratta e lancia l'installazione, scegliendo dove salvare le registrazioni:
-<pre><code>cd "$env:USERPROFILE\Downloads\DoveLoFanno-0.1.0"
-powershell -ExecutionPolicy Bypass -File .\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"</code></pre>
-        Se lasci fuori <code>-RecordingsDir</code> vanno in <code>C:\ProgramData\DoveLoFanno\registrazioni</code>.</li>
-      <li>Fatto: DoveLoFanno è un servizio di Windows, parte da solo all'accensione anche senza entrare con un utente.
-        Apri <a href="http://localhost:8765">http://localhost:8765</a> e vai al <a href="#primo-avvio">primo avvio</a>.
-        Dagli altri dispositivi di casa: <code>http://&lt;nome-del-PC&gt;:8765</code> (la porta si apre solo sulle reti
-        «private»).</li>
+      <li>Scarica <code>DoveLoFanno-0.1.0-setup.exe</code> e aprilo. Windows chiede il permesso di fare modifiche: Sì.</li>
+      <li>Scegli <strong>dove salvare le registrazioni</strong> (all'inizio è <code>Video pubblici\DoveLoFanno</code>):
+        meglio un disco con spazio, un'ora di TV occupa circa 2,5 GB.</li>
+      <li>Installa. Se mancano, l'installatore prende da solo il <strong>runtime .NET</strong> dal sito di Microsoft e
+        <strong>ffmpeg</strong> (con winget, lo strumento di Windows per installare programmi): ci vuole qualche minuto
+        e serve internet.</li>
+      <li>Alla fine lascia la spunta «Apri DoveLoFanno nel browser» e vai al <a href="#primo-avvio">primo avvio</a>.
+        DoveLoFanno è un servizio di Windows: parte da solo all'accensione, anche senza entrare con un utente. Lo
+        ritrovi nel menu Start, e dagli altri dispositivi di casa all'indirizzo
+        <code>http://&lt;nome-del-PC&gt;:8765</code> (la porta si apre solo sulle reti «private»).</li>
     </ol>
-    <p class="small">Disinstallare: nella stessa cartella, come amministratore,
-      <code>powershell -ExecutionPolicy Bypass -File .\Uninstall-DoveLoFanno.ps1</code>. Dati e registrazioni restano;
-      aggiungi <code>-RemoveData</code> per togliere anche database e log.</p>
+    <p class="small">Disinstallare: Impostazioni di Windows › App › DoveLoFanno › Disinstalla. Ti chiede se togliere
+      anche database e impostazioni; le registrazioni restano comunque. Se qualcosa va storto durante l'installazione,
+      il registro è in <code>C:\ProgramData\DoveLoFanno\logs\installazione.log</code>.</p>
   </section>
 
   <section id="primo-avvio">
@@ -187,8 +185,8 @@ powershell -ExecutionPolicy Bypass -File .\Install-DoveLoFanno.ps1 -Package .\ap
         <code>image</code> del progetto e «Crea» di nuovo (Progetto › Azione › Crea).</li>
       <li><strong>Docker</strong>: <code>docker load -i</code> del nuovo file, nuovo numero in <code>compose.yaml</code>,
         <code>docker compose up -d</code>.</li>
-      <li><strong>Windows</strong>: estrai il nuovo zip e rilancia lo stesso comando di installazione: aggiorna senza
-        toccare dati e registrazioni.</li>
+      <li><strong>Windows</strong>: scarica il nuovo installatore e aprilo: aggiorna senza toccare dati e
+        registrazioni.</li>
     </ul>
   </section>
 

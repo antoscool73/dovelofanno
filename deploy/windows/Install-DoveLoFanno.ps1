@@ -13,6 +13,8 @@
     lo cerca ora (PATH dell'utente, winget) e ne salva il percorso nella configurazione del servizio.
     Gira con Windows PowerShell 5.1.
 
+    L'installatore (DoveLoFanno-<versione>-setup.exe) copia lui i file e chiama questo script con -NoCopy.
+
 .EXAMPLE
     .\Install-DoveLoFanno.ps1 -Package .\DoveLoFanno-win-x64 -RecordingsDir "D:\Registrazioni"
 #>
@@ -23,19 +25,27 @@ param(
     [string]$RecordingsDir = '',
     [string]$Ffmpeg = '',
     [int]$Port = 8765,
-    [switch]$NoFirewall
+    [switch]$NoFirewall,
+    # i file del programma sono già in -InstallDir (li ha messi l'installatore): solo configurazione e servizio
+    [switch]$NoCopy,
+    # registro di quello che succede (l'installatore lo scrive in ProgramData\DoveLoFanno\logs)
+    [string]$Log = ''
 )
 $ErrorActionPreference = 'Stop'
 $ServiceName = 'DoveLoFanno'
 $Exe = 'DoveLoFanno.Server.exe'
+if ($Log) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null; Start-Transcript -LiteralPath $Log -Append | Out-Null }
 
 if (-not (Test-Path -LiteralPath (Join-Path $Package $Exe))) { throw "$Exe non trovato in $Package" }
 if (-not $RecordingsDir) { $RecordingsDir = Join-Path $DataDir 'registrazioni' }
 
 if (-not $Ffmpeg) {
     $cmd = Get-Command ffmpeg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    # winget mette i collegamenti in Programmi\WinGet\Links (installazione per tutto il PC) o nel profilo dell'utente;
+    # appena installato, il PATH di questo processo non li vede ancora
+    $links = @((Join-Path $env:ProgramFiles 'WinGet\Links\ffmpeg.exe'), (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\ffmpeg.exe'))
     if ($cmd) { $Ffmpeg = $cmd.Path }
-    elseif (Test-Path (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\ffmpeg.exe')) { $Ffmpeg = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\ffmpeg.exe' }
+    else { $Ffmpeg = $links | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1 }
 }
 # i collegamenti di winget puntano al vero eseguibile nella cartella del pacchetto: LocalSystem deve vedere quello
 if ($Ffmpeg) {
@@ -52,9 +62,11 @@ if ($existing) {
 
 Write-Host "Programma in $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir, $DataDir, $RecordingsDir | Out-Null
-# i file vecchi del programma si tolgono (non la configurazione di questa installazione)
-Get-ChildItem -LiteralPath $InstallDir -Force | Where-Object { $_.Name -ne 'appsettings.Production.json' } | Remove-Item -Recurse -Force
-Copy-Item -Path (Join-Path $Package '*') -Destination $InstallDir -Recurse -Force
+if (-not $NoCopy) {
+    # i file vecchi del programma si tolgono (non la configurazione di questa installazione)
+    Get-ChildItem -LiteralPath $InstallDir -Force | Where-Object { $_.Name -ne 'appsettings.Production.json' } | Remove-Item -Recurse -Force
+    Copy-Item -Path (Join-Path $Package '*') -Destination $InstallDir -Recurse -Force
+}
 
 $config = [ordered]@{
     Urls        = "http://0.0.0.0:$Port"
@@ -87,3 +99,4 @@ for ($i = 0; $i -lt 60; $i++) {
 }
 if (-not $ok) { throw "il servizio non risponde su http://127.0.0.1:$Port (vedere il Visualizzatore eventi, registro Applicazione)" }
 Write-Host "DoveLoFanno in funzione: http://localhost:$Port  (dati: $DataDir, registrazioni: $RecordingsDir)"
+if ($Log) { Stop-Transcript | Out-Null }

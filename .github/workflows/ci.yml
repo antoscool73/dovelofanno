@@ -191,10 +191,19 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
 
+      # senza runtime incluso: l'installatore installa quello di Microsoft (ASP.NET Core 10) se manca
       - name: Pacchetto per Windows
         shell: pwsh
-        run: dotnet publish src/DoveLoFanno.Server -c Release -r win-x64 --self-contained -o "$env:RUNNER_TEMP\pkg"
+        run: dotnet publish src/DoveLoFanno.Server -c Release -r win-x64 --self-contained false -o "$env:RUNNER_TEMP\pkg"
 
-      - name: Collaudo (installazione, aggiornamento, disinstallazione)
+      - name: Collaudo degli script (installazione, aggiornamento, disinstallazione)
         shell: powershell
         run: .\tools\ci\windows-service-smoke.ps1 -Package "$env:RUNNER_TEMP\pkg"
+
+      - name: Installatore
+        shell: powershell
+        run: .\tools\ci\build-installer.ps1 -Package "$env:RUNNER_TEMP\pkg" -Version 0.0.0-ci -OutputDir "$env:RUNNER_TEMP\setup"
+
+      - name: Collaudo dell'installatore (runtime di Microsoft, installazione, aggiornamento, disinstallazione)
+        shell: powershell
+        run: .\tools\ci\windows-installer-smoke.ps1 -Setup "$env:RUNNER_TEMP\setup\DoveLoFanno-0.0.0-ci-setup.exe"
