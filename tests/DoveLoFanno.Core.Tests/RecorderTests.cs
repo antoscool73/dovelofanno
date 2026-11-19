@@ -154,6 +154,39 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 4, 30);
     }
 
+    // 19/11/2026: «Le relazioni pericolose» interrotta da un riavvio del server ripartiva da _part01.ts (sovrascritto) e
+    // lasciava fuori dall'unione lo spezzone interrotto
+    [Fact]
+    public async Task RipresaDopoRiavvioDelServer_ContinuaGliSpezzoni()
+    {
+        if (!Ready()) return;
+        var job = Job(45);
+        using (var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(12)))
+        {
+            try { await NewRecorder().RunAsync(job, [Cand(1, "/relinker")], ct: shutdown.Token); }
+            catch (OperationCanceledException) { }      // il server si chiude: la registrazione è abbandonata, senza unire
+        }
+        string first = Path.Combine(job.OutDir, job.BaseName + "_part01.ts");
+        Assert.True(File.Exists(first));
+        long firstSize = new FileInfo(first).Length;
+        await Task.Delay(TimeSpan.FromSeconds(3));      // il riavvio
+
+        // spezzone interrotto: senza ora di fine, vale l'ultima modifica del file (come fa il programmatore)
+        var resume = new List<RecordedPart> { new(1, 1, Cand(1, "/relinker").Url, first, job.Start, File.GetLastWriteTimeUtc(first), "restart") };
+        var o = await NewRecorder().RunAsync(job, [Cand(1, "/relinker")], resume: resume);
+        Dump(o);
+        Assert.Equal("completed", o.State);                                   // pausa sotto il minuto: niente minuti persi
+        Assert.True(o.Parts.Count >= 2);
+        Assert.Equal(1, o.Parts[0].No);
+        Assert.True(o.Parts.Skip(1).All(p => p.No >= 2), "la numerazione continua dopo lo spezzone 1");
+        Assert.DoesNotContain(o.Parts.Skip(1), p => p.File == first);       // _part01.ts non viene riscritto
+        string log = File.ReadAllText(o.Log);
+        Assert.Contains("Registrazione ripresa: 1 spezzone già registrato", log);
+        Assert.DoesNotContain("partita in ritardo", log);
+        Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 25, 80);   // nel file finale c'è anche lo spezzone 1
+        Assert.True(firstSize > 0);
+    }
+
     sealed class JumpClock : TimeProvider
     {
         public TimeSpan Offset;

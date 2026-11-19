@@ -146,6 +146,18 @@ public sealed class RecordingStore(string dbPath)
             ("$t", Db.Unix(p.Ended)), ("$x", p.Reason), ("$r", recordingId), ("$n", p.No));
     }
 
+    /// <summary>
+    /// Gli spezzoni registrati finora, anche quello che il server non ha chiuso (fermato a metà): per riprendere una
+    /// registrazione dopo un riavvio.
+    /// </summary>
+    public List<PartRow> PartsSoFar(long recordingId)
+    {
+        using var c = Open();
+        return Db.Query(c, "SELECT id, part_no, stream_id, url, file, started_at, ended_at, exit_reason FROM recording_parts WHERE recording_id = $r ORDER BY part_no",
+            r => new PartRow(r.GetInt64(0), r.GetInt32(1), Db.NLong(r, 2), r.GetString(3), r.GetString(4), Db.FromUnix(r.GetInt64(5)), Db.NTime(r, 6), r.GetString(7)),
+            ("$r", recordingId));
+    }
+
     public List<PartRow> Parts(long recordingId)
     {
         using var c = Open();

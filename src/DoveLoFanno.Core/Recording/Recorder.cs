@@ -78,14 +78,21 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
     /// <param name="candidates">flussi del canale nell'ordine in cui provarli (almeno uno)</param>
     /// <param name="stop">arresto chiesto dall'utente: si chiude e si unisce quello che c'è</param>
     /// <param name="ct">chiusura del programma: si abbandona senza unire</param>
+    /// <param name="resume">
+    /// Ripresa dopo un riavvio del server (19/11/2026): gli spezzoni già registrati. Quelli ancora su disco entrano
+    /// nell'unione, la numerazione continua dopo il numero più alto (prima ripartiva da 1 e sovrascriveva _part01.ts) e il
+    /// tempo perso è solo la pausa tra la fine dell'ultimo spezzone e la ripresa.
+    /// </param>
     public async Task<RecordingOutcome> RunAsync(RecordingJob job, IReadOnlyList<StreamCandidate> candidates, IRecordingObserver? observer = null,
-        CancellationToken stop = default, CancellationToken ct = default)
+        CancellationToken stop = default, CancellationToken ct = default, IReadOnlyList<RecordedPart>? resume = null)
     {
         if (candidates.Count == 0) throw new ArgumentException("nessun flusso da registrare", nameof(candidates));
         var obs = observer ?? new NullObserver();
         var run = new Run(this, job, ct);
         bool stopped = false;
         var parts = new List<RecordedPart>();
+        int usedNo = resume is { Count: > 0 } ? resume.Max(x => x.No) : 0;
+        if (resume != null) parts.AddRange(resume.Where(x => FileSize(x.File) >= opt.MinPartBytes).OrderBy(x => x.No));
         string state = "failed", output = "";
         bool mergeFailed = false;
         awake.Hold();
@@ -103,9 +110,21 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 run.CheckSleepGap();
             }
             stopped = stop.IsCancellationRequested;
-            // partenza in ritardo (PC spento o in sospensione): la parte mancante è persa
+            // ripresa dopo un riavvio: perso solo il tempo dalla fine dell'ultimo spezzone
             var late = Now - job.Start;
-            if (!stopped && late.TotalSeconds > 60)
+            if (!stopped && parts.Count > 0)
+            {
+                var from = parts[^1].Ended > job.Start ? parts[^1].Ended : job.Start;
+                run.Log($"Registrazione ripresa: {parts.Count} {(parts.Count == 1 ? "spezzone già registrato" : "spezzoni già registrati")}");
+                if ((Now - from).TotalSeconds > 60)
+                {
+                    var b = Min(Now, job.End);
+                    run.AddLost(from, b);
+                    run.Log($"Interruzione (server fermato o PC spento) dalle {Fmt(from)} alle {Fmt(b)}: persi {Minutes((b - from).TotalSeconds)}");
+                }
+            }
+            // partenza in ritardo (PC spento o in sospensione): la parte mancante è persa
+            else if (!stopped && late.TotalSeconds > 60)
             {
                 var b = Min(Now, job.End);
                 run.AddLost(job.Start, b);
@@ -121,7 +140,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 if (remaining < 5) break;
                 attempt++;
                 var cand = candidates[ci];
-                int no = parts.Count + 1;
+                int no = Math.Max(usedNo, parts.Count == 0 ? 0 : parts.Max(x => x.No)) + 1;
                 string part = $"{basePath}_part{no:D2}.ts";
                 string ffLog = Path.Combine(job.LogDir, $"{job.Id}_ffmpeg_{attempt:D2}.log");
 
@@ -269,7 +288,8 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
 
     static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
     static DateTimeOffset Max(DateTimeOffset a, DateTimeOffset b) => a > b ? a : b;
-    static string Fmt(DateTimeOffset d) => d.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
+    // ora locale del server: gli orari del database sono in UTC e nel registro uscivano due ore indietro d'estate (una d'inverno)
+    static string Fmt(DateTimeOffset d) => TimeZoneInfo.ConvertTime(d, TimeZoneInfo.Local).ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
 
     internal static string Minutes(double sec)
     {

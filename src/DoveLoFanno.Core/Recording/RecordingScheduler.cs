@@ -84,7 +84,12 @@ public sealed class RecordingScheduler(
             var (folder, baseName, info) = LibraryLayout.For(r.Title, r.ChannelName, r.Start, r.Format, recordings.Media(r.Id), options.RecordingsDir);
             var job = new RecordingJob(r.Id, r.Title, r.ChannelName, r.RecordFrom, r.RecordTo, r.Format,
                 Path.Combine(options.RecordingsDir, folder), baseName, options.LogDir, info);
-            var outcome = await recorder.RunAsync(job, candidates, new Observer(recordings, r.Id, candidates, a), a.Stop.Token, shutdown.Token);
+            // dopo un riavvio del server si continua dagli spezzoni già registrati (quello interrotto non ha l'ora di fine:
+            // vale l'ultima modifica del file)
+            var resume = recordings.PartsSoFar(r.Id).Select(p => new RecordedPart(p.PartNo, p.StreamId ?? 0, p.Url, p.File, p.StartedAt,
+                p.EndedAt ?? (File.Exists(p.File) ? new DateTimeOffset(File.GetLastWriteTimeUtc(p.File), TimeSpan.Zero) : p.StartedAt),
+                p.EndedAt == null ? "restart" : p.ExitReason)).ToList();
+            var outcome = await recorder.RunAsync(job, candidates, new Observer(recordings, r.Id, candidates, a), a.Stop.Token, shutdown.Token, resume);
             recordings.Finish(r.Id, outcome);
             Finished?.Invoke(r.Id, outcome);
         }
