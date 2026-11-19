@@ -75,7 +75,7 @@
     {#if router.route === 'stasera'}
       <Stasera />
     {:else if router.route === 'cerca'}
-      <Cerca />
+      {#key router.nav}<Cerca />{/key}
     {:else if router.route === 'opera'}
       <Scheda id={router.workId} />
     {:else if router.route === 'guida'}

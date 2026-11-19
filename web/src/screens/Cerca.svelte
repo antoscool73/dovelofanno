@@ -118,6 +118,8 @@
     { id: 'tv', label: 'In TV nei prossimi giorni' }, { id: 'mine', label: 'Nei miei abbonamenti' },
     { id: 'paid', label: 'A noleggio o acquisto' }, { id: 'home', label: 'In casa' },
   ] as const;
+  const iconOf = (id: 'tv' | 'mine' | 'paid' | 'home'): Avail =>
+    ({ tv: id === 'tv' ? 'x' : '', home: id === 'home', mine: id === 'mine' ? ['x'] : [], pay: id === 'paid' ? ['x'] : [] });
   const ratings = [{ v: 0, label: 'Qualsiasi' }, { v: 6, label: '6 e oltre' }, { v: 7, label: '7 e oltre' }, { v: 8, label: '8 e oltre' }];
 
   const activeFilters = $derived(
@@ -148,7 +150,7 @@
   const PAGE = 40;
   let limit = PAGE;
   let more = $state(false);
-  let current: SearchQuery = { ...start, genres: [...start.genres], avail: [...start.avail] };
+  let current = $state<SearchQuery>({ ...start, genres: [...start.genres], avail: [...start.avail] });
   let seq = 0;
   async function run(snap: SearchQuery, lim: number) {
     const my = ++seq;
@@ -164,17 +166,26 @@
       if (my === seq) loading = false;
     }
   }
-  $effect(() => {
+  // La ricerca parte con «Cerca» (o Invio nel testo), non a ogni filtro: con TMDB può metterci qualche secondo e i
+  // risultati che cambiavano da soli mentre si sceglieva non si capivano (19/11/2026). Parte da sola solo all'apertura.
+  let applied = $state('');                     // la ricerca dei risultati mostrati
+  const changed = $derived(canSearch && JSON.stringify(toSaved(f)) !== applied);
+  function search() {
     const snap: SearchQuery = { ...f, genres: [...f.genres], avail: [...f.avail] };
-    if (!ready) return;                          // la lista dinamica non è ancora letta
+    applied = JSON.stringify(toSaved(snap));
     if (!listId) last = snap;
     current = snap;
     // con una lista aperta l'indirizzo tiene solo la lista finché la ricerca non cambia
-    const h = listId && JSON.stringify(toSaved(snap)) === savedJson ? searchHash({}, listId) : searchHash(snap, listId);
+    const h = listId && applied === savedJson ? searchHash({}, listId) : searchHash(snap, listId);
     try { history.replaceState(history.state, '', '/cerca' + h); } catch { /* indirizzo non aggiornato: pazienza */ }
     if (!canSearch) { hits = []; note = ''; error = ''; searched = false; loading = false; more = false; seq++; return; }
-    const t = setTimeout(() => run(snap, PAGE), 400);
-    return () => clearTimeout(t);
+    run(snap, PAGE);
+  }
+  let started = false;
+  $effect(() => {
+    if (!ready || started) return;               // la lista dinamica non è ancora letta
+    started = true;
+    if (canSearch) search();
   });
   // caricamento progressivo: arrivati in fondo ai risultati se ne chiedono altri 40
   function loadMore() {
@@ -237,16 +248,19 @@
   }
 
   const summary = $derived.by(() => {
+    // descrive la ricerca dei risultati mostrati, non i filtri che si stanno cambiando
+    const c = current;
     const parts: string[] = [];
-    if (f.kind !== 'all') parts.push(kinds.find((k) => k.id === f.kind)!.label.toLowerCase());
-    if (genreNames.length) parts.push(genreNames.map((n) => n.toLowerCase()).join(' o '));
-    if (f.q.trim().length >= 2) parts.push(`«${f.q.trim()}»`);
-    if (f.country) parts.push(options?.countries.find((c) => c.id === f.country)?.name ?? f.country);
-    if (f.yearFrom || f.yearTo) parts.push(`${f.yearFrom || '…'}–${f.yearTo || '…'}`);
-    if (f.minRating) parts.push(`voto ${f.minRating} e oltre`);
-    if (f.avail.length) parts.push(f.avail.map((a) => availItems.find((x) => x.id === a)!.label.toLowerCase()).join(' o '));
-    if (f.hideSeen) parts.push('senza i già visti');
-    if (f.hideHome) parts.push('senza quelli in casa');
+    if (c.kind !== 'all') parts.push(kinds.find((k) => k.id === c.kind)!.label.toLowerCase());
+    const gn = c.genres.map((g) => options?.genres.find((x) => x.id === String(g))?.name ?? '').filter(Boolean);
+    if (gn.length) parts.push(gn.map((n) => n.toLowerCase()).join(' o '));
+    if (c.q.trim().length >= 2) parts.push(`«${c.q.trim()}»`);
+    if (c.country) parts.push(options?.countries.find((x) => x.id === c.country)?.name ?? c.country);
+    if (c.yearFrom || c.yearTo) parts.push(`${c.yearFrom || '…'}–${c.yearTo || '…'}`);
+    if (c.minRating) parts.push(`voto ${c.minRating} e oltre`);
+    if (c.avail.length) parts.push(c.avail.map((a) => availItems.find((x) => x.id === a)!.label.toLowerCase()).join(' o '));
+    if (c.hideSeen) parts.push('senza i già visti');
+    if (c.hideHome) parts.push('senza quelli in casa');
     return parts.filter(Boolean).join(', ');
   });
 
@@ -326,7 +340,7 @@
   </header>
 
   <div class="cols">
-    <form class="filters" aria-label="Filtri" onsubmit={(e) => e.preventDefault()}>
+    <form class="filters" aria-label="Filtri" onsubmit={(e) => { e.preventDefault(); if (canSearch) search(); }}>
       <label class="field">Titolo, regista o attore
         <span class="box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
@@ -381,14 +395,6 @@
           </select>
         </label>
 
-        <fieldset>
-          <legend>Disponibile</legend>
-          <label class="check"><input type="checkbox" checked={f.avail.length === 0} onchange={() => (f.avail = [])} />Ovunque, anche non disponibile</label>
-          {#each availItems as a (a.id)}
-            <label class="check"><input type="checkbox" checked={f.avail.includes(a.id)} onchange={() => toggleAvail(a.id)} />{a.label}</label>
-          {/each}
-        </fieldset>
-
         {#if session.profile}
           <fieldset>
             <legend>Togli</legend>
@@ -403,6 +409,10 @@
 
     <section class="results" aria-label="Risultati" aria-busy={loading}>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <div class="searchbar">
+        <Button variant={changed ? 'primary' : 'soft'} disabled={!changed || loading} onclick={search}>{loading ? 'Cerco…' : 'Cerca'}</Button>
+        {#if changed}<span class="muted small">Hai cambiato i filtri: tocca «Cerca» per vedere i risultati.</span>{/if}
+      </div>
       {#if session.profile && canSearch}
         <div class="savebar">
           {#if list}
@@ -429,11 +439,14 @@
         <p class="muted">Scrivi almeno 2 lettere o scegli un filtro: trovi quello che passa in TV, i film di casa e qualunque film o serie, anche in streaming o non disponibile.</p>
       {:else if loading && hits.length === 0}
         <p class="muted" role="status">Cerco…</p>
+      {:else if loading}
+        <p class="sum" role="status">Cerco…</p>
       {:else if searched}
         <p class="sum" role="status">{hits.length === 0 ? 'Nessun titolo' : `${hits.length}${more ? '+' : ''} ${hits.length === 1 ? 'titolo' : 'titoli'}`}{summary ? ` · ${summary}` : ''}</p>
       {/if}
 
-      <ul class="rows">
+      <!-- durante una nuova ricerca i risultati di prima restano, sbiaditi -->
+      <ul class="rows" class:stale={loading && !more}>
         {#each hits as h (keyOf(h))}
           {@const a = availFor(h)}
           {@const st = statusText(a)}
@@ -463,7 +476,10 @@
                 {:else if a.mine.length > 0}
                   <Button size="s" variant="soft" onclick={() => open(h)} disabled={opening != null}>Apri</Button>
                 {:else}
-                  <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                  <span class="tip">
+                    <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                    <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Il pannello si apre a destra.</span>
+                  </span>
                 {/if}
               </div>
             </div>
@@ -476,14 +492,22 @@
       {#if hits.length > 0}<p class="muted small">Titoli, locandine e piattaforme da TMDB e JustWatch.</p>{/if}
     </section>
 
-    <aside id="avvisi" class="alerts" aria-label="Avvisi per il titolo scelto">
+    <aside class="side">
+      <fieldset class="panel">
+        <legend>Disponibile</legend>
+        <label class="check"><input type="checkbox" checked={f.avail.length === 0} onchange={() => (f.avail = [])} /><span class="ic none" aria-hidden="true"></span>Ovunque, anche non disponibile</label>
+        {#each availItems as a (a.id)}
+          <label class="check"><input type="checkbox" checked={f.avail.includes(a.id)} onchange={() => toggleAvail(a.id)} />
+            <span class="ic" aria-hidden="true"><AvailBadges a={iconOf(a.id)} size={18} /></span>{a.label}</label>
+        {/each}
+        <span class="muted small">Le icone sono quelle delle locandine.</span>
+      </fieldset>
       {#if selected}
-        <div class="muted small">Avvisami per</div>
-        <h2>{selected.title}</h2>
-        <AlertPanel workId={selected.workId} />
-      {:else}
-        <h2>Avvisami</h2>
-        <p class="muted small">Tocca «Avvisami» su un titolo che oggi non vedi (né in casa né nei tuoi abbonamenti): qui scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia.</p>
+        <div id="avvisi" class="panel alerts" aria-label="Avvisi per il titolo scelto">
+          <div class="muted small">Avvisami per</div>
+          <h2>{selected.title}</h2>
+          <AlertPanel workId={selected.workId} />
+        </div>
       {/if}
     </aside>
   </div>
@@ -552,14 +576,26 @@
   .ok { margin: 0; color: var(--green-text); }
   .excl { font-size: 12px; font-weight: 700; color: var(--orange-text); border: 1px solid currentColor; border-radius: 6px; padding: 1px 6px; }
 
-  .alerts { flex: 1 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; position: sticky; top: 76px; }
+  .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 76px; }
+  .panel { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; margin: 0; min-width: 0; }
+  fieldset.panel legend { float: left; width: 100%; margin-bottom: 4px; }
+  .alerts { gap: 10px; }
   .alerts h2 { margin: 0; font-size: 20px; }
+  /* icona come sulle locandine, rimessa nel flusso del testo (come nella legenda) */
+  .ic { position: relative; display: inline-block; flex: 0 0 18px; width: 18px; height: 18px; }
+  .ic :global(.badges) { right: 0; bottom: 0; }
+  .searchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .rows.stale { opacity: 0.45; pointer-events: none; }
+  .tip { position: relative; display: inline-flex; }
+  .tipbox { display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; width: 280px; padding: 10px 12px; border-radius: 10px;
+    background: var(--raised); border: 1px solid var(--line-btn); color: var(--text-2); font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
+  .tip:hover .tipbox, .tip:focus-within .tipbox { display: block; }
 
   @media (max-width: 900px) {
     .filters { max-width: none; flex-basis: 100%; }
     .more { display: inline-flex; align-self: flex-start; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-btn); background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
     .fbody { display: none; }
     .fbody.open { display: flex; }
-    .alerts { max-width: none; position: static; }
+    .side { max-width: none; position: static; flex-basis: 100%; order: -1; }
   }
 </style>

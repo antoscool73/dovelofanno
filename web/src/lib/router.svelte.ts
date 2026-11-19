@@ -25,6 +25,9 @@ export function routeOf(pathname: string): Route {
 
 class Router {
   path = $state(window.location.pathname);
+  /** Cresce a ogni navigazione, anche verso lo stesso percorso con un'altra ancora (/cerca#list=3): una schermata che
+   *  legge l'ancora solo all'apertura si ricrea con {#key router.nav}. */
+  nav = $state(0);
   route = $derived(routeOf(this.path));
   /** Id dell'opera per /opera/{id}. */
   workId = $derived(Number(this.path.match(/^\/opera\/(\d+)/)?.[1] ?? 0));
@@ -35,7 +38,7 @@ class Router {
   libraryListId = $derived(Number(this.path.match(/^\/libreria\/liste\/(\d+)/)?.[1] ?? 0));
 
   constructor() {
-    window.addEventListener('popstate', () => { this.path = window.location.pathname; });
+    window.addEventListener('popstate', () => { this.path = window.location.pathname; this.nav++; });
   }
 
   /** Va a un indirizzo dell'app; un'ancora (/opera/12#avvisami) resta nell'indirizzo ma non nel percorso. */
@@ -45,6 +48,7 @@ class Router {
     if (replace) history.replaceState(null, '', url.pathname + url.hash);
     else history.pushState(null, '', url.pathname + url.hash);
     this.path = url.pathname;
+    this.nav++;
     window.scrollTo(0, 0);
   }
 }
