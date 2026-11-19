@@ -13,7 +13,7 @@
 
 <button type="button" class="rec {size}" class:on={scheduled} aria-pressed={scheduled} disabled={busy} {onclick}>
   <span class="dot" aria-hidden="true"></span>
-  <StableLabel text={busy ? 'Un momento…' : scheduled ? 'In programma ✓' : label} variants={['Un momento…', 'In programma ✓', label]} />
+  <StableLabel text={busy ? 'Un momento…' : scheduled ? 'In programma' : label} variants={['Un momento…', 'In programma', label]} />
 </button>
 
 <style>

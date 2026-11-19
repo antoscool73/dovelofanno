@@ -166,7 +166,7 @@
         <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}#avvisami`)}>Avvisami</Button>
       {/if}
       {#if inTonight !== null}
-        <Button variant="soft" pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'} variants={['Nella mia serata ✓', 'Aggiungi alla mia serata']} /></Button>
+        <Button variant={inTonight ? "primary" : "soft"} pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia serata' : 'Aggiungi alla mia serata'} variants={['Nella mia serata', 'Aggiungi alla mia serata']} /></Button>
       {/if}
     </div>
     <!-- seconda riga fissa: "Non proporre più" e "Chiudi" non si spostano quando cambiano i pulsanti sopra -->
