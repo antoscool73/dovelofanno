@@ -309,7 +309,12 @@
       <h1>{list ? list.name : 'Make my day'}</h1>
     </div>
     <div class="topacts">
-      <Button variant={changed ? 'primary' : 'soft'} disabled={!changed || loading} onclick={search}>{loading ? 'Cerco…' : 'Cerca'}</Button>
+      <!-- filtri cambiati: «Cerca» si accende e un alone pulsa due volte, di nuovo a ogni modifica (la chiave lo ricrea) -->
+      {#key changed ? JSON.stringify(toSaved(f)) : ''}
+        <span class="pulse" class:on={changed}>
+          <Button variant={changed ? 'primary' : 'soft'} disabled={!changed || loading} onclick={search}>{loading ? 'Cerco…' : 'Cerca'}</Button>
+        </span>
+      {/key}
       {#if session.profile}
         <Button variant="soft" disabled={!canSearch} onclick={() => { saved = ''; saveOpen = true; }}>{list ? 'Salva la lista' : 'Salva come lista'}</Button>
       {/if}
@@ -321,7 +326,6 @@
     {:else}
       <p class="muted">Titolo, regista o attore, con i filtri che ti servono: in TV, nei tuoi abbonamenti, a noleggio, in casa. Se un titolo non è disponibile, fatti avvisare. Una ricerca che ti piace salvala come lista.</p>
     {/if}
-    {#if changed}<p class="hint" role="status">Hai cambiato i filtri: tocca «Cerca» per vedere i risultati.</p>{/if}
     {#if saved}<p class="ok small" role="status">{saved}</p>{/if}
   </header>
 
@@ -406,7 +410,8 @@
       {/if}
 
       <!-- durante una nuova ricerca i risultati di prima restano, sbiaditi -->
-      <ul class="rows" class:stale={loading && !more}>
+      <!-- risultati di prima: sbiaditi mentre cerca, attenuati finché i filtri cambiati non sono cercati -->
+      <ul class="rows" class:stale={loading && !more} class:outdated={changed && !loading}>
         {#each hits as h (keyOf(h))}
           {@const a = availFor(h)}
           {@const st = statusText(a)}
@@ -484,7 +489,6 @@
     gap: 10px 20px; padding: 20px 0 12px; background: var(--bg); }
   .tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .topacts { display: flex; flex-wrap: wrap; gap: 10px; }
-  .hint { margin: 0; font-size: 13px; color: var(--orange-text); }
   .muted { margin: 0; color: var(--muted); }
   .small { font-size: 13px; }
   .error { margin: 0; color: var(--rec-text); }
@@ -552,7 +556,19 @@
   /* icona come sulle locandine, rimessa nel flusso del testo (come nella legenda) */
   .ic { position: relative; display: inline-block; flex: 0 0 18px; width: 18px; height: 18px; }
   .ic :global(.badges) { right: 0; bottom: 0; }
+  .rows { transition: opacity 0.2s; }
   .rows.stale { opacity: 0.45; pointer-events: none; }
+  .rows.outdated { opacity: 0.55; }
+  .pulse { position: relative; display: inline-flex; border-radius: var(--radius); }
+  .pulse.on::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; animation: ring 1.1s ease-out 2; }
+  @keyframes ring {
+    0% { box-shadow: 0 0 0 0 rgba(242, 244, 247, 0.6); }
+    100% { box-shadow: 0 0 0 14px rgba(242, 244, 247, 0); }
+  }
+  /* chi ha chiesto meno animazioni: un alone fermo al posto della pulsazione */
+  @media (prefers-reduced-motion: reduce) {
+    .pulse.on::after { animation: none; box-shadow: 0 0 0 3px rgba(242, 244, 247, 0.35); }
+  }
   .tip { position: relative; display: inline-flex; }
   .tipbox { display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; width: 280px; padding: 10px 12px; border-radius: 10px;
     background: var(--raised); border: 1px solid var(--line-btn); color: var(--text-2); font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
