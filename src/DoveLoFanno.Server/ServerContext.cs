@@ -34,6 +34,8 @@ public sealed class ServerContext : IDisposable
     /// <summary>Note sulla conversione delle preferenze in liste dinamiche fatta all'avvio (per il registro).</summary>
     public IReadOnlyList<string> ConvertedPreferences { get; }
     public AlertStore Alerts { get; }
+    /// <summary>Canali doppi uniti all'avvio (per il registro).</summary>
+    public int MergedChannels { get; }
     public DoveLoFanno.Ratings.PlatformCatalog Platforms { get; }
     readonly IKeepAwake keepAwake;
 
@@ -53,6 +55,8 @@ public sealed class ServerContext : IDisposable
         Http = StreamResolver.CreateHttpClient();
         Clock = clock ?? TimeProvider.System;
         Sources = new SourceStore(DbPath);
+        // canali doppi creati prima della chiave normalizzata (due playlist con tvg-id scritti diversi): si uniscono
+        MergedChannels = Sources.MergeDuplicateChannels();
         Recordings = new RecordingStore(DbPath);
         Settings = new SettingsStore(DbPath);
         Resolver = new StreamResolver(Http);

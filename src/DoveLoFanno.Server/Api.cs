@@ -81,7 +81,7 @@ public static class Api
             ctx.Sources.DeleteSource(id);
             return Results.NoContent();
         })
-            .WithSummary("Toglie una playlist e i suoi flussi (i canali restano)")
+            .WithSummary("Toglie una playlist, i suoi flussi e i canali rimasti senza flussi (restano quelli con registrazioni)")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
 
         src.MapPost("/{id:long}/refresh", async Task<IResult> (long id, ServerContext ctx, CancellationToken ct) =>

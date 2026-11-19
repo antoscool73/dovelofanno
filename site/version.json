@@ -1,6 +1,6 @@
 {
-  "version": "0.1.0",
-  "date": "2026-11-19",
-  "notes": "Prima beta: guida TV, La mia serata, Cerca, liste, avvisi, registrazioni, libreria di casa.",
+  "version": "0.1.1",
+  "date": "2026-11-20",
+  "notes": "Guida di nuovo visibile con due playlist (canali uguali uniti come flussi di riserva), bidone per togliere una playlist, conferma prima di cambiare il tipo di una cartella della libreria.",
   "url": "https://dovelofanno.it/beta/#aggiornare"
 }

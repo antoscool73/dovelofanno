@@ -491,7 +491,7 @@
         "tags": [
           "Sorgenti"
         ],
-        "summary": "Toglie una playlist e i suoi flussi (i canali restano)",
+        "summary": "Toglie una playlist, i suoi flussi e i canali rimasti senza flussi (restano quelli con registrazioni)",
         "parameters": [
           {
             "name": "id",

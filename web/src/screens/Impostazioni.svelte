@@ -153,7 +153,7 @@
     }, 'Playlist aggiornata.');
   }
   async function remove(s: Source) {
-    if (!(await ask({ title: `Togliere la playlist «${s.name}»?`, text: 'I canali restano, i suoi flussi no.', ok: 'Togli la playlist' }))) return;
+    if (!(await ask({ title: `Togliere la playlist «${s.name}»?`, text: 'Spariscono anche i canali che ha solo questa playlist, tranne quelli con registrazioni. I canali delle altre playlist restano.', ok: 'Togli la playlist' }))) return;
     act('del', async () => { await api.deleteSource(s.id); editing = null; }, 'Playlist tolta.');
   }
 
@@ -208,6 +208,11 @@
                 <Button size="s" disabled={busy !== null} onclick={() => act('r' + s.id, () => api.refreshSource(s.id), 'Playlist riletta.')}>Rileggi</Button>
                 <Button size="s" disabled={busy !== null} onclick={() => act('c' + s.id, () => api.checkSource(s.id), 'Controllo avviato: i risultati arrivano man mano.')}>Controlla ora</Button>
                 <Button size="s" disabled={busy !== null} onclick={() => startEdit(s)}>Modifica</Button>
+                <span class="trash" title="Togli la playlist">
+                  <Button size="s" label="Togli la playlist «{s.name}»" disabled={busy !== null} onclick={() => remove(s)}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
+                  </Button>
+                </span>
               </div>
               {#if editing?.id === s.id}
                 <form class="edit" onsubmit={saveEdit}>
@@ -215,7 +220,6 @@
                   <label class="field">Connessioni al massimo<input bind:value={editLimit} inputmode="numeric" pattern="[0-9]*" placeholder="nessun limite" /></label>
                   <label class="check"><input type="checkbox" bind:checked={editEnabled} /> Attiva</label>
                   <div class="eacts">
-                    <Button variant="ghost" onclick={() => remove(s)}>Togli la playlist</Button>
                     <span class="grow"></span>
                     <Button variant="ghost" onclick={() => (editing = null)}>Annulla</Button>
                     <Button variant="primary" type="submit" disabled={busy !== null}>Salva</Button>
@@ -307,6 +311,9 @@
   .url { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
   .stats { font-size: 14px; color: var(--text-2); }
   .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .trash { display: contents; }
+  .trash :global(.btn) { padding-inline: 10px; color: var(--muted); }
+  .trash :global(.btn:hover:not(:disabled)) { color: var(--orange-text); border-color: var(--orange); }
   .edit { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; border-top: 1px solid var(--line); padding-top: 14px; }
   .eacts { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 8px; }
   .grow { flex: 1 1 0; }

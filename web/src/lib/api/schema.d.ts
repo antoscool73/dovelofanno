@@ -481,7 +481,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Toglie una playlist e i suoi flussi (i canali restano) */
+        /** Toglie una playlist, i suoi flussi e i canali rimasti senza flussi (restano quelli con registrazioni) */
         delete: {
             parameters: {
                 query?: never;

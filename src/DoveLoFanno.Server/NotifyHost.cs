@@ -22,6 +22,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         ctx.Scheduler.Finished += OnFinished;
         ctx.Notifications.Added += n => _ = ForwardAsync(n);
         foreach (string note in ctx.ConvertedPreferences) log.LogWarning("Preferenza convertita in lista dinamica: {Note}", note);
+        if (ctx.MergedChannels > 0) log.LogWarning("Canali doppi uniti all'avvio: {Count}", ctx.MergedChannels);
         try { await Task.Delay(TimeSpan.FromSeconds(20), ctx.Clock, ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {

@@ -83,14 +83,14 @@
 
   // righe della griglia: un canale per riga; con IPTV solo quelli delle playlist (registrabili)
   const rows = $derived.by(() => {
-    const m = new Map<string, { name: string; order: number | null; number: number | null; items: GuideProgramme[] }>();
+    const m = new Map<string, { key: string; name: string; order: number | null; number: number | null; items: GuideProgramme[] }>();
     for (const p of programmes) {
       if (recordable && p.channelId == null) continue;
       const key = p.channelId != null ? 'c' + p.channelId : 'g' + p.guideChannelId;
       const name = p.channelName || p.guideChannelName;
       const r = m.get(key);
       if (r) r.items.push(p);
-      else m.set(key, { name, order: p.channelOrder ?? null, number: p.channelNumber ?? null, items: [p] });
+      else m.set(key, { key, name, order: p.channelOrder ?? null, number: p.channelNumber ?? null, items: [p] });
     }
     // nell'ordine della playlist, come RegistraTV
     return [...m.values()].sort(byChannelOrder);
@@ -201,7 +201,7 @@
           <div class="corner" style:width="{CH}px">Canale</div>
           {#each hours as h (h)}<div class="tick" style:left="{CH + h * PX_PER_MIN}px">{hhmm(h)}</div>{/each}
         </div>
-        {#each rows as r (r.name)}
+        {#each rows as r (r.key)}
           <div class="row" style:height="{ROW}px">
             <div class="chname" style:width="{CH}px">{#if r.number != null}<span class="chnum">{r.number}</span>{/if}{r.name}</div>
             {#each r.items as p (p.id)}

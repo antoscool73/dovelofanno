@@ -114,14 +114,17 @@ public sealed class GuideStoreTests : IDisposable
             if (File.Exists(p)) { file = p; break; }
         }
         if (file == null) return;   // senza la guida scaricata non c'è nulla da controllare
-        var guide = XmltvReader.Load(file, DateTime.Now);
+        // l'istantanea della guida è di qualche giorno fa: si lavora a due giorni dalla sua fine, non sull'orologio
+        // (con DateTime.Now il test falliva da solo appena l'istantanea finiva, 20/11/2026)
+        var at = new DateTimeOffset(XmltvReader.Load(file, DateTime.MinValue.AddDays(2)).LastStop.AddDays(-2));
+        var guide = XmltvReader.Load(file, at.LocalDateTime);
         var store = new GuideStore(Db);
         long g = store.AddSource(file);
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        int saved = store.Save(g, guide, DateTimeOffset.UtcNow);
+        int saved = store.Save(g, guide, at);
         double saveS = sw.Elapsed.TotalSeconds;
         sw.Restart();
-        var evening = store.Query(new GuideQuery(DateTimeOffset.Now, DateTimeOffset.Now.AddHours(6)));
+        var evening = store.Query(new GuideQuery(at, at.AddHours(6)));
         double queryS = sw.Elapsed.TotalSeconds;
         Console.WriteLine($"guida vera: {guide.ProgrammeCount} programmi letti, {saved} salvati in {saveS:0.00} s; 6 ore = {evening.Count} programmi in {queryS:0.000} s");
         // (canale, inizio, titolo) doppi si salvano una volta sola

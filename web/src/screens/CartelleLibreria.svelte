@@ -46,6 +46,20 @@
   }
 
   const kinds: Record<string, string> = { auto: 'Decide il nome dei file', films: 'Film', series: 'Serie' };
+
+  // cambiare tipo riabbina tutti i file della cartella: con conferma (20/11/2026, la cartella dei film era diventata
+  // «Serie» senza che nessuno lo volesse, forse con la rotella del mouse sul menu, e 55 film erano da sistemare)
+  async function changeKind(f: LibraryFolder, sel: HTMLSelectElement) {
+    const k = sel.value;
+    const ok = await ask({
+      title: `Trattare «${f.path}» come «${kinds[k] ?? k}»?`,
+      text: `Tutti i ${f.files} file della cartella si riabbinano da capo con TMDB; quelli abbinati a mano restano come sono.`,
+      ok: 'Cambia tipo',
+      danger: false,
+    });
+    if (!ok) { sel.value = f.kind; return; }
+    act(() => api.updateFolder(f.id, { kind: k }), 'Tipo cambiato: i file si riabbinano.');
+  }
 </script>
 
 <div class="head">
@@ -84,7 +98,7 @@
           </span>
           {#if !f.enabled}<Badge tone="neutral">Sospesa</Badge>{/if}
           <label class="sel"><span class="sr-only">Tipo di cartella</span>
-            <select value={f.kind} onchange={(e) => act(() => api.updateFolder(f.id, { kind: (e.currentTarget as HTMLSelectElement).value }), 'Tipo cambiato: i file si riabbinano.')}>
+            <select value={f.kind} onchange={(e) => changeKind(f, e.currentTarget as HTMLSelectElement)}>
               <option value="auto">Decide il nome</option><option value="films">Film</option><option value="series">Serie</option>
             </select>
           </label>

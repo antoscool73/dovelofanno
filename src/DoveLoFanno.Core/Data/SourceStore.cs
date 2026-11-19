@@ -42,10 +42,26 @@ public sealed class SourceStore(string dbPath)
         if (priority != null) Db.Exec(c, "UPDATE sources SET priority = $v WHERE id = $id", ("$v", priority.Value), ("$id", id));
     }
 
-    public void DeleteSource(long id)
+    /// <summary>
+    /// Toglie la playlist con i suoi flussi e i canali che restano senza flussi (20/11/2026, scelta di Antonio: togliendo
+    /// «forgejo Italia» restavano 317 canali vuoti). I canali con registrazioni (fatte o programmate) restano, per lo
+    /// storico. Restituisce quanti canali ha tolto.
+    /// </summary>
+    public int DeleteSource(long id)
     {
         using var c = Open();
+        using var tx = c.BeginTransaction();
+        var mine = Db.Query(c, "SELECT DISTINCT channel_id FROM streams WHERE source_id = $id", r => r.GetInt64(0), ("$id", id));
         Db.Exec(c, "DELETE FROM sources WHERE id = $id", ("$id", id));
+        int removed = 0;
+        foreach (long ch in mine)
+            removed += Db.Exec(c, """
+                DELETE FROM channels WHERE id = $c
+                  AND NOT EXISTS (SELECT 1 FROM streams WHERE channel_id = $c)
+                  AND NOT EXISTS (SELECT 1 FROM recordings WHERE channel_id = $c)
+                """, ("$c", ch));
+        tx.Commit();
+        return removed;
     }
 
     public void SetSourceError(long id, string error, DateTimeOffset now)
@@ -54,9 +70,81 @@ public sealed class SourceStore(string dbPath)
         Db.Exec(c, "UPDATE sources SET last_error = $e, last_checked_at = $t WHERE id = $id", ("$e", error), ("$t", Db.Unix(now)), ("$id", id));
     }
 
-    /// <summary>Identità stabile del canale: tvg-id se c'è, altrimenti il nome normalizzato.</summary>
-    public static string ChannelKey(M3uEntry e) =>
-        e.TvgId.Trim().Length > 0 ? "id:" + e.TvgId.Trim().ToLowerInvariant() : "name:" + Titles.ChannelKey(e.Name);
+    /// <summary>
+    /// Identità stabile del canale: tvg-id se c'è, altrimenti il nome, tutti e due normalizzati come per la guida
+    /// (Titles.ChannelKey): "rai1.it" e "Rai.1.HD..101.it" sono lo stesso canale (19/11/2026: una seconda playlist
+    /// aveva creato un secondo «Rai 1» invece di un flusso di riserva, e la griglia della guida si bloccava).
+    /// </summary>
+    public static string ChannelKey(M3uEntry e)
+    {
+        string id = e.TvgId.Trim();
+        if (id.Length == 0) return "name:" + Titles.ChannelKey(e.Name);
+        string n = Titles.ChannelKey(id);
+        return "id:" + (n.Length > 0 ? n : id.ToLowerInvariant());
+    }
+
+    /// <summary>La parte che decide se due canali sono lo stesso: tvg-id o nome normalizzati, senza "id:"/"name:".</summary>
+    static string SameChannel(string key)
+    {
+        int colon = key.IndexOf(':');
+        string rest = colon >= 0 ? key[(colon + 1)..] : key;
+        string n = Titles.ChannelKey(rest);
+        return n.Length > 0 ? n : rest;
+    }
+
+    /// <summary>Nome del canale normalizzato ("Rai 1 HD" = "Rai 1"); vuoto se non resta niente.</summary>
+    static string SameName(string name) => Titles.ChannelKey(name);
+
+    /// <summary>
+    /// Unisce i canali che sono lo stesso canale: stessa chiave normalizzata (anche uno per tvg-id e uno per nome) oppure
+    /// stesso nome normalizzato (due playlist con tvg-id diversi, "20" e "Mediaset20.it", per «20 Mediaset»). Resta il
+    /// più vecchio, che prende flussi e registrazioni degli altri. Restituisce quanti canali ha tolto.
+    /// </summary>
+    public int MergeDuplicateChannels()
+    {
+        using var c = Open();
+        using var tx = c.BeginTransaction();
+        int n = MergeDuplicates(c);
+        tx.Commit();
+        return n;
+    }
+
+    static int MergeDuplicates(SqliteConnection c)
+    {
+        var all = Db.Query(c, "SELECT id, key, guide_channel_id, name FROM channels ORDER BY id",
+            r => (Id: r.GetInt64(0), Key: r.GetString(1), Guide: Db.NLong(r, 2), Name: r.GetString(3)));
+        // gruppi: due canali stanno insieme se hanno in comune la chiave o il nome normalizzati (anche a catena)
+        var parent = all.ToDictionary(x => x.Id, x => x.Id);
+        long Find(long x) { while (parent[x] != x) x = parent[x] = parent[parent[x]]; return x; }
+        var firstByKey = new Dictionary<string, long>();
+        foreach (var x in all)
+            foreach (string k in new[] { "k:" + SameChannel(x.Key), "n:" + SameName(x.Name) })
+            {
+                if (k is "k:" or "n:") continue;
+                if (firstByKey.TryGetValue(k, out long other)) { long a = Find(x.Id), b = Find(other); if (a != b) parent[Math.Max(a, b)] = Math.Min(a, b); }
+                else firstByKey[k] = x.Id;
+            }
+        int removed = 0;
+        foreach (var g in all.GroupBy(x => Find(x.Id)))
+        {
+            var keep = g.First();
+            foreach (var dup in g.Skip(1))
+            {
+                // un flusso con lo stesso indirizzo nella stessa playlist c'è già nel canale che resta: quello doppio si toglie
+                Db.Exec(c, "UPDATE OR IGNORE streams SET channel_id = $k WHERE channel_id = $d", ("$k", keep.Id), ("$d", dup.Id));
+                Db.Exec(c, "DELETE FROM streams WHERE channel_id = $d", ("$d", dup.Id));
+                Db.Exec(c, "UPDATE recordings SET channel_id = $k WHERE channel_id = $d", ("$k", keep.Id), ("$d", dup.Id));
+                if (keep.Guide == null && dup.Guide != null)
+                    Db.Exec(c, "UPDATE channels SET guide_channel_id = $g WHERE id = $k", ("$g", dup.Guide), ("$k", keep.Id));
+                Db.Exec(c, "DELETE FROM channels WHERE id = $d", ("$d", dup.Id));
+                removed++;
+            }
+            // la chiave del canale che resta nella forma normalizzata (nessun altro canale può averla: sarebbe nel gruppo)
+            string key = (keep.Key.StartsWith("id:", StringComparison.Ordinal) ? "id:" : "name:") + SameChannel(keep.Key);
+            if (key != keep.Key) Db.Exec(c, "UPDATE channels SET key = $key WHERE id = $id", ("$key", key), ("$id", keep.Id));
+        }
+        return removed;
+    }
 
     /// <summary>
     /// Importa la playlist letta: crea i canali nuovi, aggiunge i flussi nuovi (DRM segnati come tali), toglie quelli
@@ -68,14 +156,29 @@ public sealed class SourceStore(string dbPath)
         using var tx = c.BeginTransaction();
         int added = 0, drm = 0, position = -1;
         var keep = new HashSet<long>();
+        MergeDuplicates(c);
+        // canali già noti per chiave o nome normalizzati: lo stesso canale in un'altra playlist, con il tvg-id scritto in
+        // un altro modo o diverso, diventa un flusso di riserva e non un secondo canale
+        var known = new Dictionary<string, long>();
+        foreach (var (id, k, n) in Db.Query(c, "SELECT id, key, name FROM channels ORDER BY id", r => (r.GetInt64(0), r.GetString(1), r.GetString(2))))
+        {
+            known.TryAdd("k:" + SameChannel(k), id);
+            if (SameName(n).Length > 0) known.TryAdd("n:" + SameName(n), id);
+        }
         foreach (var e in playlist.Entries)
         {
             position++;
             string key = ChannelKey(e);
             if (key is "id:" or "name:") continue;
-            long? ch = Db.ScalarLong(c, "SELECT id FROM channels WHERE key = $k", ("$k", key));
+            string byName = SameName(e.Name);
+            long? ch = known.TryGetValue("k:" + SameChannel(key), out long found) ? found
+                : byName.Length > 0 && known.TryGetValue("n:" + byName, out found) ? found : null;
             if (ch == null)
+            {
                 ch = Db.Insert(c, "INSERT INTO channels (key, name, logo, group_title) VALUES ($k, $n, $l, $g)", ("$k", key), ("$n", e.Name), ("$l", e.Logo), ("$g", e.Group));
+                known["k:" + SameChannel(key)] = ch.Value;
+                if (byName.Length > 0) known.TryAdd("n:" + byName, ch.Value);
+            }
             string kind = e.Url.Contains(".mpd", StringComparison.OrdinalIgnoreCase) ? "dash"
                 : e.Url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "unknown";
             long? st = Db.ScalarLong(c, "SELECT id FROM streams WHERE source_id = $s AND channel_id = $c AND url = $u", ("$s", sourceId), ("$c", ch), ("$u", e.Url));

@@ -130,6 +130,116 @@ public class SourcesTests
         finally { Cleanup(db); }
     }
 
+    // 19/11/2026: una seconda playlist (forgejo) scrive i tvg-id in un altro modo e creava un secondo «Rai 1»;
+    // la griglia della guida, con due righe dallo stesso nome, si bloccava su «Un momento…»
+    const string AltraPlaylist = """
+        #EXTM3U
+        #EXTINF:-1 tvg-id="Rai.1.HD..101.it" group-title="Rai",Rai 1 HD
+        https://altra.example/rai1.m3u8
+        #EXTINF:-1 tvg-id="" group-title="Sky",TV8
+        https://altra.example/tv8.m3u8
+        #EXTINF:-1 tvg-id="Top.Crime.it" group-title="Mediaset",Top Crime
+        https://altra.example/topcrime.mpd
+        #EXTINF:-1 tvg-id="Tv8Alt" group-title="Sky",TV8 HD
+        https://altra.example/tv8-alt.m3u8
+        """;
+
+    [Theory]
+    [InlineData("Rai1.it", "id:rai1")]
+    [InlineData("Rai.1.HD..101.it", "id:rai1")]
+    [InlineData("Top.Crime.it", "id:topcrime")]
+    [InlineData("", "name:canalesenzaid")]
+    public void ChiaveDelCanaleNormalizzata(string tvgId, string expected) =>
+        Assert.Equal(expected, SourceStore.ChannelKey(new M3uEntry("Canale Senza Id", "", tvgId, "", "https://x/y", "", "", false)));
+
+    [Fact]
+    public void Archivio_DuePlaylistStessoCanale()
+    {
+        string db = NewDb();
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var s = new SourceStore(db);
+            long a = s.AddSource("TV Italia", "https://example.org/it.m3u", now);
+            long b = s.AddSource("Altra", "https://example.org/altra.m3u", now);
+            s.Import(a, M3uParser.Parse(Pl), now);
+            s.Import(b, M3uParser.Parse(AltraPlaylist.ReplaceLineEndings("\n")), now);
+            var ch = s.Channels();
+            // Rai 1 (tvg-id scritto diverso) e TV8 (per nome: senza tvg-id e con un tvg-id diverso) sono gli stessi canali
+            Assert.Single(ch, c => c.Name.StartsWith("Rai 1"));
+            Assert.Single(ch, c => c.Name == "TV8");
+            Assert.Equal(2, ch.Single(c => c.Name.StartsWith("Rai 1")).Streams);
+            Assert.Equal(3, ch.Single(c => c.Name == "TV8").Streams);
+            Assert.Equal(5, ch.Count);                                  // 4 della prima + Top Crime
+        }
+        finally { Cleanup(db); }
+    }
+
+    [Fact]
+    public void Archivio_TogliereUnaPlaylistToglieICanaliRimastiVuoti()
+    {
+        string db = NewDb();
+        try
+        {
+            var now = new DateTimeOffset(2026, 11, 20, 20, 0, 0, TimeSpan.Zero);
+            var s = new SourceStore(db);
+            long a = s.AddSource("TV Italia", "https://example.org/it.m3u", now);
+            long b = s.AddSource("Altra", "https://example.org/altra.m3u", now);
+            s.Import(a, M3uParser.Parse(Pl), now);
+            s.Import(b, M3uParser.Parse(AltraPlaylist.ReplaceLineEndings("\n")), now);
+            Assert.Equal(5, s.Channels().Count);
+            // Top Crime c'è solo nella seconda playlist: con una registrazione resta, senza sparirebbe
+            long top = s.Channels().Single(c => c.Name == "Top Crime").Id;
+            new RecordingStore(db).Schedule(top, "Giallo", now.AddHours(1), now.AddHours(2), 2, 10, "mp4", now);
+
+            Assert.Equal(0, s.DeleteSource(b));                          // Rai 1 e TV8 hanno ancora la prima playlist
+            Assert.Equal(5, s.Channels().Count);
+            Assert.Equal(1, s.Channels().Single(c => c.Name.StartsWith("Rai 1")).Streams);
+
+            Assert.Equal(4, s.DeleteSource(a));                          // Rai 1, TV8, NOVE e il canale locale; resta Top Crime
+            Assert.Equal(new[] { "Top Crime" }, s.Channels().Select(c => c.Name));
+            Assert.Empty(s.Sources());
+        }
+        finally { Cleanup(db); }
+    }
+
+    [Fact]
+    public void Archivio_DoppioniGiaCreatiUnitiSenzaPerdereRegistrazioni()
+    {
+        string db = NewDb();
+        try
+        {
+            var now = new DateTimeOffset(2026, 11, 19, 20, 0, 0, TimeSpan.Zero);
+            var s = new SourceStore(db);
+            long a = s.AddSource("TV Italia", "https://example.org/it.m3u", now);
+            s.Import(a, M3uParser.Parse(Pl), now);
+            long rai = s.Channels().Single(c => c.Name == "Rai 1").Id;
+            // il doppione come lo creava la versione di prima: chiave grezza, un flusso, una registrazione programmata
+            long dup;
+            using (var c = new SqliteConnection($"Data Source={db}"))
+            {
+                c.Open();
+                using var cmd = c.CreateCommand();
+                cmd.CommandText = "INSERT INTO channels (key, name) VALUES ('id:rai.1.hd..101.it', 'Rai 1'); SELECT last_insert_rowid();";
+                dup = (long)cmd.ExecuteScalar()!;
+                cmd.CommandText = $"INSERT INTO streams (channel_id, source_id, url, kind, state) VALUES ({dup}, {a}, 'https://altra.example/rai1.m3u8', 'hls', 'ok')";
+                cmd.ExecuteNonQuery();
+                // e un doppione con un tvg-id proprio diverso ma lo stesso nome
+                cmd.CommandText = "INSERT INTO channels (key, name) VALUES ('id:20', 'TV8 HD')";
+                cmd.ExecuteNonQuery();
+            }
+            long rec = new RecordingStore(db).Schedule(dup, "Film", now.AddHours(1), now.AddHours(3), 2, 10, "mp4", now);
+
+            Assert.Equal(2, s.MergeDuplicateChannels());
+            Assert.Single(s.Channels(), c => c.Name.StartsWith("TV8"));
+            Assert.Single(s.Channels(), c => c.Name == "Rai 1");
+            Assert.Equal(2, s.Channels().Single(c => c.Id == rai).Streams);
+            Assert.Equal(rai, new RecordingStore(db).Get(rec)!.ChannelId);
+            Assert.Equal(0, s.MergeDuplicateChannels());                  // la seconda volta non c'è più niente da unire
+        }
+        finally { Cleanup(db); }
+    }
+
     [Fact]
     public void Archivio_Registrazioni()
     {
