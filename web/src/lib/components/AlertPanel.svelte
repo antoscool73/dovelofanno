@@ -4,7 +4,8 @@
   import { api, ApiError, type AlertKind, type AlertRow, type ProfileSubscriptions } from '../api/client';
   import { session } from '../session.svelte';
 
-  let { workId }: { workId: number } = $props();
+  // onchange: quanti avvisi sono accesi (la Scheda lo mostra sul pulsante); onclose: pannello che si chiude (Scheda)
+  let { workId, onchange, onclose }: { workId: number; onchange?: (active: number) => void; onclose?: () => void } = $props();
 
   let alerts = $state<AlertRow[]>([]);
   let subs = $state<ProfileSubscriptions | null>(null);
@@ -54,11 +55,14 @@
     { id: 'soon', label: '30 minuti prima' },
   ];
   const mySubs = $derived(subs?.services ?? []);
+  $effect(() => { onchange?.(alerts.filter((a) => a.active).length); });
 </script>
 
 <section class="panel" aria-labelledby="av-title">
-  <h2 id="av-title">Avvisami</h2>
-  <p class="f-muted">Gli avvisi arrivano nella campanella in alto (e su Telegram, se l'hai collegato in Impostazioni).</p>
+  <div class="top">
+    <h2 id="av-title">Avvisami</h2>
+    {#if onclose}<button type="button" class="close" onclick={onclose}>Chiudi</button>{/if}
+  </div>
   {#if error}<p class="f-error" role="alert">{error}</p>{/if}
 
   <div class="alert">
@@ -66,14 +70,20 @@
     {#if of('tv')}
       {@const a = of('tv')!}
       <div class="opts">
-        <div class="f-chips" role="group" aria-label="Quando avvisare">
-          {#each moments as m (m.id)}
-            <button type="button" class="f-chip" aria-pressed={a.moments.includes(m.id)} disabled={busy} onclick={() => save('tv', { moments: toggleIn(a.moments, m.id) })}>{m.label}</button>
-          {/each}
+        <div class="line">
+          <span class="lbl">Quando</span>
+          <div class="f-chips" role="group" aria-label="Quando avvisare">
+            {#each moments as m (m.id)}
+              <button type="button" class="f-chip" aria-pressed={a.moments.includes(m.id)} disabled={busy} onclick={() => save('tv', { moments: toggleIn(a.moments, m.id) })}>{m.label}</button>
+            {/each}
+          </div>
         </div>
-        <div class="f-chips" role="group" aria-label="Su quali canali">
-          <button type="button" class="f-chip" aria-pressed={a.channels === 'all'} disabled={busy} onclick={() => save('tv', { channels: 'all' })}>Tutti i canali</button>
-          <button type="button" class="f-chip" aria-pressed={a.channels === 'playlist'} disabled={busy} onclick={() => save('tv', { channels: 'playlist' })}>Solo quelli che posso registrare</button>
+        <div class="line">
+          <span class="lbl">Canali</span>
+          <div class="f-chips" role="group" aria-label="Su quali canali">
+            <button type="button" class="f-chip" aria-pressed={a.channels === 'all'} disabled={busy} onclick={() => save('tv', { channels: 'all' })}>Tutti i canali</button>
+            <button type="button" class="f-chip" aria-pressed={a.channels === 'playlist'} disabled={busy} onclick={() => save('tv', { channels: 'playlist' })}>Solo quelli che posso registrare</button>
+          </div>
         </div>
         <label class="f-check"><input type="checkbox" checked={a.autoRecord} disabled={busy} onchange={(e) => save('tv', { autoRecord: e.currentTarget.checked })} /> Registra da solo quando il canale si può registrare</label>
         <p class="status">{a.status}</p>
@@ -109,17 +119,20 @@
       </div>
     {/if}
   </div>
-  {#if any('subscription') || any('rent_buy')}
-    <p class="f-muted small">Piattaforme da JustWatch tramite TMDB, ricontrollate una volta al giorno (serve la chiave TMDB).</p>
-  {/if}
+  <p class="f-muted small foot">Gli avvisi arrivano nella campanella in alto (e su Telegram, se l'hai collegato in Impostazioni).{#if any('subscription') || any('rent_buy')}{' '}Piattaforme da JustWatch tramite TMDB, ricontrollate una volta al giorno.{/if}</p>
 </section>
 
 <style>
-  .panel { display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
-  h2 { font-size: 22px; }
-  .alert { border-top: 1px solid var(--line-soft); padding-top: 8px; }
+  .panel { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 14px 20px 16px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h2 { font-size: 20px; }
+  .close { border: 0; background: none; padding: 6px 4px; color: var(--link); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .alert { border-top: 1px solid var(--line-soft); padding-top: 4px; }
   .head { font-weight: 600; }
-  .opts { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 6px 26px; }
+  .opts { display: flex; flex-direction: column; gap: 8px; padding: 0 0 8px 26px; }
+  .line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .lbl { flex: 0 0 56px; font-size: 13px; color: var(--muted); }
+  .foot { margin-top: 4px; line-height: 1.45; }
   .status { margin: 0; font-size: 14px; color: var(--link-hover); }
   .small { font-size: 13px; }
   .link { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; }

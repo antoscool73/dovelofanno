@@ -33,6 +33,15 @@
   let mySubs = $state<string[]>([]);
   let ignored = $state(false);
 
+  // "Avvisami" si apre sotto i pulsanti, come le liste: niente da cercare in fondo alla pagina
+  let alertsOpen = $state(false);
+  let activeAlerts = $state(0);
+  function openAlerts() {
+    alertsOpen = true;
+    listsOpen = false;
+    setTimeout(() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+
   async function load() {
     try {
       w = await api.work(id, session.profile?.id);
@@ -41,8 +50,9 @@
       if (prof) {
         api.profileSubscriptions(prof.id).then((s) => (mySubs = s.services)).catch(() => {});
         api.ignored(prof.id).then((l) => (ignored = !!w && l.some((i) => i.title === w!.title))).catch(() => {});
+        api.alerts(prof.id, id).then((l) => (activeAlerts = l.filter((a) => a.active).length)).catch(() => {});
       }
-      if (location.hash === '#avvisami') setTimeout(() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }), 200);
+      if (location.hash === '#avvisami' && prof) openAlerts();
     } catch (e) {
       error = e instanceof ApiError ? (e.status === 404 ? 'Opera non trovata.' : e.message) : 'Scheda non letta';
     }
@@ -135,6 +145,7 @@
     if (!prof) return;
     listsOpen = !listsOpen;
     if (listsOpen) {
+      alertsOpen = false;
       try { allLists = (await api.lists(prof.id)).filter((l) => l.canEdit); }
       catch (e) { error = e instanceof ApiError ? e.message : 'Liste non lette'; }
     }
@@ -236,7 +247,7 @@
             <Button variant="soft" size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia serata ✓' : 'Aggiungi alla mia serata'} variants={['Nella mia serata ✓', 'Aggiungi alla mia serata']} /></Button>
             <Button variant="soft" size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}><StableLabel text={w.watched ? 'Visto ✓' : 'Segna come visto'} variants={['Visto ✓', 'Segna come visto']} /></Button>
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
-            <Button variant="soft" size="l" onclick={() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' })}>Avvisami</Button>
+            <Button variant="soft" size="l" pressed={alertsOpen} onclick={() => (alertsOpen ? (alertsOpen = false) : openAlerts())}><StableLabel text={activeAlerts > 0 ? 'Avvisi attivi ✓' : 'Avvisami'} variants={['Avvisi attivi ✓', 'Avvisami']} /></Button>
             <Button variant="ghost" size="l" disabled={ignored} onclick={noMore}><StableLabel text={ignored ? 'Non lo propongo più' : 'Non proporre più'} variants={['Non lo propongo più', 'Non proporre più']} /></Button>
           {/if}
         </div>
@@ -257,6 +268,10 @@
         {#if nextRecordable && !nextRecordable.scheduled}<p class="muted small">Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.</p>{/if}
       </div>
     </div>
+    {#if alertsOpen && session.profile}
+      <!-- fuori da .hero-in: la locandina resta dov'è; allineato alla colonna del testo -->
+      <div id="avvisami" class="alertbox"><AlertPanel workId={w.id} onchange={(n) => (activeAlerts = n)} onclose={() => (alertsOpen = false)} /></div>
+    {/if}
   </section>
 
   <div class="pad cols">
@@ -318,10 +333,9 @@
         {#each byKind as k (k.kind)}
           <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
-        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth' }); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
+        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}
-      {#if session.profile}<div id="avvisami"><AlertPanel workId={w.id} /></div>{/if}
     </aside>
   </div>
   {#if rematch !== null}
@@ -355,6 +369,7 @@
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }
   .listmenu { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
+  .alertbox { position: relative; max-width: 760px; margin: -12px var(--gutter) 32px calc(var(--gutter) + 260px); scroll-margin: 16px; }
   .lcheck { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 15px; cursor: pointer; }
   .lcheck input { width: 18px; height: 18px; accent-color: var(--blue); }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1; letter-spacing: -0.02em; }
@@ -387,4 +402,6 @@
   .plat.mine :global(.ic) { box-shadow: 0 0 0 2px var(--green); }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
   @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .hero-in { gap: 20px; padding-top: 24px; } }
+  /* quando la locandina va sopra il testo (flex-wrap), il pannello parte dal margine */
+  @media (max-width: 780px) { .alertbox { margin-left: var(--gutter); } }
 </style>
