@@ -56,6 +56,7 @@
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
   import AlertPanel from '../lib/components/AlertPanel.svelte';
+  import ListDialog from '../lib/components/ListDialog.svelte';
   import Button from '../lib/components/Button.svelte';
   import { availOf, type Avail } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
@@ -199,6 +200,11 @@
     return () => io.disconnect();
   });
 
+  const metaOf = (h: SearchHit) => {
+    const k = kindLabel[h.kind] ?? '';
+    const g = (h.genres ?? []).filter((x) => x !== k).slice(0, 3).join(', ');
+    return [k, g, h.country].filter(Boolean).join(' · ');
+  };
   const kindLabel: Record<string, string> = { film: 'Film', series: 'Serie TV', documentary: 'Documentario', programme: 'Programma' };
   const keyOf = (h: SearchHit) => (h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`);
   // in TV: come le locandine, la € gialla solo se non si vede in altro modo
@@ -265,51 +271,19 @@
   });
 
   // ---------------------------------------------------------------- liste dinamiche
-  const dirty = $derived(!!list && JSON.stringify(toSaved(f)) !== savedJson);
-  let saving = $state(false);
+  // «Salva come lista»: il popup comune delle liste (lo stesso di Libreria), lista nuova o una dinamica che c'è già
   let saveOpen = $state(false);
-  let saveName = $state('');
-  let saveFamily = $state(false);
-  let saveHome = $state(true);
   let saved = $state('');
-  function startSave() {
-    saveName = (f.q.trim() || summary || 'La mia ricerca').slice(0, 60);
-    saveName = saveName.charAt(0).toUpperCase() + saveName.slice(1);
-    saveFamily = false; saveHome = true; saved = ''; saveOpen = true;
-  }
-  async function saveNew(e: SubmitEvent) {
-    e.preventDefault();
-    const p = session.profile;
-    if (!p || !saveName.trim() || saving) return;
-    saving = true;
-    try {
-      const l = await api.createList(p.id, saveName.trim(), saveFamily, toSaved(f));
-      list = saveHome ? await api.updateList(p.id, l.id, { onHome: true }) : l;
-      listId = l.id;
-      savedJson = JSON.stringify(toSaved(f));
-      saveOpen = false;
-      saved = `Lista «${l.name}» salvata${saveHome ? ': la trovi anche nella pagina La mia serata' : ''}.`;
-      error = '';
-    } catch (err) { error = err instanceof ApiError ? err.message : 'Lista non salvata'; }
-    finally { saving = false; }
-  }
-  async function saveChanges() {
-    const p = session.profile;
-    if (!p || !list || saving) return;
-    saving = true;
-    try {
-      list = await api.updateList(p.id, list.id, { query: toSaved(f) });
-      savedJson = JSON.stringify(toSaved(f));
-      saved = 'Modifiche salvate.';
-      error = '';
-    } catch (err) { error = err instanceof ApiError ? err.message : 'Modifiche non salvate'; }
-    finally { saving = false; }
-  }
-  async function toggleHome() {
-    const p = session.profile;
-    if (!p || !list) return;
-    try { list = await api.updateList(p.id, list.id, { onHome: !list.onHome }); }
-    catch (err) { error = err instanceof ApiError ? err.message : 'Non salvato'; }
+  const saveName = $derived.by(() => {
+    const n = (f.q.trim() || summary || 'La mia ricerca').slice(0, 60);
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  });
+  function listSaved(l: ListSummary, created: boolean) {
+    saveOpen = false;
+    list = l;
+    listId = l.id;
+    savedJson = JSON.stringify(toSaved(f));
+    saved = `${created ? 'Lista' : 'Aggiornata la lista'} «${l.name}»${l.onHome ? ': la trovi anche in La mia serata' : ''}.`;
   }
   function closeList() {
     list = null; listId = null; savedJson = ''; saved = '';
@@ -328,15 +302,27 @@
 </script>
 
 <div class="page">
+  <!-- titolo e pulsanti restano in vista scorrendo i risultati: la barra sta nella pagina, non nell'intestazione -->
+  <div class="titlebar">
+    <div class="tt">
+      {#if list}<a class="back" href="/libreria" onclick={navigate}>← Le mie liste</a>{/if}
+      <h1>{list ? list.name : 'Make my day'}</h1>
+    </div>
+    <div class="topacts">
+      <Button variant={changed ? 'primary' : 'soft'} disabled={!changed || loading} onclick={search}>{loading ? 'Cerco…' : 'Cerca'}</Button>
+      {#if session.profile}
+        <Button variant="soft" disabled={!canSearch} onclick={() => { saved = ''; saveOpen = true; }}>{list ? 'Salva la lista' : 'Salva come lista'}</Button>
+      {/if}
+    </div>
+  </div>
   <header class="head">
     {#if list}
-      <a class="back" href="/libreria" onclick={navigate}>← Le mie liste</a>
-      <h1>{list.name}</h1>
-      <p class="muted">Lista dinamica{list.family ? ' della famiglia' : ''}: i titoli sono i risultati di questa ricerca e cambiano da soli. Cambia i filtri e salva le modifiche.</p>
+      <p class="muted">Lista dinamica{list.family ? ' della famiglia' : ''}{list.onHome ? ', in La mia serata' : ''}: i titoli sono i risultati di questa ricerca e cambiano da soli. <button type="button" class="linkbtn" onclick={closeList}>Chiudi la lista</button></p>
     {:else}
-      <h1>Cerca</h1>
       <p class="muted">Titolo, regista o attore, con i filtri che ti servono: in TV, nei tuoi abbonamenti, a noleggio, in casa. Se un titolo non è disponibile, fatti avvisare. Una ricerca che ti piace salvala come lista.</p>
     {/if}
+    {#if changed}<p class="hint" role="status">Hai cambiato i filtri: tocca «Cerca» per vedere i risultati.</p>{/if}
+    {#if saved}<p class="ok small" role="status">{saved}</p>{/if}
   </header>
 
   <div class="cols">
@@ -409,32 +395,6 @@
 
     <section class="results" aria-label="Risultati" aria-busy={loading}>
       {#if error}<p class="error" role="alert">{error}</p>{/if}
-      <div class="searchbar">
-        <Button variant={changed ? 'primary' : 'soft'} disabled={!changed || loading} onclick={search}>{loading ? 'Cerco…' : 'Cerca'}</Button>
-        {#if changed}<span class="muted small">Hai cambiato i filtri: tocca «Cerca» per vedere i risultati.</span>{/if}
-      </div>
-      {#if session.profile && canSearch}
-        <div class="savebar">
-          {#if list}
-            <Button variant={dirty ? 'primary' : 'soft'} size="s" disabled={!dirty || saving} onclick={saveChanges}>Salva le modifiche</Button>
-            <Button variant={list.onHome ? 'primary' : 'soft'} size="s" pressed={list.onHome} onclick={toggleHome}>In La mia serata</Button>
-            <Button variant="ghost" size="s" onclick={startSave}>Salva come nuova lista</Button>
-            <Button variant="ghost" size="s" onclick={closeList}>Chiudi la lista</Button>
-          {:else if !saveOpen}
-            <Button variant="soft" size="s" onclick={startSave}>Salva come lista</Button>
-          {/if}
-          {#if saved}<span class="ok small" role="status">{saved}</span>{/if}
-        </div>
-        {#if saveOpen}
-          <form class="saveform" onsubmit={saveNew}>
-            <label class="field grow">Nome della lista<input bind:value={saveName} maxlength="60" /></label>
-            <label class="check"><input type="checkbox" bind:checked={saveHome} />Mostrala in La mia serata</label>
-            {#if !session.profile.isChild}<label class="check"><input type="checkbox" bind:checked={saveFamily} />Della famiglia</label>{/if}
-            <Button variant="primary" size="s" type="submit" disabled={!saveName.trim() || saving}>Salva</Button>
-            <Button variant="ghost" size="s" onclick={() => (saveOpen = false)}>Annulla</Button>
-          </form>
-        {/if}
-      {/if}
       {#if !canSearch}
         <p class="muted">Scrivi almeno 2 lettere o scegli un filtro: trovi quello che passa in TV, i film di casa e qualunque film o serie, anche in streaming o non disponibile.</p>
       {:else if loading && hits.length === 0}
@@ -464,24 +424,24 @@
                 {#if h.excluded}<span class="excl" title="L'hai tolto con «Non proporre più»: con i soli filtri non compare">Escluso</span>
                   <button type="button" class="linkbtn small" onclick={() => readmit(h)}>Riammetti</button>{/if}
               </div>
-              <div class="meta">{[kindLabel[h.kind] ?? '', (h.genres ?? []).slice(0, 3).join(', '), h.country].filter(Boolean).join(' · ')}</div>
-              {#if h.credits}<div class="meta muted">{h.credits}</div>{:else if h.overview}<div class="meta muted plot">{h.overview}</div>{/if}
+              <div class="meta" title={metaOf(h)}>{metaOf(h)}</div>
+              <div class="meta muted" title={h.credits || h.overview}>{h.credits || h.overview || ' '}</div>
               <div class="status">
                 <AvailBadges a={a} size={20} inline />
-                <span class="muted">{st || (unknownWhere(h) ? 'Dove si vede: apri la scheda' : 'Per ora non si vede: né in TV nei prossimi giorni, né in casa, né in streaming')}</span>
-                <span class="grow"></span>
-                <!-- un avviso serve solo se il titolo non lo vedi già: in casa si guarda, nei miei abbonamenti si apre -->
-                {#if a.home}
-                  <Button size="s" variant="primary" onclick={() => open(h)} disabled={opening != null}>▶ Guarda</Button>
-                {:else if a.mine.length > 0}
-                  <Button size="s" variant="soft" onclick={() => open(h)} disabled={opening != null}>Apri</Button>
-                {:else}
-                  <span class="tip">
-                    <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
-                    <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Il pannello si apre a destra.</span>
-                  </span>
-                {/if}
+                <span class="muted line" title={st}>{st || (unknownWhere(h) ? 'Dove si vede: apri la scheda' : 'Per ora non si vede: né in TV, né in casa, né in streaming')}</span>
               </div>
+            </div>
+            <div class="act">
+              {#if a.home}
+                <Button size="s" variant="primary" onclick={() => open(h)} disabled={opening != null}>▶ Guarda</Button>
+              {:else if a.mine.length > 0}
+                <Button size="s" variant="soft" onclick={() => open(h)} disabled={opening != null}>Apri</Button>
+              {:else}
+                <span class="tip">
+                  <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                  <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Il pannello si apre a destra.</span>
+                </span>
+              {/if}
             </div>
           </li>
         {/each}
@@ -492,6 +452,9 @@
       {#if hits.length > 0}<p class="muted small">Titoli, locandine e piattaforme da TMDB e JustWatch.</p>{/if}
     </section>
 
+    {#if saveOpen}
+      <ListDialog query={toSaved(f)} currentListId={list?.id ?? null} suggestedName={saveName} onclose={() => (saveOpen = false)} ondone={listSaved} />
+    {/if}
     <aside class="side">
       <fieldset class="panel">
         <legend>Disponibile</legend>
@@ -515,7 +478,13 @@
 
 <style>
   .page { padding: 24px var(--gutter) 64px; max-width: 1440px; display: flex; flex-direction: column; gap: 20px; }
-  h1 { font-size: 30px; margin: 0 0 4px; }
+  h1 { font-size: 30px; margin: 0; }
+  .head { display: flex; flex-direction: column; gap: 6px; }
+  .titlebar { position: sticky; top: 53px; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 20px; padding: 10px 0; background: var(--bg); }
+  .tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .topacts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hint { margin: 0; font-size: 13px; color: var(--orange-text); }
   .muted { margin: 0; color: var(--muted); }
   .small { font-size: 13px; }
   .error { margin: 0; color: var(--rec-text); }
@@ -546,19 +515,22 @@
   .results { flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .sum { margin: 0; font-size: 14px; color: var(--muted); }
   .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-  .rows li { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 14px; padding: 12px; }
+  /* schede tutte alte uguali: locandina, quattro righe (titolo, genere, persone o trama, dove si vede), azione a destra */
+  .rows li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 0 14px; height: 120px; box-sizing: border-box;
+    background: var(--card); border: 1px solid var(--line-strong); border-radius: 14px; padding: 12px; }
   .rows li.sel { border-color: var(--blue); }
-  .poster { position: relative; flex: 0 0 84px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; border: 0; padding: 0; background: #2b3d63; cursor: pointer; }
+  .poster { position: relative; width: 64px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; border: 0; padding: 0; background: #2b3d63; cursor: pointer; }
   .wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(13, 16, 21, 0.6); font-weight: 700; }
-  .body { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-  .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
-  .title { border: 0; background: none; padding: 0; color: var(--text); font-family: var(--font-display); font-size: 18px; font-weight: 700; text-align: left; cursor: pointer; }
+  .body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .top { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+  .top > :not(.title) { flex: 0 0 auto; }
+  .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: none; padding: 0; color: var(--text); font-family: var(--font-display); font-size: 17px; font-weight: 700; text-align: left; cursor: pointer; }
+  .act { display: flex; align-items: center; }
   .rate { font-size: 13px; font-weight: 700; background: var(--raised); border-radius: 6px; padding: 2px 7px; }
   .rate.na { color: var(--muted); font-weight: 600; }
-  .meta { font-size: 13px; color: var(--text-2); }
-  .plot { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; font-size: 13px; }
-  .grow { flex: 1 1 0; }
+  .meta { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+  .status .line { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sentinel { height: 1px; }
   .linkbtn { border: 0; background: none; padding: 0; color: var(--link); font: inherit; cursor: pointer; text-align: left; }
   .back { font-size: 14px; font-weight: 600; text-decoration: none; }
@@ -569,14 +541,10 @@
   .multi[open] summary { border-color: var(--blue); }
   .mlist { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding: 8px 10px; max-height: 280px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--card); }
   .hint { font-size: 12px; color: var(--muted); }
-  .savebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-  .saveform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
-  .saveform .grow { flex: 1 1 220px; }
-  .saveform .check { min-height: 42px; }
   .ok { margin: 0; color: var(--green-text); }
   .excl { font-size: 12px; font-weight: 700; color: var(--orange-text); border: 1px solid currentColor; border-radius: 6px; padding: 1px 6px; }
 
-  .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 76px; }
+  .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 124px; }
   .panel { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; margin: 0; min-width: 0; }
   fieldset.panel legend { float: left; width: 100%; margin-bottom: 4px; }
   .alerts { gap: 10px; }
@@ -584,7 +552,6 @@
   /* icona come sulle locandine, rimessa nel flusso del testo (come nella legenda) */
   .ic { position: relative; display: inline-block; flex: 0 0 18px; width: 18px; height: 18px; }
   .ic :global(.badges) { right: 0; bottom: 0; }
-  .searchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .rows.stale { opacity: 0.45; pointer-events: none; }
   .tip { position: relative; display: inline-flex; }
   .tipbox { display: none; position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 5; width: 280px; padding: 10px 12px; border-radius: 10px;

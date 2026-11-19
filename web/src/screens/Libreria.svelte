@@ -10,6 +10,7 @@
   import Button from '../lib/components/Button.svelte';
   import Stars from '../lib/components/Stars.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
+  import ListDialog from '../lib/components/ListDialog.svelte';
   import {
     api, ApiError, type LibraryEntry, type LibraryItem, type LibrarySection, type LibrarySort, type ListDetail, type ListEntry, type ListSummary,
   } from '../lib/api/client';
@@ -125,19 +126,12 @@
   }
 
   // ---- liste
-  let newName = $state('');
+  // nuova lista: il popup comune delle liste (lo stesso di «Salva come lista» in Cerca)
   let newFamily = $state<boolean | null>(null);
-  function createList(e: SubmitEvent) {
-    e.preventDefault();
-    const prof = session.profile;
-    if (!prof || newFamily === null || !newName.trim()) return;
-    const family = newFamily;
-    act(async () => {
-      const l = await api.createList(prof.id, newName.trim(), family);
-      newName = '';
-      newFamily = null;
-      router.go(`/libreria/liste/${l.id}`);
-    }, 'Lista creata.');
+  function created(l: ListSummary) {
+    newFamily = null;
+    message = 'Lista creata.';
+    router.go(`/libreria/liste/${l.id}`);
   }
 
   let renaming = $state('');
@@ -317,7 +311,6 @@
           <Button href="/cerca" onclick={navigate}>+ Nuova lista dinamica</Button>
         </div>
       </div>
-      {#if newFamily === false}{@render newForm()}{/if}
       <div class="cards">
         {#each mine as l (l.id)}{@render listCard(l)}{/each}
       </div>
@@ -328,7 +321,6 @@
         <div><h2>Liste della famiglia</h2><p class="muted small">Le vede ogni profilo; gli adulti le modificano, i bambini vedono solo i titoli adatti.</p></div>
         {#if !child}<Button onclick={() => (newFamily = true)}>+ Nuova lista di famiglia</Button>{/if}
       </div>
-      {#if newFamily === true}{@render newForm()}{/if}
       {#if family.length === 0}
         <p class="empty">Nessuna lista della famiglia. Esempi: «Natale in famiglia», «Serate con i bambini».</p>
       {:else}
@@ -418,15 +410,9 @@
   </a>
 {/snippet}
 
-{#snippet newForm()}
-  <form class="newlist" onsubmit={createList}>
-    <label class="field grow">{newFamily ? 'Nome della lista di famiglia' : 'Nome della lista'}
-      <input bind:value={newName} maxlength="60" placeholder={newFamily ? 'Natale in famiglia' : 'Da rivedere'} />
-    </label>
-    <Button variant="primary" type="submit" disabled={!newName.trim()}>Crea</Button>
-    <Button variant="ghost" onclick={() => { newFamily = null; newName = ''; }}>Annulla</Button>
-  </form>
-{/snippet}
+{#if newFamily !== null}
+  <ListDialog family={newFamily} onclose={() => (newFamily = null)} ondone={(l) => created(l)} />
+{/if}
 
 <style>
   .pad { padding-left: var(--gutter); padding-right: var(--gutter); max-width: 1440px; }
@@ -459,9 +445,7 @@
   .mosaic span { flex: 1 1 0; border-radius: 6px; background: var(--raised); overflow: hidden; }
   .mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .lname { font-size: 17px; font-weight: 600; }
-  .newlist { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px; }
-  .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); min-width: 220px; }
-  .field input, .rename input, .search input { min-height: 42px; padding: 0 12px; border-radius: var(--radius-s); border: 1px solid var(--line-strong); background: var(--card); color: var(--text); font-size: 15px; }
+  .rename input, .search input { min-height: 42px; padding: 0 12px; border-radius: var(--radius-s); border: 1px solid var(--line-strong); background: var(--card); color: var(--text); font-size: 15px; }
   .row-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
   .cont { flex: 0 0 260px; display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px; }
   .ctitle { font-weight: 600; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
