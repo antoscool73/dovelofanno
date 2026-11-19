@@ -136,6 +136,12 @@ public sealed class MediaTools(string ffmpegPath, string ffprobePath) : IMediaTo
             catch (OperationCanceledException) { }
         }
 
-        public void Dispose() => Process.Dispose();
+        // un ffmpeg ancora vivo quando chi lo usa smette (chiusura del server a metà registrazione) va chiuso: su Windows
+        // restava a scrivere lo spezzone anche dopo la ripresa (19/11/2026)
+        public void Dispose()
+        {
+            Kill();
+            Process.Dispose();
+        }
     }
 }

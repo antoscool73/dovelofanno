@@ -133,7 +133,8 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
 
             Directory.CreateDirectory(job.OutDir);
             string basePath = Path.Combine(job.OutDir, job.BaseName);
-            int failures = 0, streamFailures = 0, ci = 0, attempt = 0;
+            // alla ripresa i registri di ffmpeg continuano dopo quelli già scritti (_ffmpeg_01.log poteva essere ancora aperto)
+            int failures = 0, streamFailures = 0, ci = 0, attempt = usedNo;
             while (!stopped)
             {
                 int remaining = (int)Math.Ceiling((job.End - Now).TotalSeconds);
