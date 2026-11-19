@@ -51,4 +51,36 @@ public sealed class GuideAliasTests : IDisposable
         var bd = all.Single(p => p.Title.StartsWith("Breakdown", StringComparison.Ordinal));
         Assert.Equal(rai4, guide.Programme(bd.Id)!.ChannelId);
     }
+
+    /// <summary>
+    /// Nomi diversi, stesso numero del digitale terrestre (19/11/2026): la playlist porta a "LA7D" con il tvg-id la7d.it,
+    /// la guida ha anche "LA7 CINEMA" con gli stessi programmi, che nella scheda comparivano due volte.
+    /// </summary>
+    [Fact]
+    public void StessoNumeroDelDigitaleTerrestreEStessoCanale()
+    {
+        string T(int min) => Now.AddMinutes(min).UtcDateTime.ToString("yyyyMMddHHmmss") + " +0000";
+        string xml = $"""
+            <tv>
+              <channel id="LA7D.it"><display-name>LA7D</display-name></channel>
+              <channel id="LA7.CINEMA.it"><display-name>LA7 CINEMA</display-name></channel>
+              <channel id="LA7.HD.it"><display-name>LA7 HD</display-name></channel>
+              <programme channel="LA7D.it" start="{T(0)}" stop="{T(125)}"><title>Re per una notte</title><category>Film</category></programme>
+              <programme channel="LA7.CINEMA.it" start="{T(0)}" stop="{T(125)}"><title>Re per una notte</title><category>Film</category></programme>
+              <programme channel="LA7.HD.it" start="{T(0)}" stop="{T(60)}"><title>Tg La7</title></programme>
+            </tv>
+            """;
+        var src = new SourceStore(Db);
+        long s = src.AddSource("Prova", "https://example.org/x.m3u", Now);
+        src.Import(s, M3uParser.Parse("#EXTM3U x-tvg-url=\"https://example.org/g.xml\"\n#EXTINF:-1 tvg-id=\"la7d.it\",LA7 Cinema\nhttp://x/la7c.m3u8\n"), Now);
+        var guide = new GuideStore(Db);
+        guide.SyncFromPlaylists();
+        guide.Save(guide.Sources().Single().Id, XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)), Now.LocalDateTime), Now);
+        long la7c = src.Channels().Single().Id;
+
+        var all = guide.Query(new GuideQuery(Now, Now.AddHours(6)));
+        var film = Assert.Single(all, p => p.Title == "Re per una notte");
+        Assert.Equal(la7c, film.ChannelId);
+        Assert.Null(all.Single(p => p.Title == "Tg La7").ChannelId);   // LA7 (7) non è LA7 Cinema (29)
+    }
 }

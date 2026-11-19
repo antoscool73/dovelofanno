@@ -200,23 +200,32 @@ public sealed class GuideStore(string dbPath)
     /// Canale della playlist di ogni canale della guida: quello collegato direttamente, oppure (Alias) quello di un altro
     /// canale della stessa guida con lo stesso nome normalizzato. epgshare01 ha i canali Rai e Top Crime due volte
     /// ("Rai4" e "Rai 4  5021") con palinsesti non identici: anche i programmi del doppione si devono poter registrare.
+    /// Vale anche lo stesso numero del digitale terrestre: la guida ha sia "LA7D" (il nome vecchio, a cui porta il tvg-id
+    /// la7d.it della playlist) sia "LA7 CINEMA", con gli stessi programmi.
     /// </summary>
     static Dictionary<long, (long Id, string Name, string Key, bool Alias)> ChannelLinks(SqliteConnection c)
     {
         var all = Db.Query(c, """
-            SELECT gc.id, gc.guide_source_id, gc.name, ch.id, coalesce(ch.name, ''), coalesce(ch.key, '')
+            SELECT gc.id, gc.guide_source_id, gc.name, ch.id, coalesce(ch.name, ''), coalesce(ch.key, ''), gc.xmltv_id
             FROM guide_channels gc
             LEFT JOIN channels ch ON ch.id = (SELECT min(x.id) FROM channels x WHERE x.guide_channel_id = gc.id AND x.excluded = 0)
-            """, r => (Gc: r.GetInt64(0), Src: r.GetInt64(1), Key: Titles.ChannelKey(r.GetString(2)), Ch: Db.NLong(r, 3), Name: r.GetString(4), ChKey: r.GetString(5)));
+            """, r => (Gc: r.GetInt64(0), Src: r.GetInt64(1), Key: Titles.ChannelKey(r.GetString(2)), Ch: Db.NLong(r, 3), Name: r.GetString(4),
+                ChKey: r.GetString(5), Lcn: ChannelNumbers.For(r.GetString(6), r.GetString(2))));
         var res = new Dictionary<long, (long, string, string, bool)>();
         var byKey = new Dictionary<(long Src, string Key), (long, string, string)>();
+        static IEnumerable<string> Keys(string key, int? lcn)
+        {
+            if (key.Length > 0) yield return key;
+            if (lcn != null) yield return "#" + lcn.Value.ToString(CultureInfo.InvariantCulture);
+        }
         foreach (var x in all.Where(x => x.Ch != null))
         {
             res[x.Gc] = (x.Ch!.Value, x.Name, x.ChKey, false);
-            if (x.Key.Length > 0) byKey.TryAdd((x.Src, x.Key), (x.Ch.Value, x.Name, x.ChKey));
+            foreach (string k in Keys(x.Key, x.Lcn)) byKey.TryAdd((x.Src, k), (x.Ch.Value, x.Name, x.ChKey));
         }
-        foreach (var x in all.Where(x => x.Ch == null && x.Key.Length > 0))
-            if (byKey.TryGetValue((x.Src, x.Key), out var l)) res[x.Gc] = (l.Item1, l.Item2, l.Item3, true);
+        foreach (var x in all.Where(x => x.Ch == null))
+            foreach (string k in Keys(x.Key, x.Lcn))
+                if (byKey.TryGetValue((x.Src, k), out var l)) { res[x.Gc] = (l.Item1, l.Item2, l.Item3, true); break; }
         return res;
     }
 
