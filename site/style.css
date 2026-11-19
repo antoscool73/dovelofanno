@@ -81,10 +81,20 @@ li > pre { margin-top: 8px; }
 .note.warn strong { color: var(--orange-text); }
 .note p { margin: 4px 0; }
 
-.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 14px 0; }
-.choice { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; text-decoration: none; color: var(--text-2); display: block; }
-.choice:hover { border-color: var(--blue); }
-.choice strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+/* icone a linea dello sprite in beta/index.html: colore dal testo, niente stili inline (CSP) */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.ico { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -4px; }
+.ico.big { width: 34px; height: 34px; stroke-width: 1.6; color: var(--blue); }
+h2 .ico { color: var(--blue); margin-right: 10px; }
+h2.pick { margin-top: 26px; }
+
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 8px; }
+@media (max-width: 560px) { .choices { grid-template-columns: 1fr; } }
+.choice { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; text-decoration: none; color: var(--text-2); display: flex; gap: 14px; align-items: flex-start; font-size: 15px; }
+.choice:hover { border-color: var(--blue); background: var(--raised); }
+.choice:focus-visible { outline: 3px solid rgba(110, 155, 255, 0.55); outline-offset: 2px; }
+.choice strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 2px; }
+table.dl td.ic { width: 34px; color: var(--blue); padding-right: 0; }
 
 table.dl { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
 table.dl th, table.dl td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -98,4 +108,5 @@ footer { padding: 28px 0 40px; }
   table.dl thead { display: none; }
   table.dl tr { display: block; border-bottom: 1px solid var(--line); padding: 8px 0; }
   table.dl td { display: block; border: 0; padding: 2px 0; }
+  table.dl td.ic { display: none; }
 }

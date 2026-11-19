@@ -9,6 +9,19 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<!-- icone a linea, generiche (niente loghi di marchi): si usano con <svg class="ico"><use href="#i-..."/></svg> -->
+<svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-pc" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
+  <symbol id="i-nas" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 6.5h7M8.5 10h7M8.5 13.5h7"/><circle cx="9" cy="18" r="0.6"/><circle cx="12" cy="18" r="0.6"/></symbol>
+  <symbol id="i-nas4" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M6.5 7.5v7M10.17 7.5v7M13.83 7.5v7M17.5 7.5v7"/><circle cx="6.5" cy="17.2" r="0.6"/><circle cx="9.5" cy="17.2" r="0.6"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M6.5 9.5l3 2.5-3 2.5M11.5 15h5"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 17.5v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.2l2.8 2.8L16.2 9.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.6l1.7-2.1M20 20v-4.5h-4.5"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></symbol>
+</svg>
 <header class="top">
   <div class="wrap">
     <a class="home" href="/"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
@@ -22,21 +35,39 @@
     che hai già in casa. Se hai una playlist IPTV registra anche i programmi. È un <em>server</em>: si installa una volta
     su un computer di casa che resta acceso e poi lo usi dal browser, da qualunque PC, telefono o tablet della stessa rete.</p>
 
+  <h2 class="pick">Dove lo installi?</h2>
+  <div class="choices">
+    <a class="choice" href="#synology">
+      <svg class="ico big" aria-hidden="true"><use href="#i-nas"/></svg>
+      <span><strong>Synology</strong>Con Container Manager (DSM 7.2 o più recente).</span>
+    </a>
+    <a class="choice" href="#qnap">
+      <svg class="ico big" aria-hidden="true"><use href="#i-nas4"/></svg>
+      <span><strong>QNAP</strong>Con Container Station (versione 3).</span>
+    </a>
+    <a class="choice" href="#linux">
+      <svg class="ico big" aria-hidden="true"><use href="#i-term"/></svg>
+      <span><strong>Linux e altri NAS</strong>Docker su mini-PC, Raspberry Pi 4/5, Unraid, TrueNAS…</span>
+    </a>
+    <a class="choice" href="#windows">
+      <svg class="ico big" aria-hidden="true"><use href="#i-pc"/></svg>
+      <span><strong>PC Windows</strong>Windows 10 o 11 a 64 bit, con l'installatore.</span>
+    </a>
+  </div>
+  <p class="small">Un NAS è la scelta migliore: è sempre acceso e consuma poco. Un PC va bene se lo lasci acceso.</p>
+
   <nav class="toc" aria-label="In questa pagina">
     <a href="#cosa-serve">Cosa serve</a>
     <a href="#download">Download</a>
-    <a href="#nas">NAS con Docker</a>
-    <a href="#windows">PC Windows</a>
     <a href="#primo-avvio">Primo avvio</a>
     <a href="#aggiornare">Aggiornare</a>
     <a href="#problemi">Problemi e idee</a>
   </nav>
 
   <section id="cosa-serve">
-    <h2>Cosa serve</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cosa serve</h2>
     <ul>
-      <li><strong>Un computer sempre acceso</strong>: un NAS che fa girare Docker (Synology, QNAP, Unraid…), un mini-PC
-        Linux con Docker, oppure un PC Windows 10/11 a 64 bit che lasci acceso. Le registrazioni partono solo se il
+      <li><strong>Un computer sempre acceso</strong>: uno di quelli qui sopra. Le registrazioni partono solo se il
         computer è acceso: la riattivazione dalla sospensione su molti portatili non funziona.</li>
       <li><strong>Una chiave TMDB</strong> (gratuita, facoltativa ma consigliata): dà voti, locandine e i servizi di
         streaming dove si trova un titolo. Si chiede su
@@ -45,37 +76,37 @@
       <li><strong>Una playlist M3U</strong> (facoltativa): serve solo per registrare e per l'anteprima dei canali.
         DoveLoFanno non include né fornisce canali: usa solo playlist che hai il diritto di usare.</li>
     </ul>
-    <div class="choices">
-      <a class="choice" href="#nas"><strong>Ho un NAS o un server con Docker</strong>La strada consigliata: è sempre acceso e consuma poco.</a>
-      <a class="choice" href="#windows"><strong>Ho solo un PC Windows</strong>DoveLoFanno gira come servizio di Windows, anche senza nessuno collegato.</a>
-    </div>
   </section>
 
   <section id="download">
-    <h2>Download</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-down"/></svg>Download</h2>
     <p>Versione <strong>0.1.0</strong>. Sotto ogni file c'è la sua impronta SHA-256, per controllare che sia arrivato intero.</p>
     <table class="dl">
-      <thead><tr><th>File</th><th>Per</th><th>Dimensione</th></tr></thead>
+      <thead><tr><th></th><th>File</th><th>Per</th><th>Dimensione</th></tr></thead>
       <tbody>
         <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-nas"/></svg></td>
           <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-amd64.tar">dovelofanno-0.1.0-docker-amd64.tar</a>
             <div class="hash" data-hash="docker-amd64">—</div></td>
-          <td>NAS e PC con processore Intel o AMD (quasi tutti i Synology «+», QNAP, Unraid)</td>
+          <td>Docker su processore Intel o AMD: quasi tutti i Synology «+», i QNAP, Unraid, TrueNAS, mini-PC</td>
           <td class="size" data-size="docker-amd64">—</td>
         </tr>
         <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-term"/></svg></td>
           <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-arm64.tar">dovelofanno-0.1.0-docker-arm64.tar</a>
             <div class="hash" data-hash="docker-arm64">—</div></td>
-          <td>NAS e mini-PC ARM a 64 bit (Raspberry Pi 4/5, alcuni Synology e QNAP economici)</td>
+          <td>Docker su processore ARM a 64 bit: Raspberry Pi 4/5, alcuni Synology e QNAP economici</td>
           <td class="size" data-size="docker-arm64">—</td>
         </tr>
         <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-pc"/></svg></td>
           <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-setup.exe">DoveLoFanno-0.1.0-setup.exe</a>
             <div class="hash" data-hash="win-x64">—</div></td>
           <td>PC Windows 10/11 a 64 bit (installatore)</td>
           <td class="size" data-size="win-x64">—</td>
         </tr>
         <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="#i-code"/></svg></td>
           <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-sorgenti.zip">DoveLoFanno-0.1.0-sorgenti.zip</a>
             <div class="hash" data-hash="src">—</div></td>
           <td>Il codice sorgente (licenza GPL-3.0 o successive)</td>
@@ -87,9 +118,10 @@
       scrivimi il modello e te lo dico io.</p>
   </section>
 
-  <section id="nas">
-    <h2>NAS o server con Docker</h2>
-    <h3>Synology (Container Manager)</h3>
+  <section id="synology">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-nas"/></svg>Synology</h2>
+    <p class="small">Serve Container Manager (Centro pacchetti), su DSM 7.2 o più recente. Scarica il <code>.tar</code>
+      giusto per il tuo processore: lo vedi in Pannello di controllo › Centro informazioni.</p>
     <ol>
       <li>In File Station crea una cartella <code>docker/dovelofanno</code> con dentro due cartelle:
         <code>data</code> e <code>registrazioni</code>. Per far vedere le registrazioni a Jellyfin o Plex puoi usare
@@ -120,20 +152,52 @@
         primo utente amministratore di solito è <code>1026</code> e il gruppo «users» è <code>100</code>. Se il progetto
         si ferma subito con un errore di permessi, dimmelo e troviamo i numeri giusti del tuo utente.</p>
     </div>
+  </section>
 
-    <h3>Altri NAS o Linux con Docker</h3>
+  <section id="qnap">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-nas4"/></svg>QNAP</h2>
+    <p class="small">Serve Container Station 3 (App Center). Queste istruzioni non sono ancora state provate su un QNAP
+      vero: se qualcosa non torna, scrivimi cosa vedi.</p>
     <ol>
-      <li>Carica l'immagine:
+      <li>In File Station, nella cartella condivisa <code>Container</code>, crea <code>dovelofanno</code> con dentro
+        <code>data</code> e <code>registrazioni</code>.</li>
+      <li>Container Station › <strong>Immagini</strong> › <strong>Importa</strong>: scegli il file <code>.tar</code>
+        scaricato.</li>
+      <li>Container Station › <strong>Applicazioni</strong> › <strong>Crea</strong>: nome <code>dovelofanno</code> e incolla:
+<pre><code>services:
+  dovelofanno:
+    image: dovelofanno:0.1.0
+    container_name: dovelofanno
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - /share/Container/dovelofanno/data:/data
+      - /share/Container/dovelofanno/registrazioni:/recordings
+    environment:
+      TZ: Europe/Rome</code></pre>
+      </li>
+      <li>«Crea»: l'applicazione si avvia. Apri <code>http://&lt;indirizzo-del-NAS&gt;:8765</code> e vai al
+        <a href="#primo-avvio">primo avvio</a>.</li>
+    </ol>
+  </section>
+
+  <section id="linux">
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-term"/></svg>Linux e altri NAS con Docker</h2>
+    <p class="small">Mini-PC, Raspberry Pi 4/5 (con sistema a 64 bit), Unraid, TrueNAS, OpenMediaVault: basta Docker con
+      il comando <code>docker compose</code>.</p>
+    <ol>
+      <li>Carica l'immagine (<code>arm64</code> al posto di <code>amd64</code> su Raspberry e ARM):
 <pre><code>docker load -i dovelofanno-0.1.0-docker-amd64.tar</code></pre></li>
-      <li>In una cartella a scelta crea <code>data</code> e <code>registrazioni</code> e un file
-        <code>compose.yaml</code> come quello sopra (togli la riga <code>user</code> o metti l'id del tuo utente:
-        <code>id -u</code> e <code>id -g</code>).</li>
-      <li>Avvia: <code>docker compose up -d</code>, poi apri <code>http://&lt;indirizzo&gt;:8765</code>.</li>
+      <li>In una cartella a scelta crea <code>data</code>, <code>registrazioni</code> e un file
+        <code>compose.yaml</code> come quello del Synology, con la riga <code>user</code> fatta dei numeri del tuo utente
+        (<code>id -u</code> e <code>id -g</code>).</li>
+      <li>Avvia con <code>docker compose up -d</code>, poi apri <code>http://&lt;indirizzo&gt;:8765</code>.</li>
     </ol>
   </section>
 
   <section id="windows">
-    <h2>PC Windows</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-pc"/></svg>PC Windows</h2>
     <div class="note warn">
       <p><strong>Programma non ancora firmato.</strong> Nella beta i file di Windows non hanno una firma digitale (la
         sto chiedendo). Per questo:</p>
@@ -163,7 +227,7 @@
   </section>
 
   <section id="primo-avvio">
-    <h2>Primo avvio</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-play"/></svg>Primo avvio</h2>
     <ol>
       <li>Crea il primo profilo (il tuo). Poi potrai aggiungere quelli di famiglia, anche per i bambini.</li>
       <li>Playlist IPTV: incolla l'indirizzo, oppure «Non ne ho, salta».</li>
@@ -176,14 +240,16 @@
   </section>
 
   <section id="aggiornare">
-    <h2>Aggiornare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-sync"/></svg>Aggiornare</h2>
     <p>Quando esce una versione nuova DoveLoFanno te lo dice da solo: una notifica nella campanella e i dettagli in
       Impostazioni › Aggiornamenti. La trovi qui. Il database si aggiorna da solo e prima ne viene fatta
       una copia; ogni notte alle 3 ne viene fatta un'altra (tiene le ultime 7).</p>
     <ul>
       <li><strong>Synology</strong>: aggiungi la nuova immagine da file, cambia il numero di versione nella riga
         <code>image</code> del progetto e «Crea» di nuovo (Progetto › Azione › Crea).</li>
-      <li><strong>Docker</strong>: <code>docker load -i</code> del nuovo file, nuovo numero in <code>compose.yaml</code>,
+      <li><strong>QNAP</strong>: importa la nuova immagine, cambia il numero nella riga <code>image</code>
+        dell'applicazione e salva.</li>
+      <li><strong>Linux e altri NAS</strong>: <code>docker load -i</code> del nuovo file, nuovo numero in <code>compose.yaml</code>,
         <code>docker compose up -d</code>.</li>
       <li><strong>Windows</strong>: scarica il nuovo installatore e aprilo: aggiorna senza toccare dati e
         registrazioni.</li>
@@ -191,7 +257,7 @@
   </section>
 
   <section id="problemi">
-    <h2>Problemi, dubbi, idee</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="#i-mail"/></svg>Problemi, dubbi, idee</h2>
     <p>Scrivi a <a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a>: va tutto bene, anche «questa cosa non la
       capisco». Se qualcosa non funziona, aiutano:</p>
     <ul>

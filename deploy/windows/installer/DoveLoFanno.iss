@@ -64,6 +64,10 @@ Source: "..\..\..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversio
 ; a ogni aggiornamento il programma si sostituisce intero (niente file rimasti dalla versione prima)
 Type: filesandordirs; Name: "{app}\server"
 
+[UninstallDelete]
+; la configurazione (appsettings.Production.json) la scrive Install-DoveLoFanno.ps1, non l'installatore
+Type: filesandordirs; Name: "{app}\server"
+
 [Icons]
 Name: "{autoprograms}\DoveLoFanno"; Filename: "http://localhost:8765/"; IconFilename: "{app}\DoveLoFanno.ico"; Comment: "Apre DoveLoFanno nel browser"
 
