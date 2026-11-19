@@ -12,9 +12,20 @@
     { route: 'registrazioni', path: '/registrazioni', label: 'Registrazioni' },
     { route: 'preferenze', path: '/preferenze', label: 'Preferenze' },
   ];
+
+  // l'altezza dell'intestazione cambia con la larghezza (le voci vanno a capo): la si pubblica in --header-h, così
+  // le barre fisse delle pagine (Cerca) si fermano esattamente sotto
+  function measure(node: HTMLElement) {
+    const set = () => document.documentElement.style.setProperty('--header-h', node.offsetHeight + 'px');
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(node);
+    window.addEventListener('resize', set);
+    return { destroy: () => { ro.disconnect(); window.removeEventListener('resize', set); } };
+  }
 </script>
 
-<header>
+<header use:measure>
   <a href="/" class="home" onclick={navigate}><Logo size={26} /></a>
   <nav aria-label="Principale">
     {#each items as it (it.route)}

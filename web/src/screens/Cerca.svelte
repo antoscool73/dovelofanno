@@ -477,11 +477,11 @@
 </div>
 
 <style>
-  .page { padding: 24px var(--gutter) 64px; max-width: 1440px; display: flex; flex-direction: column; gap: 20px; }
+  .page { padding: 0 var(--gutter) 64px; max-width: 1440px; display: flex; flex-direction: column; gap: 20px; }
   h1 { font-size: 30px; margin: 0; }
   .head { display: flex; flex-direction: column; gap: 6px; }
-  .titlebar { position: sticky; top: 53px; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 10px 20px; padding: 10px 0; background: var(--bg); }
+  .titlebar { position: sticky; top: var(--header-h, 53px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 20px; padding: 20px 0 12px; background: var(--bg); }
   .tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .topacts { display: flex; flex-wrap: wrap; gap: 10px; }
   .hint { margin: 0; font-size: 13px; color: var(--orange-text); }
@@ -544,7 +544,7 @@
   .ok { margin: 0; color: var(--green-text); }
   .excl { font-size: 12px; font-weight: 700; color: var(--orange-text); border: 1px solid currentColor; border-radius: 6px; padding: 1px 6px; }
 
-  .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 124px; }
+  .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: calc(var(--header-h, 53px) + 84px); }
   .panel { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; margin: 0; min-width: 0; }
   fieldset.panel legend { float: left; width: 100%; margin-bottom: 4px; }
   .alerts { gap: 10px; }
