@@ -1,0 +1,12 @@
+# Cloudflare Pages: intestazioni del sito. La pagina della beta è protetta da Cloudflare Access e non va indicizzata.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'none'; frame-ancestors 'none'
+
+/version.json
+  Cache-Control: no-cache
+
+/beta/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store

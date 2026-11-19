@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DoveLoFanno beta</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="home" href="/"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
+    <span class="tag">Beta 0.1.0</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Grazie di provarlo!</h1>
+  <p>DoveLoFanno ti dice cosa guardare stasera e dove trovarlo: in TV, sui tuoi abbonamenti in streaming o tra i film
+    che hai già in casa. Se hai una playlist IPTV registra anche i programmi. È un <em>server</em>: si installa una volta
+    su un computer di casa che resta acceso e poi lo usi dal browser, da qualunque PC, telefono o tablet della stessa rete.</p>
+
+  <nav class="toc" aria-label="In questa pagina">
+    <a href="#cosa-serve">Cosa serve</a>
+    <a href="#download">Download</a>
+    <a href="#nas">NAS con Docker</a>
+    <a href="#windows">PC Windows</a>
+    <a href="#primo-avvio">Primo avvio</a>
+    <a href="#aggiornare">Aggiornare</a>
+    <a href="#problemi">Problemi e idee</a>
+  </nav>
+
+  <section id="cosa-serve">
+    <h2>Cosa serve</h2>
+    <ul>
+      <li><strong>Un computer sempre acceso</strong>: un NAS che fa girare Docker (Synology, QNAP, Unraid…), un mini-PC
+        Linux con Docker, oppure un PC Windows 10/11 a 64 bit che lasci acceso. Le registrazioni partono solo se il
+        computer è acceso: la riattivazione dalla sospensione su molti portatili non funziona.</li>
+      <li><strong>Una chiave TMDB</strong> (gratuita, facoltativa ma consigliata): dà voti, locandine e i servizi di
+        streaming dove si trova un titolo. Si chiede su
+        <a href="https://www.themoviedb.org/settings/api" rel="noopener">themoviedb.org › Impostazioni › API</a>
+        dopo aver creato un account.</li>
+      <li><strong>Una playlist M3U</strong> (facoltativa): serve solo per registrare e per l'anteprima dei canali.
+        DoveLoFanno non include né fornisce canali: usa solo playlist che hai il diritto di usare.</li>
+    </ul>
+    <div class="choices">
+      <a class="choice" href="#nas"><strong>Ho un NAS o un server con Docker</strong>La strada consigliata: è sempre acceso e consuma poco.</a>
+      <a class="choice" href="#windows"><strong>Ho solo un PC Windows</strong>DoveLoFanno gira come servizio di Windows, anche senza nessuno collegato.</a>
+    </div>
+  </section>
+
+  <section id="download">
+    <h2>Download</h2>
+    <p>Versione <strong>0.1.0</strong>. Sotto ogni file c'è la sua impronta SHA-256, per controllare che sia arrivato intero.</p>
+    <table class="dl">
+      <thead><tr><th>File</th><th>Per</th><th>Dimensione</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-amd64.tar">dovelofanno-0.1.0-docker-amd64.tar</a>
+            <div class="hash" data-hash="docker-amd64">—</div></td>
+          <td>NAS e PC con processore Intel o AMD (quasi tutti i Synology «+», QNAP, Unraid)</td>
+          <td class="size" data-size="docker-amd64">—</td>
+        </tr>
+        <tr>
+          <td><a href="https://download.dovelofanno.it/0.1.0/dovelofanno-0.1.0-docker-arm64.tar">dovelofanno-0.1.0-docker-arm64.tar</a>
+            <div class="hash" data-hash="docker-arm64">—</div></td>
+          <td>NAS e mini-PC ARM a 64 bit (Raspberry Pi 4/5, alcuni Synology e QNAP economici)</td>
+          <td class="size" data-size="docker-arm64">—</td>
+        </tr>
+        <tr>
+          <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-win-x64.zip">DoveLoFanno-0.1.0-win-x64.zip</a>
+            <div class="hash" data-hash="win-x64">—</div></td>
+          <td>PC Windows 10/11 a 64 bit</td>
+          <td class="size" data-size="win-x64">—</td>
+        </tr>
+        <tr>
+          <td><a href="https://download.dovelofanno.it/0.1.0/DoveLoFanno-0.1.0-sorgenti.zip">DoveLoFanno-0.1.0-sorgenti.zip</a>
+            <div class="hash" data-hash="src">—</div></td>
+          <td>Il codice sorgente (licenza GPL-3.0 o successive)</td>
+          <td class="size" data-size="src">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">Su un Synology il processore si vede in Pannello di controllo › Centro informazioni. Nel dubbio,
+      scrivimi il modello e te lo dico io.</p>
+  </section>
+
+  <section id="nas">
+    <h2>NAS o server con Docker</h2>
+    <h3>Synology (Container Manager)</h3>
+    <ol>
+      <li>In File Station crea una cartella <code>docker/dovelofanno</code> con dentro due cartelle:
+        <code>data</code> e <code>registrazioni</code>. Per far vedere le registrazioni a Jellyfin o Plex puoi usare
+        una cartella che già leggono, al posto di <code>registrazioni</code>.</li>
+      <li>Container Manager › <strong>Immagine</strong> › Aggiungi › Aggiungi da file: scegli il file
+        <code>.tar</code> scaricato. Compare l'immagine <code>dovelofanno</code> con il tag <code>0.1.0</code>.</li>
+      <li>Container Manager › <strong>Progetto</strong> › Crea: nome <code>dovelofanno</code>, percorso la cartella del
+        passo 1, «Crea docker-compose.yml» e incolla:
+<pre><code>services:
+  dovelofanno:
+    image: dovelofanno:0.1.0
+    container_name: dovelofanno
+    restart: unless-stopped
+    user: "1026:100"          # vedi la nota qui sotto
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data
+      - ./registrazioni:/recordings
+    environment:
+      TZ: Europe/Rome</code></pre>
+      </li>
+      <li>Avanti fino a «Fine»: il progetto si avvia. Apri <code>http://&lt;indirizzo-del-NAS&gt;:8765</code> dal browser
+        e vai al <a href="#primo-avvio">primo avvio</a>.</li>
+    </ol>
+    <div class="note">
+      <p><strong>La riga <code>user</code>.</strong> Il programma deve poter scrivere nelle due cartelle. Sul Synology il
+        primo utente amministratore di solito è <code>1026</code> e il gruppo «users» è <code>100</code>. Se il progetto
+        si ferma subito con un errore di permessi, dimmelo e troviamo i numeri giusti del tuo utente.</p>
+    </div>
+
+    <h3>Altri NAS o Linux con Docker</h3>
+    <ol>
+      <li>Carica l'immagine:
+<pre><code>docker load -i dovelofanno-0.1.0-docker-amd64.tar</code></pre></li>
+      <li>In una cartella a scelta crea <code>data</code> e <code>registrazioni</code> e un file
+        <code>compose.yaml</code> come quello sopra (togli la riga <code>user</code> o metti l'id del tuo utente:
+        <code>id -u</code> e <code>id -g</code>).</li>
+      <li>Avvia: <code>docker compose up -d</code>, poi apri <code>http://&lt;indirizzo&gt;:8765</code>.</li>
+    </ol>
+  </section>
+
+  <section id="windows">
+    <h2>PC Windows</h2>
+    <div class="note warn">
+      <p><strong>Programma non ancora firmato.</strong> Nella beta i file di Windows non hanno una firma digitale (la
+        sto chiedendo). Per questo:</p>
+      <ul>
+        <li>Se nel PC è attivo <strong>Smart App Control</strong> (Sicurezza di Windows › Controllo app e browser),
+          Windows lo blocca e non c'è modo di autorizzarlo: su quel PC per ora non si può installare (non spegnerlo
+          apposta: protegge il PC). Meglio un NAS, o un altro PC.</li>
+        <li>Altrimenti può comparire un avviso di SmartScreen: «Ulteriori informazioni» › «Esegui comunque».</li>
+      </ul>
+    </div>
+    <ol>
+      <li><strong>ffmpeg</strong> (serve per registrare). Apri PowerShell e scrivi:
+<pre><code>winget install Gyan.FFmpeg</code></pre></li>
+      <li>Scarica <code>DoveLoFanno-0.1.0-win-x64.zip</code>, tasto destro › Proprietà › spunta <strong>Annulla
+        blocco</strong> › OK, poi estrai tutto in una cartella (per esempio <code>Download\DoveLoFanno-0.1.0</code>).</li>
+      <li>Apri PowerShell <strong>come amministratore</strong> (tasto destro su Start › Terminale (amministratore)),
+        entra nella cartella estratta e lancia l'installazione, scegliendo dove salvare le registrazioni:
+<pre><code>cd "$env:USERPROFILE\Downloads\DoveLoFanno-0.1.0"
+powershell -ExecutionPolicy Bypass -File .\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"</code></pre>
+        Se lasci fuori <code>-RecordingsDir</code> vanno in <code>C:\ProgramData\DoveLoFanno\registrazioni</code>.</li>
+      <li>Fatto: DoveLoFanno è un servizio di Windows, parte da solo all'accensione anche senza entrare con un utente.
+        Apri <a href="http://localhost:8765">http://localhost:8765</a> e vai al <a href="#primo-avvio">primo avvio</a>.
+        Dagli altri dispositivi di casa: <code>http://&lt;nome-del-PC&gt;:8765</code> (la porta si apre solo sulle reti
+        «private»).</li>
+    </ol>
+    <p class="small">Disinstallare: nella stessa cartella, come amministratore,
+      <code>powershell -ExecutionPolicy Bypass -File .\Uninstall-DoveLoFanno.ps1</code>. Dati e registrazioni restano;
+      aggiungi <code>-RemoveData</code> per togliere anche database e log.</p>
+  </section>
+
+  <section id="primo-avvio">
+    <h2>Primo avvio</h2>
+    <ol>
+      <li>Crea il primo profilo (il tuo). Poi potrai aggiungere quelli di famiglia, anche per i bambini.</li>
+      <li>Playlist IPTV: incolla l'indirizzo, oppure «Non ne ho, salta».</li>
+      <li>Voti dei film: incolla la chiave TMDB (v3 o token v4). Si può fare anche dopo, in Impostazioni.</li>
+      <li>Abbonamenti: tocca i servizi che avete in casa (Netflix, Prime Video, Disney+…). Servono per sapere cosa
+        puoi vedere senza pagare altro.</li>
+    </ol>
+    <p>Poi parti da <strong>La mia serata</strong>: cosa c'è stasera in TV e sui tuoi servizi, e le tue liste.
+      Su telefono puoi aggiungere la pagina alla schermata Home dal menu del browser.</p>
+  </section>
+
+  <section id="aggiornare">
+    <h2>Aggiornare</h2>
+    <p>Quando esce una versione nuova DoveLoFanno te lo dice da solo: una notifica nella campanella e i dettagli in
+      Impostazioni › Aggiornamenti. La trovi qui. Il database si aggiorna da solo e prima ne viene fatta
+      una copia; ogni notte alle 3 ne viene fatta un'altra (tiene le ultime 7).</p>
+    <ul>
+      <li><strong>Synology</strong>: aggiungi la nuova immagine da file, cambia il numero di versione nella riga
+        <code>image</code> del progetto e «Crea» di nuovo (Progetto › Azione › Crea).</li>
+      <li><strong>Docker</strong>: <code>docker load -i</code> del nuovo file, nuovo numero in <code>compose.yaml</code>,
+        <code>docker compose up -d</code>.</li>
+      <li><strong>Windows</strong>: estrai il nuovo zip e rilancia lo stesso comando di installazione: aggiorna senza
+        toccare dati e registrazioni.</li>
+    </ul>
+  </section>
+
+  <section id="problemi">
+    <h2>Problemi, dubbi, idee</h2>
+    <p>Scrivi a <a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a>: va tutto bene, anche «questa cosa non la
+      capisco». Se qualcosa non funziona, aiutano:</p>
+    <ul>
+      <li>cosa stavi facendo e cosa ti aspettavi;</li>
+      <li>uno screenshot;</li>
+      <li>per una registrazione andata male, i suoi log: stanno nella cartella <code>logs</code> dei dati
+        (NAS: <code>docker/dovelofanno/data/logs</code>; Windows: <code>C:\ProgramData\DoveLoFanno\logs</code>).</li>
+    </ul>
+    <div class="note">
+      <p><strong>È una beta.</strong> Funziona tutti i giorni a casa mia, ma qualche errore ci sarà: non affidargli
+        ancora la registrazione della finale che non puoi perdere. Il programma non manda nessun dato a me né ad altri:
+        parla solo con la playlist, la guida TV, TMDB e, una volta al giorno, con questo sito per sapere se c'è una
+        versione nuova (si spegne in Impostazioni › Aggiornamenti).</p>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  <a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a>
+</footer>
+</body>
+</html>

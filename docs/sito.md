@@ -1,0 +1,17 @@
+# Sito dovelofanno.it
+
+File statici, senza compilazione, pubblicati con Cloudflare Pages (progetto collegato a questo repository, ramo `main`,
+comando di build vuoto, cartella di output `site`).
+
+- `site/index.html`: pagina pubblica.
+- `site/beta/`: istruzioni per chi prova la beta. Protetta da Cloudflare Access (elenco delle email, gestito da Antonio),
+  insieme a `download.dovelofanno.it`.
+- I download stanno su Cloudflare R2 (`download.dovelofanno.it/<versione>/`), non qui: Pages accetta file fino a 25 MB.
+  Li carica `.github/workflows/release.yml` quando ci sono i segreti `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+  `R2_ENDPOINT` (`https://<account-id>.r2.cloudflarestorage.com`) e `R2_BUCKET`.
+- A ogni versione nuova: aggiornare numero, nomi dei file, dimensioni e impronte (da `SHA256SUMS.txt` del rilascio) in
+  `site/beta/index.html`. Il file sta in `docs` e non in `site` perché tutto `site` viene pubblicato.
+- `version.json`: l'ultima versione pubblicata, letta una volta al giorno da ogni server (Impostazioni › Aggiornamenti).
+  Va aggiornato (versione, data, note) nel commit del tag: `release.yml` si ferma se non coincide con il tag. Pages lo
+  pubblica appena il commit arriva su `main`, quindi qualche minuto prima che i file siano su R2.
+- Nessuna risorsa esterna (caratteri di sistema, niente script): `_headers` lo impone con la Content-Security-Policy.

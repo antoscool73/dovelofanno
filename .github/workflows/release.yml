@@ -1,7 +1,9 @@
 name: Rilascio
 
-# Un tag vX.Y.Z produce il pacchetto Windows e la pagina del rilascio; l'immagine Docker X.Y.Z e latest la pubblica ci.yml
-# sullo stesso tag. Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
+# Un tag vX.Y.Z produce il pacchetto Windows, le immagini Docker esportate in .tar (amd64, arm64: si caricano con
+# docker load o con Synology Container Manager senza accedere a ghcr.io), lo zip dei sorgenti e la pagina del rilascio;
+# l'immagine Docker X.Y.Z e latest su ghcr.io la pubblica ci.yml sullo stesso tag. Se ci sono i segreti R2_*, i file
+# vanno anche su Cloudflare R2 (download.dovelofanno.it/<versione>/) per la pagina della beta. Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
 # Firma: quando SignPath approva il progetto, il pacchetto "unsigned" va firmato tra il job windows e il job release
 # (azione signpath/github-action-submit-signing-request, con approvazione manuale su SignPath). Vedi CODE_SIGNING.md.
 
@@ -32,6 +34,13 @@ jobs:
           $v = "${{ github.ref_name }}".Substring(1)
           if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "tag non valido: ${{ github.ref_name }} (atteso vX.Y.Z)" }
           "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: site/version.json annuncia questa versione
+        shell: pwsh
+        run: |
+          $j = Get-Content site/version.json -Raw | ConvertFrom-Json
+          if ($j.version -ne "${{ steps.version.outputs.version }}") { throw "site/version.json dice $($j.version): aggiornarlo (con data e note) nel commit del tag" }
+          if ($j.url -notlike 'https://*') { throw "site/version.json: url non https" }
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -93,9 +102,46 @@ jobs:
           path: out/*.zip
           if-no-files-found: error
 
+  docker:
+    name: Immagini Docker in .tar
+    needs: windows
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.windows.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Esportazione (dovelofanno:<versione>, una per architettura)
+        run: |
+          mkdir -p out
+          for arch in amd64 arm64; do
+            docker buildx build --platform "linux/${arch}" --cache-from type=gha               --label "org.opencontainers.image.version=${VERSION}"               --label "org.opencontainers.image.licenses=GPL-3.0-or-later"               -t "dovelofanno:${VERSION}"               --output "type=docker,dest=out/dovelofanno-${VERSION}-docker-${arch}.tar" .
+          done
+          ls -l out
+
+      - name: Collaudo del .tar amd64 (docker load, poi lo stesso collaudo della CI)
+        run: |
+          docker load -i "out/dovelofanno-${VERSION}-docker-amd64.tar"
+          docker image inspect "dovelofanno:${VERSION}" --format '{{.Architecture}}' | grep -qx amd64
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          bash tools/ci/docker-smoke.sh "dovelofanno:${VERSION}"
+
+      - name: Sorgenti
+        run: git archive --format=zip --prefix="DoveLoFanno-${VERSION}/" -o "out/DoveLoFanno-${VERSION}-sorgenti.zip" "${GITHUB_REF_NAME}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoveLoFanno-docker-e-sorgenti
+          path: out/*
+          if-no-files-found: error
+          compression-level: 0
+
   release:
     name: Pagina del rilascio
-    needs: windows
+    needs: [windows, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -107,6 +153,15 @@ jobs:
           name: DoveLoFanno-win-x64-unsigned
           path: out
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: DoveLoFanno-docker-e-sorgenti
+          path: out
+
+      - name: Impronte
+        run: |
+          cd out && sha256sum *.zip *.tar > SHA256SUMS.txt && cat SHA256SUMS.txt && ls -l
+
       - name: Rilascio su GitHub
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,16 +169,32 @@ jobs:
         run: |
           pre=""
           if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then pre="--prerelease"; fi
-          ( cd out && sha256sum *.zip > SHA256SUMS-zip.txt )
           cat > notes.md <<EOF
           ## Installazione
 
-          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\` — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
+          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\`, oppure \`docker load -i dovelofanno-${VERSION}-docker-<arch>.tar\` (immagine \`dovelofanno:${VERSION}\`) — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
           - **Windows** (servizio): \`DoveLoFanno-${VERSION}-win-x64.zip\`, poi \`Install-DoveLoFanno.ps1\` come amministratore. Serve ffmpeg (\`winget install Gyan.FFmpeg\`).
 
           > Questa versione per Windows **non è firmata**: SmartScreen può mostrare un avviso e Smart App Control la blocca.
           > Vedi [CODE_SIGNING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CODE_SIGNING.md).
 
           EOF
-          gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS-zip.txt $pre \
+          gh release create "$GITHUB_REF_NAME" out/*.zip out/*.tar out/SHA256SUMS.txt $pre \
             --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
+
+      - name: Copia su Cloudflare R2 (download.dovelofanno.it)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$R2_ENDPOINT" ] || [ -z "$R2_BUCKET" ]; then
+            echo "Segreti R2_* assenti: niente copia su R2"; exit 0
+          fi
+          aws s3 cp out/ "s3://${R2_BUCKET}/${VERSION}/" --recursive --endpoint-url "$R2_ENDPOINT"             --exclude "*" --include "*.zip" --include "*.tar" --include "SHA256SUMS.txt"
+          aws s3 ls "s3://${R2_BUCKET}/${VERSION}/" --endpoint-url "$R2_ENDPOINT"
