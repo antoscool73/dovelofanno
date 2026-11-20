@@ -32,7 +32,7 @@
     p.delete('list');
     if ([...p.keys()].length === 0) return { listId, query: null };
     const kind = p.get('kind');
-    const avail = (p.get('avail') ?? '').split(',').filter((a): a is SearchQuery['avail'][number] => ['tv', 'mine', 'paid', 'home'].includes(a));
+    const avail = (p.get('avail') ?? '').split(',').filter((a): a is SearchQuery['avail'][number] => ['tv', 'paytv', 'mine', 'paid', 'home'].includes(a));
     // genre (un genere solo) è dei link di prima
     const genres = [...(p.get('genres') ?? '').split(','), p.get('genre') ?? ''].map(Number).filter((g) => g > 0);
     return {
@@ -116,11 +116,14 @@
     { id: 'film', label: 'Film' }, { id: 'series', label: 'Serie' }, { id: 'documentary', label: 'Documentari' }, { id: 'all', label: 'Tutto' },
   ] as const;
   const availItems = [
-    { id: 'tv', label: 'In TV nei prossimi giorni' }, { id: 'mine', label: 'Nei miei abbonamenti' },
+    // «In TV gratis»: un passaggio che vedo (canale in chiaro o di un mio abbonamento); «In TV a pagamento»: un passaggio
+    // su un canale a pagamento che non ho (20/11/2026, richiesta di Antonio)
+    { id: 'tv', label: 'In TV gratis' }, { id: 'paytv', label: 'In TV a pagamento' }, { id: 'mine', label: 'Nei miei abbonamenti' },
     { id: 'paid', label: 'A noleggio o acquisto' }, { id: 'home', label: 'In casa' },
   ] as const;
-  const iconOf = (id: 'tv' | 'mine' | 'paid' | 'home'): Avail =>
-    ({ tv: id === 'tv' ? 'x' : '', home: id === 'home', mine: id === 'mine' ? ['x'] : [], pay: id === 'paid' ? ['x'] : [] });
+  type AvailId = (typeof availItems)[number]['id'];
+  const iconOf = (id: AvailId): Avail =>
+    ({ tv: id === 'tv' ? 'x' : '', home: id === 'home', mine: id === 'mine' ? ['x'] : [], pay: id === 'paid' || id === 'paytv' ? ['x'] : [] });
   const ratings = [{ v: 0, label: 'Qualsiasi' }, { v: 6, label: '6 e oltre' }, { v: 7, label: '7 e oltre' }, { v: 8, label: '8 e oltre' }];
 
   const activeFilters = $derived(
@@ -133,7 +136,7 @@
   const genreNames = $derived(f.genres.map((g) => options?.genres.find((x) => x.id === String(g))?.name ?? '').filter(Boolean));
   const canSearch = $derived(f.q.trim().length >= 2 || activeFilters > 0);
 
-  function toggleAvail(id: 'tv' | 'mine' | 'paid' | 'home') {
+  function toggleAvail(id: AvailId) {
     f.avail = f.avail.includes(id) ? f.avail.filter((x) => x !== id) : [...f.avail, id];
   }
   function setYears() {
@@ -511,7 +514,7 @@
           <label class="check"><input type="checkbox" checked={f.avail.includes(a.id)} onchange={() => toggleAvail(a.id)} />
             <span class="ic" aria-hidden="true"><AvailBadges a={iconOf(a.id)} size={18} /></span>{a.label}</label>
         {/each}
-        <span class="muted small">Le icone sono quelle delle locandine: compaiono solo i titoli con tutte le icone tra quelle scelte. Un film che hai in casa e passa in TV, con la sola «In TV», non c'è.</span>
+        <span class="muted small">Basta una delle caselle scelte: un film su Rai 5 e su Rai Play compare con la sola «In TV gratis». «In TV a pagamento» = su un canale che non hai (Sky senza Sky).</span>
       </fieldset>
       {#if selected}
         <div id="avvisi" class="panel alerts" aria-label="Avvisi per il titolo scelto">

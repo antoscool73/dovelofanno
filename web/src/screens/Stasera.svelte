@@ -525,7 +525,7 @@
       {#if filmsOther.length > 0}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
           {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
-          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paid'] }, label: 'Tutti i film a pagamento', hint: 'noleggio, acquisto, altri abbonamenti' })}
+          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paytv'] }, label: 'Tutti i film in TV a pagamento', hint: 'sui canali che non hai, nei prossimi giorni' })}
         </Section>
       {/if}
     {/if}

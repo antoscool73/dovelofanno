@@ -292,7 +292,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più» */
+        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più» */
         get: {
             parameters: {
                 query?: {

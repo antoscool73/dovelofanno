@@ -64,7 +64,7 @@ public static class SearchApi
             string text = (q ?? "").Trim();
             if (text.Length > 100) text = text[..100];
             var availSet = (avail ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(a => a is "tv" or "mine" or "paid" or "home").ToHashSet();
+                .Where(a => a is "tv" or "paytv" or "mine" or "paid" or "home").ToHashSet();
             // genre (uno solo, come prima) e genres (più codici separati da virgola: uno qualsiasi)
             var genreList = (genres ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(x => int.TryParse(x, out int g) ? g : 0).Append(genre ?? 0).Where(g => g > 0).Distinct().Take(20).ToList();
@@ -77,7 +77,7 @@ public static class SearchApi
         })
             .WithTags("Opere")
             .WithSummary("Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, " +
-                "genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); " +
+                "genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); " +
                 "prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più»")
             .Produces<SearchResult>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
@@ -237,12 +237,12 @@ public static class SearchApi
     }
 
     /// <summary>
-    /// Disponibilità: nessuna casella = ovunque. Con delle caselle, un titolo compare se ogni modo in cui si vede è tra
-    /// quelle scelte (19/11/2026, richiesta di Antonio: una categoria tolta dai filtri non si deve vedere). I modi sono le
-    /// icone delle locandine: in TV (un passaggio che il profilo vede), in casa, nei miei abbonamenti, e "a pagamento",
-    /// come la € gialla: un passaggio su un canale a pagamento che non ho, anche insieme alla TV, se non lo vedo già on
-    /// demand o in casa (20/11/2026); noleggio, acquisto o streaming fuori dai miei abbonamenti solo se non si vede in
-    /// nessun altro modo. Un titolo che non si vede in nessun modo compare solo con "Ovunque" (nessuna casella).
+    /// Disponibilità: nessuna casella = ovunque. Con delle caselle, un titolo compare se si vede in almeno uno dei modi
+    /// scelti, indipendentemente dagli altri (20/11/2026, richiesta di Antonio: prima doveva avere tutte le sue icone tra
+    /// le caselle, e un film su Rai 5 e su Rai Play spariva con la sola «In TV»). I modi: tv = «In TV gratis», un
+    /// passaggio che il profilo vede (canale in chiaro o di un suo abbonamento); paytv = «In TV a pagamento», un passaggio
+    /// su un canale a pagamento che non ha; mine = in streaming nei miei abbonamenti; paid = noleggio, acquisto o streaming
+    /// fuori dai miei abbonamenti; home = in casa.
     /// </summary>
     internal static bool AvailOk(SearchFilter f, bool tv, bool home, IReadOnlyList<string> streaming, IReadOnlyList<string> paid, IReadOnlyList<string> subs,
         bool paidTv = false)
@@ -250,14 +250,9 @@ public static class SearchApi
         var a = f.AvailSet;
         if (a.Count == 0) return true;
         bool Mine(string s) => subs.Any(m => s.Equals(m, StringComparison.OrdinalIgnoreCase) || s.StartsWith(m + " ", StringComparison.OrdinalIgnoreCase));
-        bool mine = streaming.Any(Mine);
-        var ways = new List<string>();
-        if (tv) ways.Add("tv");
-        if (home) ways.Add("home");
-        if (mine) ways.Add("mine");
-        if (paidTv && !mine && !home) ways.Add("paid");
-        else if (ways.Count == 0 && (paid.Count > 0 || streaming.Any(s => !Mine(s)))) ways.Add("paid");
-        return ways.Count > 0 && ways.All(a.Contains);
+        return (a.Contains("tv") && tv) || (a.Contains("paytv") && paidTv) || (a.Contains("home") && home)
+            || (a.Contains("mine") && streaming.Any(Mine))
+            || (a.Contains("paid") && (paid.Count > 0 || streaming.Any(s => !Mine(s))));
     }
 
     static string ChannelOf(GuideProgramme p) => p.ChannelName.Length > 0 ? p.ChannelName : p.GuideChannelName;

@@ -57,11 +57,11 @@ export type SearchOptions = S['SearchOptions'];
  */
 export type SearchQuery = {
   q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genres: number[]; yearFrom: number; yearTo: number;
-  country: string; minRating: number; avail: ('tv' | 'mine' | 'paid' | 'home')[]; hideSeen: boolean; hideHome: boolean; limit?: number;
+  country: string; minRating: number; avail: ('tv' | 'paytv' | 'mine' | 'paid' | 'home')[]; hideSeen: boolean; hideHome: boolean; limit?: number;
 };
 export type SavedQuery = S['SavedQuery'];
 export const EMPTY_QUERY: SearchQuery = { q: '', kind: 'all', genres: [], yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [], hideSeen: false, hideHome: false };
-const AVAILS = ['tv', 'mine', 'paid', 'home'] as const;
+const AVAILS = ['tv', 'paytv', 'mine', 'paid', 'home'] as const;
 /** Ricerca salvata di una lista dinamica → filtri della pagina Cerca. */
 export function fromSaved(q: SavedQuery | null | undefined): SearchQuery {
   if (!q) return { ...EMPTY_QUERY, genres: [], avail: [] };
