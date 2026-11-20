@@ -12,13 +12,14 @@ public sealed class FfmpegCollection;
 /// Collaudo del registratore con ffmpeg vero su un HLS live simulato: le stesse prove fatte su RegistraTV
 /// (reindirizzamento, estensione non standard, rete che cade e ripresa, solo audio, arresto, sospensione),
 /// più il passaggio al flusso di riserva. Senza ffmpeg i test non controllano nulla (in CI ffmpeg è obbligatorio).
+/// Ogni test ha il suo simulatore (porta e cartella proprie) e passa quasi tutto il tempo ad aspettare: i test sono
+/// divisi in più classi perché xUnit li faccia girare insieme (dentro una classe vanno uno dopo l'altro).
 /// </summary>
-[Collection("ffmpeg")]
-public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
+public abstract class RecorderTestBase(ITestOutputHelper output) : IAsyncLifetime
 {
-    readonly string work = Path.Combine(Path.GetTempPath(), "dlf-rec-" + Guid.NewGuid().ToString("N"));
-    HlsSimulator? sim;
-    MediaTools? tools;
+    protected readonly string work = Path.Combine(Path.GetTempPath(), "dlf-rec-" + Guid.NewGuid().ToString("N"));
+    protected HlsSimulator? sim;
+    protected MediaTools? tools;
 
     static readonly RecorderOptions Fast = new()
     {
@@ -40,25 +41,25 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         try { Directory.Delete(work, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
-    bool Ready()
+    protected bool Ready()
     {
         if (sim != null) return true;
         output.WriteLine("ffmpeg non trovato: test saltato");
         return false;
     }
 
-    StreamCandidate Cand(long id, string path) => new(id, 1, sim!.BaseUrl + path, "DoveLoFanno-test", "", StreamState.Ok, 0, 0, null);
+    protected StreamCandidate Cand(long id, string path) => new(id, 1, sim!.BaseUrl + path, "DoveLoFanno-test", "", StreamState.Ok, 0, 0, null);
 
-    RecordingJob Job(int seconds, string format = "mp4", MediaInfo? info = null, TimeProvider? clock = null, long id = 1)
+    protected RecordingJob Job(int seconds, string format = "mp4", MediaInfo? info = null, TimeProvider? clock = null, long id = 1)
     {
         var now = (clock ?? TimeProvider.System).GetLocalNow();
         return new RecordingJob(id, "Prova", "Canale di prova", now, now.AddSeconds(seconds), format, work, "Prova " + id, Path.Combine(work, "logs"), info);
     }
 
-    Recorder NewRecorder(TimeProvider? clock = null) =>
+    protected Recorder NewRecorder(TimeProvider? clock = null) =>
         new(tools!, new StreamResolver(StreamResolver.CreateHttpClient()), clock ?? TimeProvider.System, Fast);
 
-    void Dump(RecordingOutcome o)
+    protected void Dump(RecordingOutcome o)
     {
         output.WriteLine($"stato {o.State}, file {o.Output}, spezzoni {o.Parts.Count}, persi {o.LostMinutes} min");
         if (File.Exists(o.Log)) output.WriteLine(File.ReadAllText(o.Log));
@@ -67,7 +68,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
             foreach (string f in Directory.GetFiles(logs, "*_ffmpeg_*.log").Concat(Directory.GetFiles(logs, "*_unione.log")))
                 output.WriteLine($"--- {Path.GetFileName(f)}\n{File.ReadAllText(f)}");
     }
+}
 
+public sealed class RecorderFormatTests(ITestOutputHelper output) : RecorderTestBase(output)
+{
     [Fact]
     public async Task RelinkerInMp4ConNfo()
     {
@@ -99,7 +103,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.Contains("Formato forzato: hls", File.ReadAllText(o.Log));
         Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 7, 30);
     }
+}
 
+public sealed class RecorderNetworkTests(ITestOutputHelper output) : RecorderTestBase(output)
+{
     [Fact]
     public async Task ReteCheCadeERipresa()
     {
@@ -116,7 +123,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(o.Parts.Count >= 2, "dopo l'interruzione serve un nuovo spezzone");
         Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 15, 60);
     }
+}
 
+public sealed class RecorderFallbackTests(ITestOutputHelper output) : RecorderTestBase(output)
+{
     [Fact]
     public async Task FlussoDiRiservaDopoDueTentativiSenzaDati()
     {
@@ -153,7 +163,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(File.Exists(o.Output));
         Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 4, 30);
     }
+}
 
+public sealed class RecorderResumeTests(ITestOutputHelper output) : RecorderTestBase(output)
+{
     // 19/11/2026: «Le relazioni pericolose» interrotta da un riavvio del server ripartiva da _part01.ts (sovrascritto) e
     // lasciava fuori dall'unione lo spezzone interrotto
     [Fact]
@@ -186,7 +199,10 @@ public sealed class RecorderTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 25, 80);   // nel file finale c'è anche lo spezzone 1
         Assert.True(firstSize > 0);
     }
+}
 
+public sealed class RecorderSleepTests(ITestOutputHelper output) : RecorderTestBase(output)
+{
     sealed class JumpClock : TimeProvider
     {
         public TimeSpan Offset;
