@@ -124,9 +124,9 @@ public static class SearchApi
         var airings = new Dictionary<long, WorkAirings>();
         List<WorkSearchHit> WithAirings(List<WorkSearchHit> works)
         {
+            // con le altre puntate dello stesso titolo per serie e programmi della guida (una puntata per opera)
             var todo = works.Select(w => w.Id).Where(id => !airings.ContainsKey(id)).ToList();
-            var up = WorkAirings.Upcoming(ctx.Guide, todo, now);
-            foreach (long id in todo) airings[id] = WorkAirings.Pick(up.GetValueOrDefault(id) ?? [], subs, ctx.Clock.LocalTimeZone);
+            foreach (var (id, a) in ctx.Tonight.Airings(todo, now, subs, ctx.Clock.LocalTimeZone)) airings[id] = a;
             return works;
         }
         WorkAirings Air(long id) => airings.GetValueOrDefault(id) ?? WorkAirings.None;
@@ -154,7 +154,7 @@ public static class SearchApi
 
         var hits = new List<SearchHit>();
         var shown = new HashSet<long>();
-        foreach (var w in WithAirings(ctx.Works.Find(text, now, child)).Where(LocalOk).Take(max))
+        foreach (var w in WithAirings(ctx.Works.Find(text, now, child, kind: f.Kind)).Where(LocalOk).Take(max))
         {
             hits.Add(Known(w));
             shown.Add(w.Id);

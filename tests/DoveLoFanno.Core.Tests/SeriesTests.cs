@@ -109,6 +109,20 @@ public sealed class SeriesTests : IDisposable
         Assert.Equal(["scheduled", "replica"], c.Episodes.Select(e => e.Status));   // stessa descrizione = stessa puntata
     }
 
+    // 20/11/2026: «Serie, in TV» in Cerca non trovava nulla: le serie della guida sono una puntata per opera
+    [Fact]
+    public void RicercaTrovaLaSerieDellaGuidaUnaVolta()
+    {
+        var (_, guide, _) = Setup(string.Join("\n", Ep("Rai2.it", 300, "S1 E2"), Ep("Rai2.it", 60, "S1 E1"), Ep("Italia1.it", 900, "S1 E3")));
+        var works = new WorkStore(Db, guide);
+        var hit = Assert.Single(works.Find("", Now), h => h.Title == "Walker");
+        Assert.Equal("series", hit.Kind);
+        Assert.Equal(Now.AddMinutes(60), hit.NextAiring);                    // il primo passaggio di tutte le puntate
+        Assert.Single(works.Find("walk", Now), h => h.Title == "Walker");
+        var a = new TonightStore(Db, guide).Airings([hit.Id], Now, null, TimeZoneInfo.Utc)[hit.Id];
+        Assert.Equal(Now.AddMinutes(60), a.Visible!.Start);
+    }
+
     [Fact]
     public void PuntateMancanti_SoloBuchiPiccoli()
     {

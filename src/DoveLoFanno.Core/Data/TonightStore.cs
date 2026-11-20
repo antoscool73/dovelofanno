@@ -30,14 +30,26 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
 
     /// <summary>
     /// Opere i cui passaggi valgono per l'opera <paramref name="w"/> (alias SQL) in una lista: l'opera stessa e, per
-    /// programmi e documentari, ogni puntata con lo stesso titolo. Una puntata senza episodio è un'opera a sé
-    /// ("geo|puntata del 18 11 2026"), ma chi mette «Geo» nella serata vuole la trasmissione (scelta di Antonio, 20/11/2026).
+    /// programmi, documentari e serie della guida, ogni puntata con lo stesso titolo. Una puntata è un'opera a sé
+    /// ("geo|puntata del 18 11 2026", "walker|s1 e3"), ma chi mette «Geo» nella serata vuole la trasmissione (scelta di
+    /// Antonio, 20/11/2026); le serie della guida si cercano come un titolo solo (Cerca, 20/11/2026).
     /// </summary>
     internal static string SameShow(string w) => $"""
         (SELECT {w}.id UNION
-         SELECT s.id FROM works s WHERE {w}.kind IN ('programme', 'documentary') AND {w}.title_key <> ''
-                AND s.title_key = {w}.title_key AND s.kind IN ('programme', 'documentary'))
+         SELECT s.id FROM works s WHERE {w}.kind IN {ShowKinds} AND {w}.title_key <> ''
+                AND s.title_key = {w}.title_key AND s.kind IN {ShowKinds} AND s.parent_id IS NULL)
         """;
+    const string ShowKinds = "('programme', 'documentary', 'series', 'episode')";
+
+    /// <summary>
+    /// Come <see cref="ShowAirings"/> per chi non ha una connessione aperta (la ricerca): passaggi in arrivo di ogni opera,
+    /// con le altre puntate dello stesso titolo, divisi tra quelli che il profilo vede e quelli a pagamento.
+    /// </summary>
+    public Dictionary<long, WorkAirings> Airings(IEnumerable<long> workIds, DateTimeOffset now, IReadOnlyList<string>? subs, TimeZoneInfo zone)
+    {
+        using var c = Open();
+        return ShowAirings(c, guide, workIds, now, subs, zone);
+    }
 
     /// <summary>
     /// Passaggi in arrivo di ogni opera, con le puntate dello stesso titolo per programmi e documentari (<see cref="SameShow"/>),

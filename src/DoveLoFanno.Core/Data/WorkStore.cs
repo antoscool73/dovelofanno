@@ -111,24 +111,37 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
     /// una piattaforma), programmi esclusi. <paramref name="ids"/>: solo queste opere (per i titoli trovati su TMDB).
     /// I filtri si applicano poi in memoria: qui ci sono anche generi, paese, regia e attori dalla guida.
     /// </summary>
-    public List<WorkSearchHit> Find(string text, DateTimeOffset now, bool childOnly = false, int max = 400, IReadOnlyCollection<long>? ids = null)
+    /// <param name="kind">film, series, documentary o all: il tipo si filtra già qui, perché <paramref name="max"/> taglia prima
+    /// dei filtri in memoria (20/11/2026: le serie, senza voto, finivano dopo le prime 400 opere e «Serie» non trovava quasi nulla)</param>
+    public List<WorkSearchHit> Find(string text, DateTimeOffset now, bool childOnly = false, int max = 400, IReadOnlyCollection<long>? ids = null, string kind = "all")
     {
         string k = Epg.Titles.TitleKey(text);
         using var c = Open();
         string child = childOnly ? " AND " + ChildSafe("w") : "";
+        child += kind switch
+        {
+            "film" => " AND w.kind = 'film'",
+            "series" => " AND w.kind IN ('series', 'episode')",
+            "documentary" => " AND w.kind = 'documentary'",
+            _ => "",
+        };
         string which = ids != null
             ? " AND w.id IN (SELECT value FROM json_each($ids))"
             : k.Length > 0
                 ? " AND (w.title_key LIKE '%' || $k || '%' OR (w.original_title <> '' AND lower(w.original_title) LIKE '%' || lower($t) || '%'))"
-                : """
-                   AND w.kind <> 'programme' AND (EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND p.stop > $now)
+                : $"""
+                   AND w.kind <> 'programme' AND (EXISTS (SELECT 1 FROM programmes p WHERE p.work_id IN {TonightStore.SameShow("w")} AND p.stop > $now)
                      OR EXISTS (SELECT 1 FROM library_items li WHERE li.work_id = w.id AND li.missing_since IS NULL)
                      OR EXISTS (SELECT 1 FROM list_items x WHERE x.work_id = w.id)
                      OR EXISTS (SELECT 1 FROM availability a WHERE a.work_id = w.id))
                   """;
-        return Db.Query(c, """
-            SELECT w.id, w.kind, w.title, w.year, w.poster, w.rating, w.rating_source, w.tmdb_id, coalesce(w.tmdb_kind, ''),
-                   (SELECT min(p.start) FROM programmes p WHERE p.work_id = w.id AND p.stop > $now) AS next,
+        // le serie della guida sono una puntata per opera (kind episode, senza parent_id): nella ricerca compaiono una volta
+        // sola, come serie, con i passaggi di tutte le puntate (20/11/2026: «Serie, in TV» non trovava nulla); lo stesso per
+        // documentari e programmi a puntate (Geo), che comparivano una volta per puntata
+        string show = TonightStore.SameShow("w");
+        return Db.Query(c, $"""
+            SELECT w.id, CASE WHEN w.kind = 'episode' THEN 'series' ELSE w.kind END, w.title, w.year, w.poster, w.rating, w.rating_source, w.tmdb_id, coalesce(w.tmdb_kind, ''),
+                   (SELECT min(p.start) FROM programmes p WHERE p.work_id IN {show} AND p.stop > $now) AS next,
                    EXISTS (SELECT 1 FROM library_items li JOIN works e ON e.id = li.work_id
                            WHERE (e.id = w.id OR e.parent_id = w.id) AND li.missing_since IS NULL)
                    OR EXISTS (SELECT 1 FROM recordings r WHERE r.work_id = w.id AND r.state IN ('completed', 'incomplete') AND r.file <> '') AS home,
@@ -140,9 +153,12 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
                                     || p.directors || char(31) || p.actors
                              FROM programmes p WHERE p.work_id = w.id ORDER BY p.start DESC LIMIT 1), '')
             FROM works w
-            WHERE w.parent_id IS NULL AND w.kind <> 'episode'
-            """ + which + child + """
-
+            WHERE w.parent_id IS NULL
+              AND (w.kind NOT IN ('episode', 'documentary', 'programme')
+                   OR w.id = (SELECT min(e.id) FROM works e WHERE e.title_key = w.title_key AND e.parent_id IS NULL
+                                 AND (e.kind = w.kind OR (e.kind IN ('documentary', 'programme') AND w.kind IN ('documentary', 'programme'))))
+                      AND (w.kind <> 'episode' OR NOT EXISTS (SELECT 1 FROM works sr WHERE sr.title_key = w.title_key AND sr.kind = 'series' AND sr.parent_id IS NULL)))
+            {which}{child}
             ORDER BY (next IS NOT NULL OR home) DESC, (w.title_key = $k) DESC, w.rating IS NULL, w.rating DESC, w.rating_votes DESC, w.id
             LIMIT $max
             """,
