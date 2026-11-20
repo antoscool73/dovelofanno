@@ -7,7 +7,7 @@
   import StableLabel from '../lib/components/StableLabel.svelte';
   import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type GuideProgramme } from '../lib/api/client';
-  import { day, minutes, between, range, vote } from '../lib/format';
+  import { between, day, episodeOf, minutes, range, recordingTitle, vote } from '../lib/format';
   import { router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
@@ -69,7 +69,7 @@
     busy = true;
     error = '';
     try {
-      const title = p.subtitle && p.subtitle.length <= 60 && p.group !== 'Film' ? `${p.title} - ${p.subtitle}` : p.title;
+      const title = recordingTitle(p);
       const r = await api.scheduleRecording({ channelId: p.channelId, title, start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });
       scheduled = true;
       warnings = r.warnings;
@@ -106,7 +106,7 @@
     otherBusy = x.id;
     error = '';
     try {
-      const r = await api.scheduleRecording({ channelId: x.channelId, title: x.title, start: x.start, stop: x.stop, beforeMin: null, afterMin: null, format: null, programmeId: x.id });
+      const r = await api.scheduleRecording({ channelId: x.channelId, title: recordingTitle(x), start: x.start, stop: x.stop, beforeMin: null, afterMin: null, format: null, programmeId: x.id });
       x.scheduled = true;
       warnings = r.warnings;
       onchange();
@@ -146,7 +146,7 @@
         <ul>
           {#each others as x (x.id)}
             <li>
-              <span class="o-main"><strong>{day(x.start)} · {range(x.start, x.stop)}</strong><span class="muted">{x.channelName || x.guideChannelName}{x.channelId == null ? ' · non è nelle tue playlist' : ''}</span></span>
+              <span class="o-main"><strong>{day(x.start)} · {range(x.start, x.stop)}</strong>{#if episodeOf(x)}<span class="ep">{episodeOf(x)}</span>{/if}<span class="muted">{x.channelName || x.guideChannelName}{x.channelId == null ? ' · non è nelle tue playlist' : ''}</span></span>
               {#if x.channelId != null}<RecordButton size="m" scheduled={x.scheduled} busy={otherBusy === x.id} onclick={() => recordOther(x)} />{/if}
             </li>
           {/each}
@@ -191,6 +191,7 @@
 </dialog>
 
 <style>
+  .ep { font-size: 14px; color: var(--text); }
   dialog {
     width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--line-strong);
     border-radius: var(--radius-l); background: var(--surface); color: var(--text); overflow: auto;

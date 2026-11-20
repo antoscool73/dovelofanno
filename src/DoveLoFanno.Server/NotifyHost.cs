@@ -98,7 +98,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             if (p.ChannelId is not long ch) return null;
             int before = ctx.Settings.GetInt("BeforeMin"), after = ctx.Settings.GetInt("AfterMin");
             if (p.Stop.AddMinutes(after) <= now) return null;
-            return ctx.Recordings.Schedule(ch, p.Title, p.Start, p.Stop, before, after, ctx.Settings.Get("Format"), now, p.WorkId, profileId, p.Id);
+            return ctx.Recordings.Schedule(ch, SeriesStore.RecordingTitle(p), p.Start, p.Stop, before, after, ctx.Settings.Get("Format"), now, p.WorkId, profileId, p.Id);
         });
         foreach (var f in fired)
         {

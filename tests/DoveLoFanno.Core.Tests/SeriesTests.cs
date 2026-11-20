@@ -65,6 +65,7 @@ public sealed class SeriesTests : IDisposable
         Assert.DoesNotContain(c.Episodes, e => e.Programme.Title == "Altra serie");
         var scheduled = recs.List().Where(r => r.State == "scheduled").ToList();
         Assert.Equal(2, scheduled.Count);
+        Assert.Equal(["Walker - S1 E1", "Walker - S1 E3"], scheduled.Select(r => r.Title).Order());   // il numero della puntata nel titolo
 
         // il controllo successivo non riprogramma nulla
         var again = series.Check(rule, Now.AddMinutes(1), Defaults)!;

@@ -109,3 +109,20 @@ export function clock(seconds: number): string {
   const r = s % 60;
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`;
 }
+
+/**
+ * La puntata di un passaggio di una serie o di un programma: «S1 E3 · Titolo della puntata»; vuoto per i film. Per serie
+ * e programmi il numero va sempre mostrato, per capire che cosa si guarda o si registra (Antonio, 20/11/2026).
+ */
+export function episodeOf(p: { episode?: string | null; subtitle?: string | null; group?: string | null }): string {
+  if (p.group === 'Film') return '';
+  return [p.episode?.trim(), p.subtitle?.trim()].filter(Boolean).join(' · ');
+}
+
+/** Titolo di una registrazione: titolo, numero della puntata e titolo della puntata se breve (come SeriesStore.RecordingTitle). */
+export function recordingTitle(p: { title: string; episode?: string | null; subtitle?: string | null; group?: string | null }): string {
+  if (p.group === 'Film') return p.title;
+  const parts = [p.title, p.episode?.trim() ?? ''];
+  if (p.subtitle && p.subtitle.trim().length <= 60) parts.push(p.subtitle.trim());
+  return parts.filter(Boolean).join(' - ');
+}

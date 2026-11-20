@@ -13,7 +13,7 @@
   import { inMySubscriptions, payPlatform, streamingFor } from '../lib/pay';
   import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, type GuideProgramme, type ListSummary, type WorkDetail } from '../lib/api/client';
-  import { clock, day, fileName, minutes, between, range, time, vote } from '../lib/format';
+  import { between, clock, day, episodeOf, fileName, minutes, range, recordingTitle, time, vote } from '../lib/format';
   import { router, navigate } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
@@ -91,7 +91,7 @@
     busy = a.id;
     notice = '';
     try {
-      const r = await api.scheduleRecording({ channelId: a.channelId, title: w?.title ?? a.title, start: a.start, stop: a.stop, beforeMin: null, afterMin: null, format: null, programmeId: a.id });
+      const r = await api.scheduleRecording({ channelId: a.channelId, title: recordingTitle({ ...a, title: w?.title ?? a.title }), start: a.start, stop: a.stop, beforeMin: null, afterMin: null, format: null, programmeId: a.id });
       notice = ['Registrazione programmata.', ...r.warnings.map((x) => `Attenzione: ${x}.`)].join(' ');
       await load();
     } catch (e) {
@@ -326,7 +326,7 @@
           <ul class="rows">
             {#each w.airings as a (a.id)}
               <li class:hl={a.id === nextRecordable?.id}>
-                <span class="r-main"><strong>{day(a.start)} · {range(a.start, a.stop)}</strong><span class="muted small">{a.channelName || a.guideChannelName}{a.channelId == null ? ' · non è nelle tue playlist' : ''}</span></span>
+                <span class="r-main"><strong>{day(a.start)} · {range(a.start, a.stop)}</strong>{#if episodeOf(a)}<span class="ep">{episodeOf(a)}</span>{/if}<span class="muted small">{a.channelName || a.guideChannelName}{a.channelId == null ? ' · non è nelle tue playlist' : ''}</span></span>
                 {#if a.channelId != null}<RecordButton size="m" scheduled={a.scheduled} busy={busy === a.id} onclick={() => record(a)} />{/if}
               </li>
             {/each}
@@ -356,6 +356,7 @@
 {/if}
 
 <style>
+  .ep { font-size: 14px; color: var(--text); }
   .pad { padding: 0 var(--gutter); }
   .muted { color: var(--muted); margin: 0; }
   .small { font-size: 13px; }

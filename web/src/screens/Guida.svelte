@@ -3,7 +3,7 @@
   import Button from '../lib/components/Button.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
   import { api, ApiError, type GuideProgramme, type GuideStatus } from '../lib/api/client';
-  import { byChannelOrder, day, dayChip, midnight, range, time, vote } from '../lib/format';
+  import { byChannelOrder, day, dayChip, episodeOf, midnight, range, time, vote } from '../lib/format';
   import { navigate } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
@@ -182,7 +182,7 @@
         <li><button type="button" class="lrow" onclick={() => (open = p)}>
           <span class="lwhen"><strong>{day(p.start, now)}</strong><span>{range(p.start, p.stop)}</span></span>
           <span class="lch">{p.channelName || p.guideChannelName}</span>
-          <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[p.group, p.sub, p.year || '', p.directors].filter(Boolean).join(' · ')}</span></span>
+          <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[episodeOf(p), p.group, p.sub, p.year || '', p.directors].filter(Boolean).join(' · ')}</span></span>
           {#if p.rating != null}<Badge tone="blue">★ {vote(p.rating)}</Badge>{/if}
         </button></li>
       {/each}
@@ -208,7 +208,7 @@
               <button type="button" class="prog" class:dim={!matches(p)} class:rec={p.scheduled} class:prop={proposed.has(p.id) && !p.scheduled} class:past={new Date(p.stop) <= now}
                 style:left="{CH + left(p)}px" style:width="{width(p)}px" onclick={() => (open = p)}
                 aria-label="{p.title}, {range(p.start, p.stop)}, {r.name}{p.scheduled ? ', in programma' : ''}{proposed.has(p.id) ? ', proposta per te' : ''}">
-                <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{p.title}</span>
+                <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{p.title}{p.episode && p.group !== 'Film' ? ` · ${p.episode}` : ''}</span>
                 <span class="pmeta">{time(p.start)}{p.rating != null ? ` · ★ ${vote(p.rating)}` : ''}{p.sub ? ` · ${p.sub}` : p.group !== 'Altro' ? ` · ${p.group}` : ''}</span>
               </button>
             {/each}
@@ -227,7 +227,7 @@
         <li><button type="button" class="lrow" class:past={new Date(p.stop) <= now} onclick={() => (open = p)}>
           <span class="lwhen"><strong>{time(p.start)}</strong><span>{time(p.stop)}</span></span>
           <span class="lch">{p.channelName || p.guideChannelName}</span>
-          <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[p.group, p.sub, p.country, p.year || '', p.actors].filter(Boolean).join(' · ')}</span></span>
+          <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[episodeOf(p), p.group, p.sub, p.country, p.year || '', p.actors].filter(Boolean).join(' · ')}</span></span>
           {#if p.rating != null}<Badge tone="blue">★ {vote(p.rating)}</Badge>{/if}
         </button></li>
       {/each}

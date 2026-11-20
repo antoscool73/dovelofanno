@@ -20,7 +20,7 @@
     api, ApiError, type GuideProgramme, type LibraryItem, type ListEntry, type ListSummary, type Recording, type SearchHit, type SearchQuery, type TonightItem,
   } from '../lib/api/client';
   import { searchHash } from './Cerca.svelte';
-  import { day, minutes, between, range, time, vote, midnight } from '../lib/format';
+  import { between, day, episodeOf, midnight, minutes, range, recordingTitle, time, vote } from '../lib/format';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
 
@@ -161,7 +161,7 @@
     if (how === 'series') { await load(); return; }
     busy = p.id;
     try {
-      await api.scheduleRecording({ channelId: p.channelId, title: p.title, start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });
+      await api.scheduleRecording({ channelId: p.channelId, title: recordingTitle(p), start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Registrazione non programmata';
@@ -258,7 +258,8 @@
     lines: string[]; note?: string; accent?: string; warn?: string; dim?: boolean; open: () => void; rated?: boolean;
     rec?: GuideProgramme | null; seen?: () => void; drop?: () => void; dropLabel?: string;
   };
-  const channelOf = (p: GuideProgramme) => p.channelName || p.guideChannelName;
+  // canale e, per serie e programmi, il numero e il titolo della puntata (Antonio, 20/11/2026: va sempre esplicitato)
+  const channelOf = (p: GuideProgramme) => [p.channelName || p.guideChannelName, episodeOf(p)].filter(Boolean).join(' · ');
   const tvText = (p: GuideProgramme) => `${when(p).toLowerCase()}, ${channelOf(p)}`;
   const shortNames = (l: string[]) => l.map((s) => platforms.of(s).short).join(', ');
 

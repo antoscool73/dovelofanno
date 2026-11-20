@@ -48,9 +48,17 @@ public sealed partial class SeriesStore(string dbPath, GuideStore guide, Recordi
         return "t:" + p.Start.ToUnixTimeSeconds();
     }
 
-    /// <summary>Titolo della registrazione: titolo e titolo della puntata se breve, come il Registra della finestra del programma.</summary>
-    public static string RecordingTitle(GuideProgramme p) =>
-        p.Subtitle.Length > 0 && p.Subtitle.Length <= 60 ? $"{p.Title} - {p.Subtitle}" : p.Title;
+    /// <summary>
+    /// Titolo della registrazione: titolo, numero della puntata («S1 E3») e titolo della puntata se breve; per i film solo il
+    /// titolo. Uguale a recordingTitle della pagina (format.ts): il numero va sempre esplicitato (Antonio, 20/11/2026).
+    /// </summary>
+    public static string RecordingTitle(GuideProgramme p)
+    {
+        if (p.Group == Genres.Film) return p.Title;
+        var parts = new List<string> { p.Title, p.Episode.Trim() };
+        if (p.Subtitle.Trim().Length is > 0 and <= 60) parts.Add(p.Subtitle.Trim());
+        return string.Join(" - ", parts.Where(x => x.Length > 0));
+    }
 
     /// <summary>
     /// Numeri di episodio che mancano tra quelli in guida, stagione per stagione («S6 E3»): i buchi tra il primo e
