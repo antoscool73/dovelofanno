@@ -126,7 +126,7 @@
     <div class="facts">
       {#each facts as f (f)}<span>{f}</span>{/each}
       {#if p.rating != null}<Badge tone="blue">★ {vote(p.rating)} {p.ratingSource}</Badge>{/if}
-      {#if scheduled}<Badge tone="red">In programma</Badge>{/if}
+      {#if scheduled}<Badge tone="red">Programmato</Badge>{/if}
     </div>
     {#if p.description}<p class="desc">{p.description}</p>{/if}
     {#if p.directors || p.actors}
@@ -178,7 +178,7 @@
       <Button variant="secondary" onclick={onclose}>Chiudi</Button>
     </div>
     {#if p.channelId != null && !ended}
-      <p class="muted small">{#if scheduled}In programma. <button type="button" class="link" onclick={() => goTo('/registrazioni')}>Vedi in Registrazioni</button>{:else}Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.{/if}</p>
+      <p class="muted small">{#if scheduled}Programmato. <button type="button" class="link" onclick={() => goTo('/registrazioni')}>Vedi in Registrazioni</button>{:else}Con le tue impostazioni: margini prima e dopo, formato e cartella predefiniti.{/if}</p>
     {/if}
   </div>
 </dialog>

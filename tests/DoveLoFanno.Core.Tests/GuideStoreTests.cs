@@ -145,5 +145,9 @@ public sealed class GuideStoreTests : IDisposable
         var after = store.Query(new GuideQuery(Now, Now.AddHours(6)));
         Assert.True(after.Single(p => p.Title == "Il Padrino").Scheduled);
         Assert.False(after.Single(p => p.Title == "Tg5 Notte").Scheduled);   // coperto solo dal margine di 10 min
+        // 20/11/2026: un margine che copre più di metà del programma dopo non lo rende «programmato» (Geo di 16 minuti
+        // dopo il Geo in registrazione): contano solo gli orari del programma registrato
+        new RecordingStore(Db).Schedule(c5, film.Title, film.Start, film.Stop, 2, 20, "mp4", Now, film.WorkId, null, film.Id);
+        Assert.False(store.Query(new GuideQuery(Now, Now.AddHours(6))).Single(p => p.Title == "Tg5 Notte").Scheduled);
     }
 }

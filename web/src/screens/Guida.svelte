@@ -169,7 +169,7 @@
       <button type="button" class:on={mode === 'elenco'} aria-pressed={mode === 'elenco'} onclick={() => (mode = 'elenco')}>Elenco</button>
     </div>
     <span class="grow"></span>
-    <span class="legend"><span class="dot" aria-hidden="true"></span>In programma</span>
+    <span class="legend"><span class="dot" aria-hidden="true"></span>Programmato</span>
   </div>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}

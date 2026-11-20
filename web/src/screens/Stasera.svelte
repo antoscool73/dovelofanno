@@ -487,8 +487,8 @@
                 {#if c.rec}
                   {@const r = c.rec}
                   <button type="button" class="mini rec" class:on={r.scheduled} disabled={busy === r.id} onclick={() => quickRecord(r)}
-                    aria-pressed={r.scheduled} aria-label={r.scheduled ? 'In programma: apri' : `Registra ${c.title}`} title={r.scheduled ? 'In programma' : 'Registra'}>
-                    <span class="dot" aria-hidden="true"></span>{r.scheduled ? 'In programma' : 'Registra'}
+                    aria-pressed={r.scheduled} aria-label={r.scheduled ? 'Programmato: apri' : `Registra ${c.title}`} title={r.scheduled ? 'Programmato' : 'Registra'}>
+                    <span class="dot" aria-hidden="true"></span>{r.scheduled ? 'Programmato' : 'Registra'}
                   </button>
                 {/if}
                 {#if c.seen}<button type="button" class="mini" onclick={c.seen} aria-label="Visto: {c.title}" title="Visto">✓</button>{/if}
@@ -623,8 +623,9 @@
     border-radius: 8px; border: 1px solid var(--line-btn); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   .mini:hover { border-color: var(--text-2); }
-  .mini.rec { flex: 1 1 auto; background: var(--text); color: var(--bg); border: 0; }
-  .mini.rec.on { background: var(--rec-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--rec); }
+  /* come RecordButton: «Registra» scuro con il bordo chiaro, «Programmato» chiaro; sempre pallino rosso + testo */
+  .mini.rec { flex: 1 1 auto; background: var(--bg); color: var(--text); border: 0; box-shadow: inset 0 0 0 1.5px var(--text); }
+  .mini.rec.on { background: var(--text); color: var(--bg); box-shadow: none; }
   .mini.ghost { border-color: transparent; background: none; color: var(--muted); }
   .mini .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec-dot); }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 20px; }

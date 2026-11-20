@@ -238,9 +238,11 @@ public sealed class GuideStore(string dbPath)
     public List<GuideProgramme> Query(GuideQuery q)
     {
         using var c = Open();
+        // orari del programma registrato, senza i margini: con i 10 minuti dopo, Geo delle 11:04-14:27 copriva più di metà
+        // del Geo di 16 minuti delle 14:27, che risultava «in programma» senza esserlo (20/11/2026)
         var pending = Db.Query(c, """
-            SELECT channel_id, start - before_min * 60, stop + after_min * 60 FROM recordings
-            WHERE state IN ('scheduled', 'recording', 'merging') AND stop + after_min * 60 > $from AND start - before_min * 60 < $to
+            SELECT channel_id, start, stop FROM recordings
+            WHERE state IN ('scheduled', 'recording', 'merging') AND stop > $from AND start < $to
             """, r => (Ch: r.GetInt64(0), A: r.GetInt64(1), B: r.GetInt64(2)), ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)));
 
         var links = ChannelLinks(c);
