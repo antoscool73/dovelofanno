@@ -71,6 +71,23 @@ public sealed class ApiContractTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(expected == actual, "l'API v1 è cambiata rispetto a docs/api/openapi-v1.json (vedi l'output del test)");
     }
 
+    // 20/11/2026: le sezioni predefinite di La mia lista che il profilo nasconde (Preferenze › La mia lista)
+    [Fact]
+    public async Task SezioniNascosteDellaHomePerProfilo()
+    {
+        if (factory == null) { output.WriteLine("ffmpeg non trovato: test saltato"); return; }
+        var http = factory.CreateClient();
+        var prof = await (await http.PostAsJsonAsync("/api/v1/profiles", new { name = "Sezioni", isChild = false })).Content.ReadFromJsonAsync<JsonElement>();
+        long id = prof.GetProperty("id").GetInt64();
+        Assert.Equal(0, (await http.GetFromJsonAsync<JsonElement>($"/api/v1/profiles/{id}/home")).GetProperty("hidden").GetArrayLength());
+        var put = await http.PutAsJsonAsync($"/api/v1/profiles/{id}/home", new { hidden = new[] { "settimana", "continua", "settimana" } });
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var got = await http.GetFromJsonAsync<JsonElement>($"/api/v1/profiles/{id}/home");
+        Assert.Equal(["settimana", "continua"], got.GetProperty("hidden").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync($"/api/v1/profiles/{id}/home", new { hidden = new[] { "serata" } })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await http.GetAsync("/api/v1/profiles/999999/home")).StatusCode);
+    }
+
     [Fact]
     public async Task BackupDalloApi()
     {

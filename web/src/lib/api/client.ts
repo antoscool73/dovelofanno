@@ -20,6 +20,7 @@ export type SeriesRule = S['SeriesRule'];
 export type SeriesCheck = S['SeriesCheck'];
 export type SeriesEpisode = S['SeriesEpisode'];
 export type ConversionRow = S['ConversionRow'];
+export type HomeSections = S['HomeSections'];
 export type ImportResult = S['ImportResult'];
 export type BackupInfo = S['BackupInfo'];
 export type RatingSettings = S['RatingSettings'];
@@ -276,6 +277,10 @@ export const api = {
     call<SeriesCheck>('POST', '/series', { programmeId: null, workId: null, profileId: null, ...b }),
   checkSeries: (id: number) => call<SeriesCheck>('POST', `/series/${id}/check`),
   stopSeries: (id: number) => call<void>('DELETE', `/series/${id}`),
+
+  // sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026)
+  homeSections: (profileId: number) => call<HomeSections>('GET', `/profiles/${profileId}/home`),
+  setHomeSections: (profileId: number, hidden: string[]) => call<HomeSections>('PUT', `/profiles/${profileId}/home`, { hidden }),
 
   // «Converti...» (20/11/2026)
   conversions: () => call<ConversionRow[]>('GET', '/conversions'),

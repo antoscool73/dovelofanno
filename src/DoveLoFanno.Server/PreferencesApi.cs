@@ -11,6 +11,11 @@ public sealed record ProfileSubscriptionsBody(bool Inherits, IReadOnlyList<strin
 public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb);
 public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone);
 public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo);
+/// <summary>
+/// Sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026, richiesta di Antonio): continua, registrazioni,
+/// stasera-miei, stasera-altri, settimana. «Da vedere stasera» e «I miei titoli» ci sono sempre.
+/// </summary>
+public sealed record HomeSections(IReadOnlyList<string> Hidden);
 public sealed record NotificationSettingsPatch(string? TelegramToken, string? TelegramChat, bool? ClearTelegram, string? QuietFrom, string? QuietTo);
 
 /// <summary>
@@ -19,9 +24,33 @@ public sealed record NotificationSettingsPatch(string? TelegramToken, string? Te
 /// </summary>
 public static class PreferencesApi
 {
+    /// <summary>Sezioni predefinite di La mia lista che si possono nascondere.</summary>
+    public static readonly string[] HomeOptional = ["continua", "registrazioni", "stasera-miei", "stasera-altri", "settimana"];
+
+    static List<string> HomeHidden(ServerContext ctx, long profileId) =>
+        [.. ctx.Settings.Get($"HomeHidden.{profileId}").Split(',', StringSplitOptions.RemoveEmptyEntries).Where(HomeOptional.Contains)];
+
     public static void Map(RouteGroupBuilder api)
     {
         var prof = api.MapGroup("/profiles").WithTags("Preferenze");
+
+        // ---------------------------------------------------------------- sezioni di La mia lista (20/11/2026)
+        prof.MapGet("/{id:long}/home", IResult (long id, ServerContext ctx) =>
+            ctx.Profiles.Get(id) is null ? Results.NotFound() : Results.Ok(new HomeSections(HomeHidden(ctx, id))))
+            .WithSummary("Le sezioni predefinite di La mia lista che il profilo ha nascosto")
+            .Produces<HomeSections>().Produces(StatusCodes.Status404NotFound);
+
+        prof.MapPut("/{id:long}/home", IResult (long id, HomeSections b, ServerContext ctx) =>
+        {
+            if (ctx.Profiles.Get(id) is null) return Results.NotFound();
+            var hidden = (b.Hidden ?? []).Distinct().ToList();
+            if (hidden.Any(h => !HomeOptional.Contains(h)))
+                return Results.BadRequest(new ApiError("sezioni: " + string.Join(", ", HomeOptional)));
+            ctx.Settings.Set($"HomeHidden.{id}", string.Join(",", hidden));
+            return Results.Ok(new HomeSections(hidden));
+        })
+            .WithSummary("Nasconde sezioni predefinite di La mia lista (continua, registrazioni, stasera-miei, stasera-altri, settimana)")
+            .Produces<HomeSections>().Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         // ---------------------------------------------------------------- preferenze e proposte
         prof.MapGet("/{id:long}/preferences", IResult (long id, ServerContext ctx) =>

@@ -2,7 +2,6 @@
   // Home («La mia serata»): risponde a "stasera che si guarda?". In evidenza il titolo migliore della serata, poi
   // "Da vedere stasera" (la lista della mia serata), le liste che il profilo ha scelto (dinamiche: i risultati della loro
   // ricerca; a mano: i loro titoli), le registrazioni in corso e in arrivo, i film di stasera e della settimana per voto.
-  import HomeListsDialog from '../lib/components/HomeListsDialog.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -16,6 +15,7 @@
   import AvailLegend from '../lib/components/AvailLegend.svelte';
   import { availOf, availOfHit, type Avail } from '../lib/avail';
   import { recordChoice } from '../lib/series.svelte';
+  import { sectionsCommand } from '../lib/sections.svelte';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import {
     api, ApiError, type GuideProgramme, type LibraryItem, type ListEntry, type ListSummary, type Recording, type SearchHit, type SearchQuery, type TonightItem,
@@ -92,10 +92,13 @@
   type HomeRow = { list: ListSummary; hits: SearchHit[]; entries: ListEntry[]; loading: boolean; error: string; more: boolean };
   let homeRows = $state<HomeRow[]>([]);
   let homeLoaded = $state(false);
-  let choosingLists = $state(false);
+  // sezioni predefinite nascoste dal profilo (Preferenze › La mia lista)
+  let hidden = $state<Set<string>>(new Set());
+  const shown = (k: string) => !hidden.has(k);
   async function loadHome() {
     const prof = session.profile;
     if (!prof) { homeRows = []; homeLoaded = true; return; }
+    api.homeSections(prof.id).then((h) => (hidden = new Set(h.hidden))).catch(() => {});
     try {
       const lists = (await api.lists(prof.id)).filter((l) => l.onHome && !l.isTonight);
       const old = new Map(homeRows.map((r) => [r.list.id, r]));
@@ -401,7 +404,16 @@
   {/if}
 
   <div class="pad sections">
-    <AvailLegend />
+    <div class="toprow">
+      <AvailLegend />
+      <!-- apri o chiudi tutte le sezioni della pagina (Antonio, 20/11/2026) -->
+      <div class="allbtns">
+        <button type="button" class="allbtn" onclick={() => sectionsCommand.all(false)} title="Apri tutte le sezioni">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" /></svg>Apri tutte</button>
+        <button type="button" class="allbtn" onclick={() => sectionsCommand.all(true)} title="Chiudi tutte le sezioni">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20l5-5 5 5" /><path d="M7 4l5 5 5-5" /></svg>Chiudi tutte</button>
+      </div>
+    </div>
     <!-- La mia lista (20/11/2026, Antonio): «Da vedere stasera» = i titoli della lista che si vedono stasera (in TV di sera,
          in casa, on demand nei miei abbonamenti); «I miei titoli» = gli altri, non in programma stasera né on demand -->
     <Section key="serata" title="Da vedere stasera">
@@ -435,7 +447,7 @@
       </Section>
     {/if}
 
-    {#if continuing.length > 0}
+    {#if continuing.length > 0 && shown('continua')}
       <Section key="continua" title="Continua a guardare">
         {#snippet aside()}<a href="/libreria" onclick={navigate}>Libreria</a>{/snippet}
         <ul class="tonight">
@@ -471,19 +483,12 @@
       {/each}
       {#if homeLoaded && homeRows.length === 0 && session.profile}
         <Section key="liste" title="Le mie liste">
-          <p class="muted small">Qui compaiono le liste che scegli con «Scegli le liste», qui sotto. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
+          <p class="muted small">Qui compaiono le liste che scegli in <a href="/preferenze#serata" onclick={navigate}>Preferenze › La mia lista</a>. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
         </Section>
       {/if}
-      <!-- quali liste vedere qui: un popup con una casella per lista (Antonio, 20/11/2026) -->
-      {#if homeLoaded && session.profile}
-        <div><button type="button" class="choose" onclick={() => (choosingLists = true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></svg>
-          Scegli le liste da vedere qui</button></div>
-      {/if}
     </div>
-    {#if choosingLists}<HomeListsDialog onclose={() => { choosingLists = false; loadHome(); }} />{/if}
 
-    {#if live.length > 0 || upcoming.length > 0}
+    {#if (live.length > 0 || upcoming.length > 0) && shown('registrazioni')}
       <Section key="registrazioni" title="In registrazione e in arrivo">
         {#snippet aside()}<a href="/registrazioni" onclick={navigate}>Tutte le registrazioni</a>{/snippet}
         <ul class="recs">
@@ -543,6 +548,7 @@
     {/snippet}
 
     {#if tonightFilms.length > 0}
+      {#if shown('stasera-miei')}
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
         {#snippet aside()}<span class="mysubs">dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{#each platforms.sort(mySubs) as s (s)}<ServiceIcon name={s} size={24} />{/each}</span>{/snippet}
         <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
@@ -554,14 +560,15 @@
           <p class="muted small">{mySubs.length === 0 ? 'Scegli i tuoi abbonamenti (Netflix, Prime Video…) in Preferenze: qui compaiono i film dei loro cataloghi.' : 'Nessun film della guida nei cataloghi dei tuoi abbonamenti, per ora.'}</p>
         {/if}
       </Section>
-      {#if filmsOther.length > 0}
+      {/if}
+      {#if filmsOther.length > 0 && shown('stasera-altri')}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
           {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
           {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paytv'] }, label: 'Tutti i film in TV a pagamento', hint: 'sui canali che non hai, nei prossimi giorni' })}
         </Section>
       {/if}
     {/if}
-    {#if weekFilms.length > 0}
+    {#if weekFilms.length > 0 && shown('settimana')}
       <Section key="settimana" title="Questa settimana">
         {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
         {@render row(weekFilms.map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'], minRating: 7 }, label: 'Tutti i film da 7 in su', hint: 'in TV nei prossimi giorni' })}
@@ -582,8 +589,10 @@
 {/if}
 
 <style>
-  .choose { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: var(--radius-s); border: 1px dashed var(--line-btn); background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .choose:hover { color: var(--text); background: var(--card); }
+  .toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+  .allbtns { display: flex; gap: 4px; }
+  .allbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .allbtn:hover { color: var(--text); background: var(--card); }
   .edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-s); color: var(--muted); }
   .edit:hover { color: var(--text); background: var(--card); }
   .pad { padding: 0 var(--gutter); }

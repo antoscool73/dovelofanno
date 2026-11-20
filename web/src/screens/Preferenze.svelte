@@ -2,6 +2,7 @@
   // Preferenze del profilo: le liste nella pagina La mia lista (e gli esclusi dalle ricerche), i miei avvisi, i miei
   // abbonamenti, le notifiche (la registrazione predefinita dal 20/11/2026 è in Impostazioni › Registrazioni). Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
   // liste dinamiche: qui si sceglie solo quali liste mostrare.
+  import { HOME_OPTIONAL } from '../lib/sections.svelte';
   import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
   import Badge from '../lib/components/Badge.svelte';
@@ -35,6 +36,8 @@
   let alerts = $state<AlertRow[]>([]);
   let mySubs = $state<ProfileSubscriptions | null>(null);
   let family = $state<FamilySubscriptions | null>(null);
+  // sezioni predefinite di La mia lista che il profilo ha spento (20/11/2026)
+  let homeHidden = $state<string[]>([]);
   let error = $state('');
   let message = $state('');
   let busy = $state(false);
@@ -43,10 +46,10 @@
     const p = session.profile;
     if (!p) return;
     try {
-      const [a, c, e, f, g] = await Promise.all([
-        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(),
+      const [a, c, e, f, g, h] = await Promise.all([
+        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(), api.homeSections(p.id),
       ]);
-      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g;
+      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g; homeHidden = h.hidden;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Preferenze non lette';
@@ -102,7 +105,22 @@
 
     {#if tab === 'serata'}
       <h2>La mia lista</h2>
-      <p class="f-muted">Scegli quali delle tue liste compaiono nella pagina La mia lista, sotto «Da vedere stasera». Le liste si creano in <a href="/libreria" onclick={navigate}>Libreria</a> (a mano) o dalla <a href="/cerca" onclick={navigate}>ricerca</a> con «Salva come lista» (dinamiche: i titoli li trova la ricerca, da sola). Dei titoli nuovi in TV nelle liste dinamiche scelte arriva una notifica.</p>
+      <p class="f-muted">Scegli che cosa compare nella pagina La mia lista. «Da vedere stasera» e «I miei titoli» ci sono sempre; le altre sezioni e le tue liste si accendono e si spengono da qui.</p>
+      <h3>Sezioni della pagina</h3>
+      <ul class="f-list">
+        <li><label class="f-check"><input type="checkbox" checked disabled aria-label="Da vedere stasera: sempre nella pagina" /></label><span class="pname">Da vedere stasera</span><span class="f-muted grow">Sempre nella pagina</span></li>
+        <li><label class="f-check"><input type="checkbox" checked disabled aria-label="I miei titoli: sempre nella pagina" /></label><span class="pname">I miei titoli</span><span class="f-muted grow">Sempre nella pagina</span></li>
+        {#each HOME_OPTIONAL as h (h.key)}
+          <li>
+            <label class="f-check"><input type="checkbox" checked={!homeHidden.includes(h.key)} disabled={busy} aria-label="Mostra {h.label} in La mia lista"
+              onchange={(e) => { const on = e.currentTarget.checked; act(() => api.setHomeSections(prof!.id, on ? homeHidden.filter((k) => k !== h.key) : [...homeHidden, h.key])); }} /></label>
+            <span class="pname">{h.label}</span>
+            <span class="f-muted grow">Sezione predefinita</span>
+          </li>
+        {/each}
+      </ul>
+      <h3>Le mie liste</h3>
+      <p class="f-muted">Le liste si creano in <a href="/libreria" onclick={navigate}>Libreria</a> (a mano) o dalla <a href="/cerca" onclick={navigate}>ricerca</a> con «Salva come lista» (dinamiche: i titoli li trova la ricerca, da sola). Dei titoli nuovi in TV nelle liste dinamiche scelte arriva una notifica.</p>
       {#if child}<p class="f-muted">Profilo bambino: le liste mostrano solo i titoli per bambini.</p>{/if}
       {#if lists.length === 0}
         <div class="empty"><p>Nessuna lista ancora. Apri la <a href="/cerca" onclick={navigate}>ricerca</a>, scegli i filtri (per esempio Film, Thriller, voto 7 e oltre, In TV) e tocca «Salva come lista».</p></div>

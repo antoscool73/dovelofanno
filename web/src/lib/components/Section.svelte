@@ -2,6 +2,8 @@
   // Sezione con titolo che si chiude e si riapre con un tocco; aperta di default. Lo stato si ricorda su questo
   // dispositivo (comodità, non dato importante: senza memoria del browser resta aperta).
   import type { Snippet } from 'svelte';
+  import { untrack } from 'svelte';
+  import { sectionsCommand } from '../sections.svelte';
 
   // after: subito dopo il titolo (la pennina di una lista); tools: controlli dopo il titolo (es. un interruttore); aside: testo a destra
   let { key, title, id = undefined, after = undefined, aside = undefined, tools = undefined, children }: {
@@ -18,6 +20,18 @@
     closed = !closed;
     try { if (closed) localStorage.setItem(storeKey, 'chiusa'); else localStorage.removeItem(storeKey); } catch { /* resta solo per questa visita */ }
   }
+  // «Apri tutte» / «Chiudi tutte» della pagina: solo quando il comando cambia, non all'avvio
+  const startN = sectionsCommand.n;
+  $effect(() => {
+    const n = sectionsCommand.n;
+    if (n === startN) return;
+    const want = sectionsCommand.closed;
+    untrack(() => {
+      if (closed === want) return;
+      closed = want;
+      try { if (closed) localStorage.setItem(storeKey, 'chiusa'); else localStorage.removeItem(storeKey); } catch { /* solo per questa visita */ }
+    });
+  });
   const bodyId = $derived('sez-' + key);
 </script>
 
