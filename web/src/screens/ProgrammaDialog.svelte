@@ -29,7 +29,7 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
   }
 
-  // "Aggiungi alla mia serata": si sa se c'è già leggendo la lista del profilo
+  // "Aggiungi alla mia lista": si sa se c'è già leggendo la lista del profilo
   let inTonight = $state<boolean | null>(null);
   $effect(() => {
     const prof = session.profile;
@@ -173,7 +173,7 @@
         <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}#avvisami`)}>Avvisami</Button>
       {/if}
       {#if inTonight !== null}
-        <Button variant={inTonight ? "primary" : "soft"} pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia serata' : 'Aggiungi alla mia serata'} variants={['Nella mia serata', 'Aggiungi alla mia serata']} /></Button>
+        <Button variant={inTonight ? "primary" : "soft"} pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia lista' : 'Aggiungi alla mia lista'} variants={['Nella mia lista', 'Aggiungi alla mia lista']} /></Button>
       {/if}
     </div>
     <!-- seconda riga fissa: "Non proporre più" e "Chiudi" non si spostano quando cambiano i pulsanti sopra -->

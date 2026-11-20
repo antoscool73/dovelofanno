@@ -949,7 +949,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Crea un profilo con la sua lista «La mia serata in TV»; PIN facoltativo (4-8 cifre) solo per gli adulti */
+        /** Crea un profilo con la sua lista «La mia lista»; PIN facoltativo (4-8 cifre) solo per gli adulti */
         post: {
             parameters: {
                 query?: never;
@@ -1164,7 +1164,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** La mia serata in TV: i titoli del profilo con il prossimo passaggio in guida */
+        /** La mia lista: i titoli del profilo con il prossimo passaggio in guida */
         get: {
             parameters: {
                 query?: never;

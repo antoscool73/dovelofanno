@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Preferenze del profilo: le liste nella pagina La mia serata (e gli esclusi dalle ricerche), i miei avvisi, i miei
+  // Preferenze del profilo: le liste nella pagina La mia lista (e gli esclusi dalle ricerche), i miei avvisi, i miei
   // abbonamenti, le notifiche (la registrazione predefinita dal 20/11/2026 è in Impostazioni › Registrazioni). Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
   // liste dinamiche: qui si sceglie solo quali liste mostrare.
   import { ask } from '../lib/confirm.svelte';
@@ -16,7 +16,7 @@
 
   type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'notifiche';
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'serata', label: 'La mia serata' },
+    { id: 'serata', label: 'La mia lista' },
     { id: 'avvisi', label: 'I miei avvisi' },
     { id: 'abbonamenti', label: 'I miei abbonamenti' },
     { id: 'notifiche', label: 'Notifiche' },
@@ -62,7 +62,7 @@
     finally { busy = false; }
   }
 
-  // ---------------------------------------------------------------- liste nella pagina La mia serata
+  // ---------------------------------------------------------------- liste nella pagina La mia lista
   const listKind = (l: ListSummary) =>
     [l.query ? 'Dinamica' : `${l.count} ${l.count === 1 ? 'titolo' : 'titoli'}`, l.family ? 'della famiglia' : 'personale'].join(', ');
   const listHref = (l: ListSummary) => (l.query ? `/cerca#list=${l.id}` : `/libreria/liste/${l.id}`);
@@ -101,8 +101,8 @@
     {#if message}<p class="f-ok" role="status">{message}</p>{/if}
 
     {#if tab === 'serata'}
-      <h2>La mia serata</h2>
-      <p class="f-muted">Scegli quali delle tue liste compaiono nella pagina La mia serata, sotto «Da vedere stasera». Le liste si creano in <a href="/libreria" onclick={navigate}>Libreria</a> (a mano) o dalla <a href="/cerca" onclick={navigate}>ricerca</a> con «Salva come lista» (dinamiche: i titoli li trova la ricerca, da sola). Dei titoli nuovi in TV nelle liste dinamiche scelte arriva una notifica.</p>
+      <h2>La mia lista</h2>
+      <p class="f-muted">Scegli quali delle tue liste compaiono nella pagina La mia lista, sotto «Da vedere stasera». Le liste si creano in <a href="/libreria" onclick={navigate}>Libreria</a> (a mano) o dalla <a href="/cerca" onclick={navigate}>ricerca</a> con «Salva come lista» (dinamiche: i titoli li trova la ricerca, da sola). Dei titoli nuovi in TV nelle liste dinamiche scelte arriva una notifica.</p>
       {#if child}<p class="f-muted">Profilo bambino: le liste mostrano solo i titoli per bambini.</p>{/if}
       {#if lists.length === 0}
         <div class="empty"><p>Nessuna lista ancora. Apri la <a href="/cerca" onclick={navigate}>ricerca</a>, scegli i filtri (per esempio Film, Thriller, voto 7 e oltre, In TV) e tocca «Salva come lista».</p></div>
@@ -110,7 +110,7 @@
         <ul class="f-list">
           {#each lists as l (l.id)}
             <li>
-              <label class="f-check"><input type="checkbox" checked={l.onHome} disabled={busy} aria-label="Mostra {l.name} in La mia serata"
+              <label class="f-check"><input type="checkbox" checked={l.onHome} disabled={busy} aria-label="Mostra {l.name} in La mia lista"
                 onchange={(e) => act(() => api.updateList(prof!.id, l.id, { onHome: e.currentTarget.checked }))} /></label>
               <span class="pname">{l.name}</span>
               <span class="f-muted grow">{listKind(l)}</span>
@@ -123,7 +123,7 @@
       <h3>Da non proporre più</h3>
       <p class="f-muted">Questi titoli non compaiono nelle liste dinamiche né nelle ricerche fatte con i soli filtri; cercati per nome ci sono, segnati «Escluso».</p>
       {#if ignored.length === 0}
-        <p class="f-muted">Nessun titolo. Si aggiungono con «Non proporre più» da La mia serata o dalla scheda.</p>
+        <p class="f-muted">Nessun titolo. Si aggiungono con «Non proporre più» da La mia lista o dalla scheda.</p>
       {:else}
         <ul class="f-list">
           {#each ignored as i (i.workKey)}

@@ -1,7 +1,7 @@
 <script lang="ts">
   // Gestione delle liste in un popup, la stessa per Libreria e Cerca (19/11/2026). Senza `query` crea una lista a mano
   // (Libreria «+ Nuova lista»); con `query` salva la ricerca: come lista dinamica nuova, oppure aggiornando una lista
-  // dinamica che c'è già (la sua ricerca viene sostituita). In entrambi i casi si sceglie se mostrarla in La mia serata.
+  // dinamica che c'è già (la sua ricerca viene sostituita). In entrambi i casi si sceglie se mostrarla in La mia lista.
   import Button from './Button.svelte';
   import { api, ApiError, type ListSummary, type SavedQuery } from '../api/client';
   import { session } from '../session.svelte';
@@ -95,10 +95,10 @@
         <p class="hint">La sua ricerca viene sostituita da quella che stai guardando.</p>
       {/if}
     {:else}
-      <label class="field">Nome della lista<input bind:value={name} maxlength="60" placeholder={family ? 'Natale in famiglia' : 'Da rivedere'} /></label>
+      <label class="field">Nome della lista<input bind:value={name} maxlength="28" placeholder={family ? 'Natale in famiglia' : 'Da rivedere'} /></label>
       {#if !child}<label class="check"><input type="checkbox" bind:checked={family} /> Della famiglia: la vedono tutti i profili e la cambiano gli adulti</label>{/if}
     {/if}
-    <label class="check"><input type="checkbox" bind:checked={onHome} /> Mostrala in La mia serata</label>
+    <label class="check"><input type="checkbox" bind:checked={onHome} /> Mostrala in La mia lista</label>
 
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="actions">

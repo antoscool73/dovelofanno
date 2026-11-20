@@ -41,6 +41,9 @@ public enum ListResult { Ok, NotFound, Forbidden, Invalid, NoWork, Fixed, Dynami
 /// </summary>
 public sealed class ListStore(string dbPath, GuideStore guide)
 {
+    /// <summary>Nome di una lista: al massimo 28 caratteri, perché stia su una riga con la pennina (Antonio, 20/11/2026).</summary>
+    public const int MaxName = 28;
+
     SqliteConnection Open() => Database.Open(dbPath);
 
     static (bool Exists, bool Child) Profile(SqliteConnection c, long profileId)
@@ -91,7 +94,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
     public (ListResult Result, long Id) Create(long profileId, string name, bool family, DateTimeOffset now, SavedQuery? query = null)
     {
         name = (name ?? "").Trim();
-        if (name.Length is 0 or > 60) return (ListResult.Invalid, 0);
+        if (name.Length is 0 or > MaxName) return (ListResult.Invalid, 0);
         if (query != null && query.Validate().Length > 0) return (ListResult.Invalid, 0);
         using var c = Open();
         var (exists, child) = Profile(c, profileId);
@@ -129,7 +132,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
         if (name != null)
         {
             name = name.Trim();
-            if (name.Length is 0 or > 60) return ListResult.Invalid;
+            if (name.Length is 0 or > MaxName) return ListResult.Invalid;
             Db.Exec(c, "UPDATE lists SET name = $n WHERE id = $id", ("$n", name), ("$id", listId));
         }
         if (family == true) Db.Exec(c, "UPDATE lists SET profile_id = NULL WHERE id = $id", ("$id", listId));

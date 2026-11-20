@@ -15,7 +15,7 @@ public enum ProfileResult { Ok, NotFound, NameTaken, InvalidName, InvalidPin, La
 /// </summary>
 public sealed class ProfileStore(string dbPath)
 {
-    public const string TonightList = "La mia serata in TV";
+    public const string TonightList = "La mia lista";
     static readonly string[] Palette = ["#6E9BFF", "#34C77B", "#F5A25D", "#C79BFF", "#FF7A9C", "#4FC3D9"];
 
     SqliteConnection Open() => Database.Open(dbPath);

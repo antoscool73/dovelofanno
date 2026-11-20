@@ -834,7 +834,7 @@
         "tags": [
           "Profili"
         ],
-        "summary": "Crea un profilo con la sua lista «La mia serata in TV»; PIN facoltativo (4-8 cifre) solo per gli adulti",
+        "summary": "Crea un profilo con la sua lista «La mia lista»; PIN facoltativo (4-8 cifre) solo per gli adulti",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1030,7 +1030,7 @@
         "tags": [
           "Profili"
         ],
-        "summary": "La mia serata in TV: i titoli del profilo con il prossimo passaggio in guida",
+        "summary": "La mia lista: i titoli del profilo con il prossimo passaggio in guida",
         "parameters": [
           {
             "name": "id",

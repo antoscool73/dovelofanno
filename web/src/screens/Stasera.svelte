@@ -85,9 +85,10 @@
   });
 
   // ---------------------------------------------------------------- le mie liste nella pagina
-  // le liste scelte (Preferenze › La mia serata, o «In La mia serata» in Cerca): si leggono a parte, perché una lista
+  // le liste scelte (Preferenze › La mia lista, o «In La mia lista» in Cerca): si leggono a parte, perché una lista
   // dinamica è una ricerca (anche su TMDB) e può metterci qualche secondo; si rileggono ogni 10 minuti
-  type HomeRow = { list: ListSummary; hits: SearchHit[]; entries: ListEntry[]; loading: boolean; error: string };
+  // more: la lista ha altri titoli oltre quelli mostrati (solo allora c'è «Tutta la lista» in fondo alla riga)
+  type HomeRow = { list: ListSummary; hits: SearchHit[]; entries: ListEntry[]; loading: boolean; error: string; more: boolean };
   let homeRows = $state<HomeRow[]>([]);
   let homeLoaded = $state(false);
   async function loadHome() {
@@ -96,12 +97,19 @@
     try {
       const lists = (await api.lists(prof.id)).filter((l) => l.onHome && !l.isTonight);
       const old = new Map(homeRows.map((r) => [r.list.id, r]));
-      homeRows = lists.map((l) => ({ list: l, hits: old.get(l.id)?.hits ?? [], entries: old.get(l.id)?.entries ?? [], loading: true, error: '' }));
+      homeRows = lists.map((l) => ({ list: l, hits: old.get(l.id)?.hits ?? [], entries: old.get(l.id)?.entries ?? [], loading: true, error: '', more: old.get(l.id)?.more ?? false }));
       homeLoaded = true;
       await Promise.all(homeRows.map(async (r) => {
         try {
-          if (r.list.query) r.hits = (await api.listResults(prof.id, r.list.id, 18)).hits;
-          else r.entries = (await api.list(prof.id, r.list.id)).items.slice(0, 18);
+          if (r.list.query) {
+            const res = await api.listResults(prof.id, r.list.id, 18);
+            r.hits = res.hits;
+            r.more = !!res.more;
+          } else {
+            const items = (await api.list(prof.id, r.list.id)).items;
+            r.entries = items.slice(0, 18);
+            r.more = items.length > 18;
+          }
           r.error = '';
         } catch (e) { r.error = e instanceof ApiError ? e.message : 'Lista non letta'; }
         r.loading = false;
@@ -323,7 +331,7 @@
       lines,
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
       // si registra anche un passaggio di giorno (il prossimo)
-      rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia serata',
+      rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia lista',
     };
   }
 
@@ -359,11 +367,6 @@
     };
   }
 
-  const serataCards = $derived([
-    ...tonightAvailable.map((i) => tonightCard(i, true)),
-    ...tonightLater.map((i) => tonightCard(i, false)),
-    ...(showPast ? tonightPast.map((i) => tonightCard(i, false)) : []),
-  ]);
 </script>
 
 {#if loading}
@@ -376,7 +379,7 @@
       {#if hero.icon}<img class="backdrop" src={hero.icon} alt="" referrerpolicy="no-referrer" />{/if}
       <div class="hero-word" aria-hidden="true">{hero.title}</div>
       <div class="hero-body">
-        <div class="kicker">{heroFromList ? 'DALLA MIA SERATA IN TV' : 'IL FILM DI STASERA'} · {when(hero).toUpperCase()} SU {(hero.channelName || hero.guideChannelName).toUpperCase()}</div>
+        <div class="kicker">{heroFromList ? 'DALLA MIA LISTA' : 'IL FILM DI STASERA'} · {when(hero).toUpperCase()} SU {(hero.channelName || hero.guideChannelName).toUpperCase()}</div>
         <h1>{hero.title}</h1>
         <div class="facts">
           {#if hero.year}<span>{hero.year}</span>{/if}
@@ -397,24 +400,38 @@
 
   <div class="pad sections">
     <AvailLegend />
+    <!-- La mia lista (20/11/2026, Antonio): «Da vedere stasera» = i titoli della lista che si vedono stasera (in TV di sera,
+         in casa, on demand nei miei abbonamenti); «I miei titoli» = gli altri, non in programma stasera né on demand -->
     <Section key="serata" title="Da vedere stasera">
-      {#snippet tools()}
-        {#if tonightPast.length > 0}
-          <label class="switch">
-            <input type="checkbox" role="switch" checked={showPast} onchange={(e) => setShowPast(e.currentTarget.checked)} />
-            <span class="track" aria-hidden="true"></span>
-            Mostra programmazione passata ({tonightPast.length})
-          </label>
-        {/if}
-      {/snippet}
-      {#snippet aside()}{tonightList.length === 0 ? 'Aggiungi i titoli che vuoi vedere (dalla guida o con la lente): compaiono qui quando si possono vedere.' : `${tonightList.length} ${tonightList.length === 1 ? 'titolo' : 'titoli'}, ${tonightAvailable.length} da vedere stasera`}{/snippet}
-      {#if serataCards.length > 0}
-        {@render row(serataCards)}
-        {#if serataCards.some((c) => c.dim)}<p class="muted small">Le locandine più chiare non si vedono stasera nei tuoi abbonamenti: un tocco apre la scheda.</p>{/if}
-      {:else if tonightPast.length > 0}
-        <p class="muted small">Niente da vedere stasera dalla tua lista: {tonightPast.length === 1 ? 'un titolo è già passato' : `${tonightPast.length} titoli sono già passati`} negli ultimi giorni.</p>
+      {#snippet aside()}{tonightList.length === 0 ? '' : `${tonightAvailable.length} ${tonightAvailable.length === 1 ? 'titolo' : 'titoli'} della tua lista`}{/snippet}
+      {#if tonightAvailable.length > 0}
+        {@render row(tonightAvailable.map((i) => tonightCard(i, true)))}
+      {:else if tonightList.length === 0}
+        <p class="muted small">Aggiungi i titoli che vuoi vedere (dalla guida, dalla scheda o con la lente): quando si possono vedere compaiono qui.</p>
+      {:else}
+        <p class="muted small">Stasera niente dalla tua lista: i titoli sono in «I miei titoli», qui sotto.</p>
       {/if}
     </Section>
+
+    {#if tonightLater.length > 0 || tonightPast.length > 0}
+      <Section key="miei-titoli" title="I miei titoli">
+        {#snippet tools()}
+          {#if tonightPast.length > 0}
+            <label class="switch">
+              <input type="checkbox" role="switch" checked={showPast} onchange={(e) => setShowPast(e.currentTarget.checked)} />
+              <span class="track" aria-hidden="true"></span>
+              Mostra programmazione passata ({tonightPast.length})
+            </label>
+          {/if}
+        {/snippet}
+        {#snippet aside()}non stasera e non on demand: quando passano in TV e dove{/snippet}
+        {#if tonightLater.length > 0 || showPast}
+          {@render row([...tonightLater.map((i) => tonightCard(i, true)), ...(showPast ? tonightPast.map((i) => tonightCard(i, true)) : [])])}
+        {:else}
+          <p class="muted small">{tonightPast.length === 1 ? 'Un titolo è già passato' : `${tonightPast.length} titoli sono già passati`} negli ultimi giorni.</p>
+        {/if}
+      </Section>
+    {/if}
 
     {#if continuing.length > 0}
       <Section key="continua" title="Continua a guardare">
@@ -439,19 +456,20 @@
         {@const dynamic = !!r.list.query}
         {@const href = dynamic ? `/cerca#list=${r.list.id}` : `/libreria/liste/${r.list.id}`}
         <Section key={'lista-' + r.list.id} title={r.list.name}>
-          {#snippet aside()}<a {href} onclick={navigate}>{dynamic ? 'Cambia la ricerca' : 'Apri la lista'}</a>{/snippet}
+          <!-- la pennina subito dopo il nome: modifica la ricerca (lista dinamica) o apre la lista (Antonio, 20/11/2026) -->
+          {#snippet after()}<a class="edit" {href} onclick={navigate} aria-label={dynamic ? `Modifica la ricerca di ${r.list.name}` : `Modifica la lista ${r.list.name}`} title={dynamic ? 'Modifica la ricerca' : 'Modifica la lista'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></a>{/snippet}
           {#if r.error}<p class="error small">{r.error}</p>
           {:else if dynamic && r.hits.length > 0}
-            {@render row(r.hits.map((h) => hitCard(r, h)), { href, label: 'Tutta la lista', hint: 'con la sua ricerca' })}
+            {@render row(r.hits.map((h) => hitCard(r, h)), r.more ? { href, label: 'Tutta la lista', hint: 'con la sua ricerca' } : null)}
           {:else if !dynamic && r.entries.length > 0}
-            {@render row(r.entries.map(entryCard), { href, label: 'Tutta la lista', hint: `${r.list.count} ${r.list.count === 1 ? 'titolo' : 'titoli'}` })}
+            {@render row(r.entries.map(entryCard), r.more ? { href, label: 'Tutta la lista', hint: `${r.list.count} ${r.list.count === 1 ? 'titolo' : 'titoli'}` } : null)}
           {:else if r.loading}<p class="muted small" role="status">Cerco i titoli…</p>
           {:else}<p class="muted small">{dynamic ? 'Per ora nessun titolo con questa ricerca.' : 'La lista è vuota.'}</p>{/if}
         </Section>
       {/each}
       {#if homeLoaded && homeRows.length === 0 && session.profile}
         <Section key="liste" title="Le mie liste">
-          <p class="muted small">Qui compaiono le liste che scegli in <a href="/preferenze#serata" onclick={navigate}>Preferenze › La mia serata</a>. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
+          <p class="muted small">Qui compaiono le liste che scegli in <a href="/preferenze#serata" onclick={navigate}>Preferenze › La mia lista</a>. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
         </Section>
       {/if}
     </div>
@@ -555,6 +573,8 @@
 {/if}
 
 <style>
+  .edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-s); color: var(--muted); }
+  .edit:hover { color: var(--text); background: var(--card); }
   .pad { padding: 0 var(--gutter); }
   .muted { color: var(--muted); margin: 0; }
   .small { font-size: 13px; }

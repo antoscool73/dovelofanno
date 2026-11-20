@@ -178,7 +178,7 @@ public static class Api
             var (res, id) = ctx.Profiles.Create(body.Name, body.IsChild, body.Avatar, body.Pin, ctx.Clock.GetUtcNow());
             return res == ProfileResult.Ok ? Results.Created($"/api/v1/profiles/{id}", ctx.Profiles.Get(id)) : ProfileError(res);
         })
-            .WithSummary("Crea un profilo con la sua lista «La mia serata in TV»; PIN facoltativo (4-8 cifre) solo per gli adulti")
+            .WithSummary("Crea un profilo con la sua lista «La mia lista»; PIN facoltativo (4-8 cifre) solo per gli adulti")
             .Produces<ProfileRow>(StatusCodes.Status201Created).Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
 
         prof.MapPatch("/{id:long}", IResult (long id, ProfilePatch body, ServerContext ctx) =>
@@ -210,7 +210,7 @@ public static class Api
         // "La mia serata in TV" del profilo (aggiunta della wave 5)
         prof.MapGet("/{id:long}/tonight", IResult (long id, ServerContext ctx) =>
             ctx.Tonight.Items(id, ctx.Clock.GetUtcNow(), ctx.Clock.LocalTimeZone, ctx.Subscriptions.OfProfile(id)?.Services) is { } items ? Results.Ok(items) : Results.NotFound())
-            .WithSummary("La mia serata in TV: i titoli del profilo con il prossimo passaggio in guida")
+            .WithSummary("La mia lista: i titoli del profilo con il prossimo passaggio in guida")
             .Produces<List<TonightItem>>().Produces(StatusCodes.Status404NotFound);
 
         prof.MapPost("/{id:long}/tonight", IResult (long id, WorkRef body, ServerContext ctx) =>

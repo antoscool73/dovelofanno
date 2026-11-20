@@ -3,9 +3,9 @@
   // dispositivo (comodità, non dato importante: senza memoria del browser resta aperta).
   import type { Snippet } from 'svelte';
 
-  // tools: controlli subito dopo il titolo (es. un interruttore); aside: testo a destra
-  let { key, title, id = undefined, aside = undefined, tools = undefined, children }: {
-    key: string; title: string; id?: string; aside?: Snippet; tools?: Snippet; children: Snippet;
+  // after: subito dopo il titolo (la pennina di una lista); tools: controlli dopo il titolo (es. un interruttore); aside: testo a destra
+  let { key, title, id = undefined, after = undefined, aside = undefined, tools = undefined, children }: {
+    key: string; title: string; id?: string; after?: Snippet; aside?: Snippet; tools?: Snippet; children: Snippet;
   } = $props();
 
   const storeKey = $derived('dlf.sezione.' + key);
@@ -26,9 +26,10 @@
     <h2>
       <button type="button" aria-expanded={!closed} aria-controls={bodyId} onclick={toggle}>
         <svg class="chev" class:closed width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-        {title}
+        <span class="t">{title}</span>
       </button>
     </h2>
+    {#if after}{@render after()}{/if}
     {#if tools && !closed}<div class="tools">{@render tools()}</div>{/if}
     {#if aside}<div class="aside">{@render aside()}</div>{/if}
   </div>
@@ -44,7 +45,11 @@
     display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px 2px 0; border: 0; background: none; color: var(--text);
     font: inherit; font-family: var(--font-display); font-weight: 700; font-size: 22px; cursor: pointer;
   }
-  .chev { color: var(--muted); transition: transform 0.15s; }
+  /* il titolo resta su una riga: i nomi delle liste sono brevi (28 caratteri), i puntini sono solo una sicurezza */
+  h2 { min-width: 0; max-width: 100%; }
+  h2 button { max-width: 100%; }
+  .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chev { flex: 0 0 auto; color: var(--muted); transition: transform 0.15s; }
   .chev.closed { transform: rotate(-90deg); }
   .aside { font-size: 13px; color: var(--muted); }
 </style>

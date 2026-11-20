@@ -318,7 +318,7 @@
     list = l;
     listId = l.id;
     savedJson = JSON.stringify(toSaved(f));
-    saved = `${created ? 'Lista' : 'Aggiornata la lista'} «${l.name}»${l.onHome ? ': la trovi anche in La mia serata' : ''}.`;
+    saved = `${created ? 'Lista' : 'Aggiornata la lista'} «${l.name}»${l.onHome ? ': la trovi anche in La mia lista' : ''}.`;
   }
   function closeList() {
     list = null; listId = null; savedJson = ''; saved = '';
@@ -357,7 +357,7 @@
   </div>
   <header class="head">
     {#if list}
-      <p class="muted">Lista dinamica{list.family ? ' della famiglia' : ''}{list.onHome ? ', in La mia serata' : ''}: i titoli sono i risultati di questa ricerca e cambiano da soli. <button type="button" class="linkbtn" onclick={closeList}>Chiudi la lista</button></p>
+      <p class="muted">Lista dinamica{list.family ? ' della famiglia' : ''}{list.onHome ? ', in La mia lista' : ''}: i titoli sono i risultati di questa ricerca e cambiano da soli. <button type="button" class="linkbtn" onclick={closeList}>Chiudi la lista</button></p>
     {:else}
       <p class="muted">Titolo, regista o attore, con i filtri che ti servono: in TV, nei tuoi abbonamenti, a noleggio, in casa. Se un titolo non è disponibile, fatti avvisare. Una ricerca che ti piace salvala come lista.</p>
     {/if}

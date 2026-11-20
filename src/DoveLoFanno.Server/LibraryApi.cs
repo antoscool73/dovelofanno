@@ -317,10 +317,10 @@ public static class LibraryApi
     {
         ListResult.NotFound => Results.NotFound(),
         ListResult.Forbidden => Results.Json(new ApiError("le liste di famiglia le cambiano solo gli adulti"), statusCode: StatusCodes.Status403Forbidden),
-        ListResult.Fixed => Results.Conflict(new ApiError("«La mia serata in TV» non si rinomina e non si cancella")),
+        ListResult.Fixed => Results.Conflict(new ApiError("«La mia lista» non si rinomina e non si cancella")),
         ListResult.NoWork => Results.BadRequest(new ApiError("opera sconosciuta")),
         ListResult.Dynamic => Results.BadRequest(new ApiError("è una lista dinamica: i titoli vengono dalla sua ricerca")),
-        _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 60 caratteri, o lista già di famiglia")),
+        _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 28 caratteri, o lista già di famiglia")),
     };
 
     static string ContentType(string path) => Path.GetExtension(path).ToLowerInvariant() switch

@@ -252,7 +252,7 @@
           {#if nextRecordable}<RecordButton scheduled={nextRecordable.scheduled} busy={busy === nextRecordable.id} label={recordLabel(nextRecordable)} onclick={() => record(nextRecordable)} />{/if}
           {#if w.trailer}<Button variant="soft" size="l" href={w.trailer}>▶ Trailer</Button>{/if}
           {#if session.profile}
-            <Button variant={w.inTonight ? "primary" : "soft"} size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia serata' : 'Aggiungi alla mia serata'} variants={['Nella mia serata', 'Aggiungi alla mia serata']} /></Button>
+            <Button variant={w.inTonight ? "primary" : "soft"} size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia lista' : 'Aggiungi alla mia lista'} variants={['Nella mia lista', 'Aggiungi alla mia lista']} /></Button>
             <Button variant={w.watched ? "primary" : "soft"} size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}><StableLabel text={w.watched ? 'Visto' : 'Segna come visto'} variants={['Visto', 'Segna come visto']} /></Button>
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
             <!-- pulsanti a stato (serata, visto, avvisi): acceso = colori invertiti, senza segno di spunta -->

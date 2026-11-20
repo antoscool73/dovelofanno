@@ -232,14 +232,14 @@
             {#if isRenaming}
               <form class="rename" onsubmit={rename}>
                 <label class="sr-only" for="nome-lista">Nome della lista</label>
-                <input id="nome-lista" bind:value={renaming} maxlength="60" />
+                <input id="nome-lista" bind:value={renaming} maxlength="28" />
                 <Button variant="primary" size="s" type="submit">Salva</Button>
                 <Button variant="ghost" size="s" onclick={() => (isRenaming = false)}>Annulla</Button>
               </form>
             {:else}
               <h2>{detail.list.name}</h2>
             {/if}
-            <div class="muted small">{detail.items.length} {detail.items.length === 1 ? 'titolo' : 'titoli'} · {detail.list.isTonight ? 'fissa: i titoli disponibili compaiono in La mia serata' : detail.list.family ? 'lista della famiglia' : `lista personale di ${session.profile?.name}`}</div>
+            <div class="muted small">{detail.items.length} {detail.items.length === 1 ? 'titolo' : 'titoli'} · {detail.list.isTonight ? 'fissa: i titoli disponibili compaiono in La mia lista' : detail.list.family ? 'lista della famiglia' : `lista personale di ${session.profile?.name}`}</div>
           </div>
           <label class="sel"><span class="sr-only">Ordina</span>
             <select bind:value={sort}>{#each sorts as s (s.id)}<option value={s.id}>Ordina: {s.label.toLowerCase()}</option>{/each}</select>
@@ -306,7 +306,7 @@
 
     <section class="pad block">
       <div class="shead">
-        <div><h2>Le mie liste</h2><p class="muted small">«La mia serata in TV» è fissa: i titoli che ci metti compaiono in La mia serata appena sono disponibili e finché non li hai visti. Le liste <strong>dinamiche</strong> sono ricerche salvate: i titoli li trova la ricerca, da sola.</p></div>
+        <div><h2>Le mie liste</h2><p class="muted small">«La mia lista» è fissa: i titoli che ci metti compaiono in La mia lista appena sono disponibili e finché non li hai visti. Le liste <strong>dinamiche</strong> sono ricerche salvate: i titoli li trova la ricerca, da sola.</p></div>
         <div class="newbtns">
           <Button variant="primary" onclick={() => (newFamily = false)}>+ Nuova lista</Button>
           <Button href="/cerca" onclick={navigate}>+ Nuova lista dinamica</Button>
@@ -407,7 +407,7 @@
       {/each}
     </span>
     <span class="lname">{l.name}</span>
-    <span class="muted small">{l.query ? 'Dinamica' : `${l.count} ${l.count === 1 ? 'titolo' : 'titoli'}`} · {l.isTonight ? 'Fissa' : l.family ? 'Famiglia' : 'Personale'}{l.onHome ? ' · in La mia serata' : ''}</span>
+    <span class="muted small">{l.query ? 'Dinamica' : `${l.count} ${l.count === 1 ? 'titolo' : 'titoli'}`} · {l.isTonight ? 'Fissa' : l.family ? 'Famiglia' : 'Personale'}{l.onHome ? ' · in La mia lista' : ''}</span>
   </a>
 {/snippet}
 
