@@ -169,6 +169,47 @@ public sealed class TonightTests : IDisposable
         Assert.Equal(day.Date.AddHours(21.5), t.Items(a, day, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"))!.Single(i => i.Title == "Geo").Evening!.Start.UtcDateTime);
     }
 
+    // 20/11/2026: Mystic River su Sky Cinema aveva l'icona TV. Next ed Evening sono passaggi che il profilo vede,
+    // PaidNext il primo su un canale a pagamento che non ha (anche se c'è un passaggio visibile: TV ed € insieme)
+    [Fact]
+    public void PassaggiVisibiliEAPagamento_SecondoGliAbbonamenti()
+    {
+        string T(int min) => Now.AddMinutes(min).UtcDateTime.ToString("yyyyMMddHHmmss") + " +0000";
+        string xml = $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <tv>
+              <channel id="SkyCinemaDrama.it"><display-name>Sky Cinema Drama</display-name></channel>
+              <channel id="Rai1.it"><display-name>Rai 1</display-name></channel>
+              <programme channel="SkyCinemaDrama.it" start="{T(60)}" stop="{T(200)}"><title>Mystic River</title><category>Film</category><date>2003</date></programme>
+              <programme channel="Rai1.it" start="{T(1500)}" stop="{T(1640)}"><title>Mystic River</title><category>Film</category><date>2003</date></programme>
+              <programme channel="SkyCinemaDrama.it" start="{T(300)}" stop="{T(420)}"><title>Solo su Sky</title><category>Film</category><date>2010</date></programme>
+            </tv>
+            """;
+        long a = new ProfileStore(Db).Create("Anna", false, null, null, Now).Id;
+        var guide = new GuideStore(Db);
+        guide.Save(guide.AddSource("https://example.org/g.xml"), XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)), Now.LocalDateTime), Now);
+        var progs = guide.Query(new GuideQuery(Now, Now.AddDays(2))).ToList();
+        Assert.Equal("Sky", progs.First(p => p.GuideChannelName == "Sky Cinema Drama").PayPlatform);
+        Assert.Equal("", progs.First(p => p.GuideChannelName == "Rai 1").PayPlatform);        // numero del digitale terrestre: in chiaro
+        var t = new TonightStore(Db, guide);
+        t.Add(a, progs.First(p => p.Title == "Mystic River").WorkId!.Value, Now);
+        t.Add(a, progs.Single(p => p.Title == "Solo su Sky").WorkId!.Value, Now);
+
+        var noSky = t.Items(a, Now, TimeZoneInfo.Utc, ["Netflix"])!;
+        var mystic = noSky.Single(i => i.Title == "Mystic River");
+        Assert.Equal("Rai 1", mystic.Next!.GuideChannelName);          // il passaggio che vedo, anche se dopo
+        Assert.Equal("Sky Cinema Drama", mystic.PaidNext!.GuideChannelName);
+        var sky = noSky.Single(i => i.Title == "Solo su Sky");
+        Assert.Null(sky.Next);
+        Assert.Null(sky.Evening);
+        Assert.NotNull(sky.PaidNext);
+
+        var withSky = t.Items(a, Now, TimeZoneInfo.Utc, ["Now TV"])!.Single(i => i.Title == "Mystic River");
+        Assert.Equal("Sky Cinema Drama", withSky.Next!.GuideChannelName);  // con NOW il canale Sky si vede
+        Assert.Null(withSky.PaidNext);
+        Assert.Null(t.Items(a, Now)!.Single(i => i.Title == "Mystic River").PaidNext);   // senza abbonamenti noti: si vede tutto
+    }
+
     [Fact]
     public void SenzaPassaggiFuturiNextVuoto()
     {

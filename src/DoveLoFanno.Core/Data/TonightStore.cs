@@ -7,11 +7,13 @@ namespace DoveLoFanno.Data;
 /// streaming (abbonamento o gratis), se c'è in casa (file o registrazione riuscita) e l'ultimo passaggio già trasmesso
 /// negli ultimi 3 giorni (Last). Evening è il primo passaggio di sera (dalle 20 alle 2), che può venire dopo Next quando
 /// Next è di giorno: in "Da vedere stasera" contano solo i passaggi di sera (scelta di Antonio, 20/11/2026).
+/// Next ed Evening sono passaggi che il profilo vede (canale in chiaro o di un suo abbonamento); PaidNext è il primo
+/// su un canale a pagamento che non ha (Sky senza Sky), anche se ce ne sono di visibili: TV ed € insieme.
 /// </summary>
 public sealed record TonightItem(
     long WorkId, string Kind, string Title, int Year, double? Rating, string RatingSource, DateTimeOffset AddedAt, GuideProgramme? Next,
     IReadOnlyList<string>? Streaming = null, bool InHouse = false, string Poster = "", IReadOnlyList<string>? Paid = null,
-    GuideProgramme? Last = null, GuideProgramme? Evening = null);
+    GuideProgramme? Last = null, GuideProgramme? Evening = null, GuideProgramme? PaidNext = null);
 
 public enum TonightResult { Ok, NoProfile, NoWork }
 
@@ -37,18 +39,35 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
                 AND s.title_key = {w}.title_key AND s.kind IN ('programme', 'documentary'))
         """;
 
-    /// <summary>null se il profilo non esiste. <paramref name="zone"/> decide che cosa è "di sera" (predefinito: ora locale).</summary>
-    public List<TonightItem>? Items(long profileId, DateTimeOffset now, TimeZoneInfo? zone = null)
+    /// <summary>
+    /// Passaggi in arrivo di ogni opera, con le puntate dello stesso titolo per programmi e documentari (<see cref="SameShow"/>),
+    /// divisi tra quelli che il profilo vede e quelli a pagamento (<see cref="WorkAirings"/>). Una sola lettura della guida.
+    /// </summary>
+    internal static Dictionary<long, WorkAirings> ShowAirings(SqliteConnection c, GuideStore guide, IEnumerable<long> workIds, DateTimeOffset now,
+        IReadOnlyList<string>? subs, TimeZoneInfo zone)
     {
-        var evening = new Dictionary<long, long?>();
-        List<(long Work, string Kind, string Title, int Year, double? Rating, string Src, long Added, long? Prog, string Streaming, bool Home, string Poster, string Paid, long? Last)> rows;
+        var shows = workIds.Distinct().ToDictionary(w => w, w => Db.Query(c, $"SELECT s.id FROM works w, works s WHERE w.id = $w AND s.id IN {SameShow("w")}",
+            r => r.GetInt64(0), ("$w", w)));
+        var upcoming = WorkAirings.Upcoming(guide, shows.Values.SelectMany(x => x).Distinct().ToList(), now);
+        return shows.ToDictionary(x => x.Key, x => WorkAirings.Pick(
+            x.Value.SelectMany(id => upcoming.GetValueOrDefault(id) ?? []).OrderBy(p => p.Start), subs, zone));
+    }
+
+    /// <summary>
+    /// null se il profilo non esiste. <paramref name="zone"/> decide che cosa è "di sera" (predefinito: ora locale);
+    /// <paramref name="subs"/> sono gli abbonamenti del profilo (null = si vede tutto): Next ed Evening sono passaggi che
+    /// il profilo vede, PaidNext il primo su un canale a pagamento che non ha.
+    /// </summary>
+    public List<TonightItem>? Items(long profileId, DateTimeOffset now, TimeZoneInfo? zone = null, IReadOnlyList<string>? subs = null)
+    {
+        Dictionary<long, WorkAirings> airings;
+        List<(long Work, string Kind, string Title, int Year, double? Rating, string Src, long Added, string Streaming, bool Home, string Poster, string Paid, long? Last)> rows;
         using (var c = Open())
         {
             long? list = ListId(c, profileId);
             if (list == null) return null;
             rows = Db.Query(c, $"""
                 SELECT w.id, w.kind, w.title, w.year, w.rating, w.rating_source, li.added_at,
-                       (SELECT p.id FROM programmes p WHERE p.work_id IN {SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 1),
                        coalesce((SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = w.id AND a.kind IN ('subscription', 'free')), ''),
                        EXISTS (SELECT 1 FROM library_items i JOIN works e ON e.id = i.work_id
                                WHERE (e.id = w.id OR e.parent_id = w.id) AND i.missing_since IS NULL)
@@ -59,19 +78,21 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
                 FROM list_items li JOIN works w ON w.id = li.work_id
                 WHERE li.list_id = $l ORDER BY li.position, li.added_at
                 """,
-                r => (r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.IsDBNull(4) ? (double?)null : r.GetDouble(4), r.GetString(5), r.GetInt64(6), Db.NLong(r, 7),
-                    r.GetString(8), r.GetInt64(9) == 1, r.GetString(10), r.GetString(11), Db.NLong(r, 12)),
+                r => (r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.IsDBNull(4) ? (double?)null : r.GetDouble(4), r.GetString(5), r.GetInt64(6),
+                    r.GetString(7), r.GetInt64(8) == 1, r.GetString(9), r.GetString(10), Db.NLong(r, 11)),
                 ("$l", list), ("$now", Db.Unix(now)), ("$past", Db.Unix(now.AddDays(-3))));
-            for (int i = 0; i < rows.Count; i++)
-                if (rows[i].Prog != null) evening[rows[i].Work] = EveningAiring(c, rows[i].Work, now, zone ?? TimeZoneInfo.Local);
+            airings = ShowAirings(c, guide, rows.Select(x => x.Work), now, subs, zone ?? TimeZoneInfo.Local);
         }
-        return rows.Select(x => new TonightItem(x.Work, x.Kind, x.Title, x.Year, x.Rating, x.Src, Db.FromUnix(x.Added),
-            x.Prog is long pid ? guide.Programme(pid) : null,
-            x.Streaming.Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), x.Home, WorkStore.ImageUrl(x.Poster, "w342"),
-            x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
-            // ultimo passaggio già trasmesso negli ultimi 3 giorni ("programmazione passata" in Stasera)
-            x.Last is long lid ? guide.Programme(lid) : null,
-            evening.GetValueOrDefault(x.Work) is long eid ? guide.Programme(eid) : null)).ToList();
+        return rows.Select(x =>
+        {
+            var a = airings.GetValueOrDefault(x.Work) ?? WorkAirings.None;
+            return new TonightItem(x.Work, x.Kind, x.Title, x.Year, x.Rating, x.Src, Db.FromUnix(x.Added), a.Visible,
+                x.Streaming.Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), x.Home, WorkStore.ImageUrl(x.Poster, "w342"),
+                x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                // ultimo passaggio già trasmesso negli ultimi 3 giorni ("programmazione passata" in Stasera)
+                x.Last is long lid ? guide.Programme(lid) : null,
+                a.Evening, a.Paid);
+        }).ToList();
     }
 
     /// <summary>Un passaggio è "di sera" se comincia dalle 20 alle 2 di notte, ora locale.</summary>
@@ -79,18 +100,6 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
     {
         int h = TimeZoneInfo.ConvertTime(start, zone).Hour;
         return h >= 20 || h < 2;
-    }
-
-    /// <summary>Primo passaggio di sera non ancora finito dell'opera (o della trasmissione, vedi <see cref="SameShow"/>).</summary>
-    static long? EveningAiring(SqliteConnection c, long workId, DateTimeOffset now, TimeZoneInfo zone)
-    {
-        var next = Db.Query(c, $"""
-            SELECT p.id, p.start FROM programmes p, works w
-            WHERE w.id = $w AND p.work_id IN {SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 100
-            """, r => (r.GetInt64(0), r.GetInt64(1)), ("$w", workId), ("$now", Db.Unix(now)));
-        foreach (var (id, start) in next)
-            if (IsEvening(Db.FromUnix(start), zone)) return id;
-        return null;
     }
 
     public TonightResult Add(long profileId, long workId, DateTimeOffset now)

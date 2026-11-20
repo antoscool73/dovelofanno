@@ -16,6 +16,14 @@ public sealed record SearchHit(long? WorkId, string Kind, string Title, string O
 {
     /// <summary>Il profilo l'ha tolto con «Non proporre più»: compare solo cercandolo per nome (con i soli filtri no).</summary>
     public bool Excluded { get; init; }
+
+    // NextAiring è il prossimo passaggio che il profilo vede (canale in chiaro o di un suo abbonamento), sul canale NextChannel.
+    // PaidAiring è il primo su un canale a pagamento che non ha (PaidChannel, piattaforma PaidPlatform), anche se ce ne sono
+    // di visibili: sulle locandine TV ed € insieme (20/11/2026)
+    public string NextChannel { get; init; } = "";
+    public DateTimeOffset? PaidAiring { get; init; }
+    public string PaidChannel { get; init; } = "";
+    public string PaidPlatform { get; init; } = "";
 }
 
 /// <summary>Risultati: prima le opere già note, poi TMDB. TmdbNote spiega perché TMDB manca (niente chiave, non risponde).</summary>
@@ -112,6 +120,17 @@ public static class SearchApi
         var seen = prof != null && f.HideSeen ? ctx.Preferences.WatchedWorkIds(prof.Id) : [];
         var now = ctx.Clock.GetUtcNow();
 
+        // passaggi che il profilo vede e passaggi a pagamento delle opere note (una lettura della guida per gruppo di opere)
+        var airings = new Dictionary<long, WorkAirings>();
+        List<WorkSearchHit> WithAirings(List<WorkSearchHit> works)
+        {
+            var todo = works.Select(w => w.Id).Where(id => !airings.ContainsKey(id)).ToList();
+            var up = WorkAirings.Upcoming(ctx.Guide, todo, now);
+            foreach (long id in todo) airings[id] = WorkAirings.Pick(up.GetValueOrDefault(id) ?? [], subs, ctx.Clock.LocalTimeZone);
+            return works;
+        }
+        WorkAirings Air(long id) => airings.GetValueOrDefault(id) ?? WorkAirings.None;
+
         // ---------------------------------------------------------------- opere note
         bool LocalOk(WorkSearchHit w) =>
             f.KindOk(w.Kind) && (text.Length > 0 || w.Kind != "programme")
@@ -119,14 +138,23 @@ public static class SearchApi
             && f.YearOk(w.Year)
             && Countries.InGuideText(f.Country, w.Country)
             && (f.MinRating <= 0 || (w.Rating ?? 0) >= f.MinRating)
-            && AvailOk(f, w.NextAiring != null, w.InHouse, w.Streaming ?? [], w.Paid ?? [], subs)
+            && AvailOk(f, Air(w.Id).Visible != null, w.InHouse, w.Streaming ?? [], w.Paid ?? [], subs, Air(w.Id).Paid != null)
             && !(f.HideHome && w.InHouse) && !seen.Contains(w.Id)
             && !(dropExcluded && excluded.Contains(w.Id));
-        SearchHit Known(WorkSearchHit w) => FromWork(w) with { Excluded = excluded.Contains(w.Id) };
+        SearchHit Known(WorkSearchHit w)
+        {
+            var a = Air(w.Id);
+            return FromWork(w) with
+            {
+                Excluded = excluded.Contains(w.Id),
+                NextAiring = a.Visible?.Start, NextChannel = a.Visible is { } v ? ChannelOf(v) : "",
+                PaidAiring = a.Paid?.Start, PaidChannel = a.Paid is { } p ? ChannelOf(p) : "", PaidPlatform = a.Paid?.PayPlatform ?? "",
+            };
+        }
 
         var hits = new List<SearchHit>();
         var shown = new HashSet<long>();
-        foreach (var w in ctx.Works.Find(text, now, child).Where(LocalOk).Take(max))
+        foreach (var w in WithAirings(ctx.Works.Find(text, now, child)).Where(LocalOk).Take(max))
         {
             hits.Add(Known(w));
             shown.Add(w.Id);
@@ -152,7 +180,7 @@ public static class SearchApi
 
                 // titoli già noti: valgono i dati di DoveLoFanno (voto IMDb, passaggi, casa, piattaforme)
                 var known = ctx.Works.ByTmdb(cands.Select(c => (c.Hit.Kind, (long)c.Hit.Id)));
-                var knownOk = ctx.Works.Find("", now, child, max * 4, known.Values.Distinct().ToList()).Where(LocalOk).ToDictionary(w => w.Id);
+                var knownOk = WithAirings(ctx.Works.Find("", now, child, max * 4, known.Values.Distinct().ToList())).Where(LocalOk).ToDictionary(w => w.Id);
                 var unknown = cands.Where(c => !known.ContainsKey((c.Hit.Kind, c.Hit.Id))
                     && (f.MinRating <= 0 || (c.Hit.VoteCount >= ListRatingSync.MinTmdbVotes && c.Hit.VoteAverage >= f.MinRating))).ToList();
 
@@ -211,11 +239,13 @@ public static class SearchApi
     /// <summary>
     /// Disponibilità: nessuna casella = ovunque. Con delle caselle, un titolo compare se ogni modo in cui si vede è tra
     /// quelle scelte (19/11/2026, richiesta di Antonio: una categoria tolta dai filtri non si deve vedere). I modi sono le
-    /// icone delle locandine: in TV, in casa, nei miei abbonamenti, e "a pagamento" (noleggio, acquisto o streaming fuori
-    /// dai miei abbonamenti) solo se non si vede in nessuno degli altri, come la € gialla. Un titolo che non si vede in
-    /// nessun modo compare solo con "Ovunque" (nessuna casella).
+    /// icone delle locandine: in TV (un passaggio che il profilo vede), in casa, nei miei abbonamenti, e "a pagamento",
+    /// come la € gialla: un passaggio su un canale a pagamento che non ho, anche insieme alla TV, se non lo vedo già on
+    /// demand o in casa (20/11/2026); noleggio, acquisto o streaming fuori dai miei abbonamenti solo se non si vede in
+    /// nessun altro modo. Un titolo che non si vede in nessun modo compare solo con "Ovunque" (nessuna casella).
     /// </summary>
-    internal static bool AvailOk(SearchFilter f, bool tv, bool home, IReadOnlyList<string> streaming, IReadOnlyList<string> paid, IReadOnlyList<string> subs)
+    internal static bool AvailOk(SearchFilter f, bool tv, bool home, IReadOnlyList<string> streaming, IReadOnlyList<string> paid, IReadOnlyList<string> subs,
+        bool paidTv = false)
     {
         var a = f.AvailSet;
         if (a.Count == 0) return true;
@@ -225,9 +255,12 @@ public static class SearchApi
         if (tv) ways.Add("tv");
         if (home) ways.Add("home");
         if (mine) ways.Add("mine");
-        if (ways.Count == 0 && (paid.Count > 0 || streaming.Any(s => !Mine(s)))) ways.Add("paid");
+        if (paidTv && !mine && !home) ways.Add("paid");
+        else if (ways.Count == 0 && (paid.Count > 0 || streaming.Any(s => !Mine(s)))) ways.Add("paid");
         return ways.Count > 0 && ways.All(a.Contains);
     }
+
+    static string ChannelOf(GuideProgramme p) => p.ChannelName.Length > 0 ? p.ChannelName : p.GuideChannelName;
 
     static string KindOf(TmdbSearchHit h) => h.GenreIds.Contains(99) ? "documentary" : h.Kind == "tv" ? "series" : "film";
 

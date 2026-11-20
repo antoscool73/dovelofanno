@@ -26,6 +26,9 @@ public sealed record GuideProgramme(
 
     /// <summary>L'opera c'è in casa: un file della libreria o una registrazione riuscita.</summary>
     public bool InHouse { get; init; }
+
+    /// <summary>Piattaforma del canale se è a pagamento (Sky, DAZN...), "" se è in chiaro (<see cref="PayChannels"/>).</summary>
+    public string PayPlatform { get; init; } = "";
 }
 
 /// <summary>Filtri della guida: finestra di tempo obbligatoria, il resto facoltativo.</summary>
@@ -39,6 +42,8 @@ public sealed record GuideQuery(DateTimeOffset From, DateTimeOffset To)
     /// <summary>Solo i canali delle playlist (registrabili); altrimenti tutti i canali della guida.</summary>
     public bool OnlyRecordable { get; init; }
     public int Max { get; init; } = 2000;
+    /// <summary>Solo i programmi di queste opere.</summary>
+    public IReadOnlyCollection<long>? WorkIds { get; init; }
 }
 
 /// <summary>
@@ -259,6 +264,7 @@ public sealed class GuideStore(string dbPath)
               AND ($g IS NULL OR p.group_name = $g)
               AND ($sg IS NULL OR p.sub_genre = $sg COLLATE NOCASE)
               AND ($min <= 0 OR coalesce(w.rating, 0) >= $min)
+              AND ($wids IS NULL OR p.work_id IN (SELECT value FROM json_each($wids)))
             ORDER BY p.start, coalesce(ch.name, gc.name), p.id
             """,
             r =>
@@ -273,12 +279,13 @@ public sealed class GuideStore(string dbPath)
                 bool scheduled = chId is long id && pending.Any(x => x.Ch == id && Math.Min(b, x.B) - Math.Max(a, x.A) >= (b - a) / 2.0);
                 string[] cats;
                 try { cats = JsonSerializer.Deserialize<string[]>(r.GetString(10)) ?? []; } catch (JsonException) { cats = []; }
+                int? number = chId != null ? ChannelNumbers.For(link.Key, link.Name) : ChannelNumbers.For(r.GetString(24), r.GetString(2));
                 return new GuideProgramme(r.GetInt64(0), r.GetInt64(1), r.GetString(2), chId, chId != null ? link.Name : "", Db.FromUnix(a), Db.FromUnix(b),
                     r.GetString(7), r.GetString(8), r.GetString(9), cats, r.GetString(11), r.GetString(12), r.GetInt32(13), r.GetString(14),
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18), Db.NLong(r, 19), r.GetString(20),
-                    r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled,
-                    chId != null ? ChannelNumbers.For(link.Key, link.Name) : ChannelNumbers.For(r.GetString(24), r.GetString(2)))
+                    r.IsDBNull(21) ? null : r.GetDouble(21), r.GetString(22), scheduled, number)
                 {
+                    PayPlatform = PayChannels.Platform(chId, number, r.GetString(2)),
                     // locandina dell'opera da TMDB (si scarica dopo i voti), se c'è
                     Poster = WorkStore.ImageUrl(r.GetString(25), "w342"),
                     Streaming = r.IsDBNull(26) ? [] : r.GetString(26).Split('|', StringSplitOptions.RemoveEmptyEntries),
@@ -287,7 +294,8 @@ public sealed class GuideStore(string dbPath)
                 };
             },
             ("$from", Db.Unix(q.From)), ("$to", Db.Unix(q.To)), ("$g", string.IsNullOrEmpty(q.Group) ? null : q.Group),
-            ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating));
+            ("$sg", string.IsNullOrEmpty(q.Sub) ? null : q.Sub), ("$min", q.MinRating),
+            ("$wids", q.WorkIds == null ? null : JsonSerializer.Serialize(q.WorkIds)));
 
         // canale e "solo registrabili" dopo il collegamento (anche tramite doppione); un programma del doppione che c'è
         // anche sul canale collegato (stesso titolo, inizio entro 10 minuti) si mostra una volta sola

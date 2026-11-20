@@ -250,7 +250,7 @@ public static class LibraryApi
             .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status403Forbidden);
 
         prof.MapGet("/{id:long}/lists/{listId:long}", IResult (long id, long listId, string? sort, ServerContext ctx) =>
-            ctx.Lists.Detail(id, listId, sort ?? "added", ctx.Clock.GetUtcNow()) is { } d ? Results.Ok(d) : Results.NotFound())
+            ctx.Lists.Detail(id, listId, sort ?? "added", ctx.Clock.GetUtcNow(), ctx.Subscriptions.OfProfile(id)?.Services) is { } d ? Results.Ok(d) : Results.NotFound())
             .WithSummary("I titoli di una lista con voto, stelle del profilo, file in casa e prossimo passaggio (sort = added, title, rating, stars)")
             .Produces<ListDetail>().Produces(StatusCodes.Status404NotFound);
 

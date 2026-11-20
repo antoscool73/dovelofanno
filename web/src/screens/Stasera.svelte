@@ -13,7 +13,7 @@
   import AvailBadges from '../lib/components/AvailBadges.svelte';
   import { dragScroll } from '../lib/dragScroll';
   import AvailLegend from '../lib/components/AvailLegend.svelte';
-  import { availOf, type Avail } from '../lib/avail';
+  import { availOf, availOfHit, type Avail } from '../lib/avail';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import {
     api, ApiError, type GuideProgramme, type LibraryItem, type ListEntry, type ListSummary, type Recording, type SearchHit, type SearchQuery, type TonightItem,
@@ -228,7 +228,7 @@
   // passati: già trasmessi negli ultimi 3 giorni e oggi non si vedono in nessun altro modo (nessun passaggio in arrivo,
   // non in casa, nessuna piattaforma): si mostrano solo con l'interruttore "Mostra programmazione passata"
   const onlyPast = (i: TonightItem) =>
-    !!i.last && !i.next && !i.inHouse && (i.streaming?.length ?? 0) === 0 && (i.paid?.length ?? 0) === 0;
+    !!i.last && !i.next && !i.paidNext && !i.inHouse && (i.streaming?.length ?? 0) === 0 && (i.paid?.length ?? 0) === 0;
   const tonightPast = $derived(tonightList.filter((i) => !tonightAvailable.includes(i) && onlyPast(i)));
   const tonightLater = $derived(tonightList.filter((i) => !tonightAvailable.includes(i) && !onlyPast(i)));
   const PAST_KEY = 'dlf.serata.passati';
@@ -272,39 +272,48 @@
     return tonight ? r : `${day(p.start, now)} ${r}`;
   }
   const genreYear = (genre: string, year: number) => [genre, year || ''].filter(Boolean).join(' · ');
+  // canale di un passaggio che non vedo (a pagamento, abbonamento che non ho)
+  const paidChannel = (p: GuideProgramme) => `${channelOf(p)} · a pagamento`;
 
   function programmeCard(p: GuideProgramme, mode: 'tv' | 'ondemand' = 'tv'): Card {
-    const avail = availOf(p, mySubs, mode === 'tv' ? p : null, tvText(p));
+    // gli altri passaggi dello stesso film nei prossimi giorni: uno che vedo e uno a pagamento danno TV ed € insieme
+    const canSee = inMySubscriptions(p, mySubs);
+    const others = p.workId != null ? guideFilms.filter((g) => g.workId === p.workId && g.id !== p.id) : [];
+    const visible = canSee ? p : others.find((g) => inMySubscriptions(g, mySubs)) ?? null;
+    const paidAiring = !canSee ? p : others.find((g) => !inMySubscriptions(g, mySubs)) ?? null;
+    const avail = availOf(p, mySubs, mode === 'tv' ? visible : null, visible ? tvText(visible) : '', mode === 'tv' ? paidAiring : null);
     const meta = genreYear(p.sub || p.group, p.year);
     // su un canale che non vedo (Sky Cinema senza Sky) ma in streaming nei miei abbonamenti o in casa: si scrive come
     // lo vedo ("Su Netflix", "In casa") al posto del canale, senza orario (scelta di Antonio, 20/11/2026)
-    const unseenTv = mode === 'tv' && !avail.tv;
+    const unseenTv = mode === 'tv' && !canSee;
     const lines = mode === 'ondemand' || (unseenTv && avail.mine.length > 0) ? [`Su ${shortNames(avail.mine)}`, meta]
       : unseenTv && avail.home ? ['In casa', meta]
-      : [channelOf(p), slot(p), meta];
+      : [canSee ? channelOf(p) : paidChannel(p), slot(p), meta];
     const card: Card = {
       key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
       lines, open: () => (open = p),
     };
     // passaggio su un canale che non vedo ma il titolo l'ho in casa o in streaming: il tocco apre la scheda (con Guarda)
-    if (mode === 'tv' && !avail.tv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
+    if (unseenTv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
     return card;
   }
 
   function tonightCard(i: TonightItem, available: boolean): Card {
     const tv = onTvTonight(i) ? i.evening : null;
-    const avail = availOf(i, mySubs, i.next, i.next ? tvText(i.next) : '');
-    const g = i.next ?? i.last;
+    // next ed evening sono passaggi che vedo; paidNext uno su un canale a pagamento che non ho (dal server)
+    const avail = availOf(i, mySubs, i.next, i.next ? tvText(i.next) : '', i.paidNext);
+    const g = i.next ?? i.paidNext ?? i.last;
     const meta = genreYear(g?.sub || g?.group || kindLabel[i.kind] || '', i.year);
     let lines: string[];
     if (tv) lines = [channelOf(tv), slot(tv), meta];
     else if (avail.mine.length > 0) lines = [`Su ${shortNames(avail.mine)}`, meta];
     else if (i.inHouse) lines = ['In casa', meta];
     else if (i.next) lines = [channelOf(i.next), slot(i.next), meta];
+    else if (i.paidNext) lines = [paidChannel(i.paidNext), slot(i.paidNext), meta];
     else if (onlyPast(i) && i.last) lines = [channelOf(i.last), slot(i.last, true), meta];
     else lines = [laterReason(i), meta];
     return {
-      key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || i.last?.poster || i.last?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
+      key: `t${i.workId}`, poster: i.poster || g?.poster || g?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
       scheduled: !!(tv ?? i.next)?.scheduled, avail, dim: !available,
       lines,
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
@@ -315,12 +324,14 @@
 
   // titolo di una lista dinamica (un risultato della ricerca): come in Cerca, in TV con il giorno e l'ora
   function hitCard(r: HomeRow, h: SearchHit): Card {
-    let avail = availOf(h, mySubs);
-    if (h.nextAiring) avail = { ...avail, tv: `${day(h.nextAiring, now).toLowerCase()} ${time(h.nextAiring)}`, pay: [] };
+    // nextAiring è un passaggio che vedo, paidAiring uno su un canale a pagamento che non ho (dal server)
+    const when = (t: string | null | undefined) => (t ? `${day(t, now).toLowerCase()} ${time(t)}` : '');
+    const avail = availOfHit(h, mySubs, when(h.nextAiring), when(h.paidAiring));
     const meta = genreYear((h.genres ?? [])[0] ?? kindLabel[h.kind] ?? '', h.year);
-    const lines = h.nextAiring ? [`In TV ${day(h.nextAiring, now).toLowerCase()} ${time(h.nextAiring)}`, meta]
+    const lines = h.nextAiring ? [`In TV ${when(h.nextAiring)}`, meta]
       : avail.mine.length > 0 ? [`Su ${shortNames(avail.mine)}`, meta]
       : avail.home ? ['In casa', meta]
+      : h.paidAiring ? [`${h.paidChannel} ${when(h.paidAiring)} · a pagamento`, meta]
       : avail.pay.length > 0 ? [`A pagamento: ${shortNames(avail.pay)}`, meta] : [meta];
     return {
       key: h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`, poster: h.poster, title: h.title, rating: h.rating ?? null,
@@ -330,11 +341,12 @@
   }
   // titolo di una lista a mano
   function entryCard(e: ListEntry): Card {
-    const avail = availOf(e, mySubs, e.next, e.next ? tvText(e.next) : '');
+    const avail = availOf(e, mySubs, e.next, e.next ? tvText(e.next) : '', e.paidNext);
     const meta = genreYear(e.next?.sub || e.next?.group || kindLabel[e.kind] || '', e.year);
     const lines = e.next ? [channelOf(e.next), slot(e.next), meta]
       : avail.mine.length > 0 ? [`Su ${shortNames(avail.mine)}`, meta]
-      : e.inHouse ? ['In casa', meta] : ['Per ora non si vede', meta];
+      : e.inHouse ? ['In casa', meta]
+      : e.paidNext ? [paidChannel(e.paidNext), slot(e.paidNext), meta] : ['Per ora non si vede', meta];
     return {
       key: `e${e.workId}`, poster: e.poster || e.next?.poster || e.next?.icon || '', title: e.title, rating: e.rating ?? null,
       rated: RATED_KINDS.includes(e.kind), scheduled: !!e.next?.scheduled, avail, lines, open: () => router.go(`/opera/${e.workId}`),

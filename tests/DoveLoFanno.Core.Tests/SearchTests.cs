@@ -187,6 +187,12 @@ public sealed class SearchTests(ITestOutputHelper output) : IDisposable
         Assert.True(SearchApi.AvailOk(F("tv", "home"), true, true, [], [], subs));
         Assert.False(SearchApi.AvailOk(F("mine"), true, false, ["Netflix"], [], subs));                              // anche in TV
         Assert.True(SearchApi.AvailOk(F("mine"), false, false, ["Netflix"], ["Apple TV Store"], subs));              // noleggiabile, ma la € non c'è
+        // 20/11/2026: un passaggio su un canale a pagamento che non ho dà la € anche insieme alla TV, non se lo vedo on demand o in casa
+        Assert.False(SearchApi.AvailOk(F("tv"), true, false, [], [], subs, paidTv: true));                         // TV + €
+        Assert.True(SearchApi.AvailOk(F("tv", "paid"), true, false, [], [], subs, paidTv: true));
+        Assert.True(SearchApi.AvailOk(F("paid"), false, false, [], [], subs, paidTv: true));                       // solo su Sky
+        Assert.True(SearchApi.AvailOk(F("mine"), false, false, ["Netflix"], [], subs, paidTv: true));             // on demand: niente €
+        Assert.True(SearchApi.AvailOk(F("tv", "home"), true, true, [], [], subs, paidTv: true));                  // in casa: niente €
         Assert.False(SearchApi.AvailOk(F("tv", "mine", "paid", "home"), false, false, [], [], subs));                // non si vede: solo con «Ovunque»
     }
 

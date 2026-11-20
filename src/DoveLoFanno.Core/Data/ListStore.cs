@@ -22,6 +22,8 @@ public sealed record ListEntry(
     public IReadOnlyList<string> Paid { get; init; } = [];
     /// <summary>In casa: un file della libreria o una registrazione riuscita.</summary>
     public bool InHouse { get; init; }
+    /// <summary>Primo passaggio su un canale a pagamento che il profilo non ha (Next è sempre uno che vede).</summary>
+    public GuideProgramme? PaidNext { get; init; }
 }
 
 public sealed record ListDetail(ListSummary List, IReadOnlyList<ListEntry> Items);
@@ -179,10 +181,11 @@ public sealed class ListStore(string dbPath, GuideStore guide)
     /// I titoli di una lista per il profilo. sort = added (predefinito), title, rating, stars. Il profilo bambino, nelle
     /// liste di famiglia, vede solo i titoli adatti (<see cref="WorkStore.ChildSafe"/>).
     /// </summary>
-    public ListDetail? Detail(long profileId, long listId, string sort, DateTimeOffset now)
+    public ListDetail? Detail(long profileId, long listId, string sort, DateTimeOffset now, IReadOnlyList<string>? subs = null)
     {
-        List<(long Work, string Kind, string Title, int Year, string Poster, double? Rating, string Src, int? Stars, bool Watched, long Added, long? Play, long? Prog,
+        List<(long Work, string Kind, string Title, int Year, string Poster, double? Rating, string Src, int? Stars, bool Watched, long Added, long? Play,
             string Streaming, string Paid, bool Recorded)> rows;
+        Dictionary<long, WorkAirings> airings;
         ListSummary summary;
         using (var c = Open())
         {
@@ -202,7 +205,6 @@ public sealed class ListStore(string dbPath, GuideStore guide)
                 SELECT w.id, w.kind, w.title, w.year, w.poster, w.rating, w.rating_source, ws.stars, coalesce(ws.watched, 0), li.added_at,
                        (SELECT x.id FROM library_items x JOIN works xw ON xw.id = x.work_id
                         WHERE (xw.id = w.id OR xw.parent_id = w.id) AND x.missing_since IS NULL ORDER BY x.season, x.episode, x.added_at DESC LIMIT 1),
-                       (SELECT p.id FROM programmes p WHERE p.work_id IN {TonightStore.SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 1),
                        coalesce((SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = w.id AND a.kind IN ('subscription', 'free')), ''),
                        coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), ''),
                        EXISTS (SELECT 1 FROM recordings rr WHERE rr.work_id = w.id AND rr.state IN ('completed', 'incomplete') AND rr.file <> '')
@@ -212,9 +214,11 @@ public sealed class ListStore(string dbPath, GuideStore guide)
                 ORDER BY {order}
                 """,
                 r => (r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4), r.IsDBNull(5) ? (double?)null : r.GetDouble(5),
-                    r.GetString(6), Db.NInt(r, 7), r.GetInt64(8) == 1, r.GetInt64(9), Db.NLong(r, 10), Db.NLong(r, 11),
-                    r.GetString(12), r.GetString(13), r.GetInt64(14) == 1),
-                ("$p", profileId), ("$l", listId), ("$now", Db.Unix(now)));
+                    r.GetString(6), Db.NInt(r, 7), r.GetInt64(8) == 1, r.GetInt64(9), Db.NLong(r, 10),
+                    r.GetString(11), r.GetString(12), r.GetInt64(13) == 1),
+                ("$p", profileId), ("$l", listId));
+            // prossimo passaggio che il profilo vede e primo a pagamento (come la mia serata)
+            airings = TonightStore.ShowAirings(c, guide, rows.Select(x => x.Work), now, subs, TimeZoneInfo.Local);
             summary = new ListSummary(listId, l.Name, l.Owner == null, l.Tonight, rows.Count, Posters(c, listId), CanEdit(l.Owner, child), Db.FromUnix(l.Created))
             {
                 Query = SavedQuery.FromJson(l.Query),
@@ -223,7 +227,8 @@ public sealed class ListStore(string dbPath, GuideStore guide)
         }
         var items = rows.Select(x =>
         {
-            var next = x.Prog is long pid ? guide.Programme(pid) : null;
+            var a = airings.GetValueOrDefault(x.Work) ?? WorkAirings.None;
+            var next = a.Visible;
             string credits = next == null ? "" : string.Join(" · ", new[] { next.Directors, next.Actors }.Where(s => s.Length > 0));
             return new ListEntry(x.Work, x.Kind, x.Title, x.Year, WorkStore.ImageUrl(x.Poster, "w185"), x.Rating, x.Src, x.Stars, x.Watched,
                 Db.FromUnix(x.Added), x.Play, next, next?.Country ?? "", credits)
@@ -231,6 +236,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
                 Streaming = x.Streaming.Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(),
                 Paid = x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries),
                 InHouse = x.Play != null || x.Recorded,
+                PaidNext = a.Paid,
             };
         }).ToList();
         return new ListDetail(summary, items);

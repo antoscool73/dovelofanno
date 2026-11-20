@@ -4196,6 +4196,7 @@ export interface components {
             streaming?: string[];
             paid?: string[];
             inHouse?: boolean;
+            payPlatform?: string;
         };
         GuideSourceRow: {
             /** Format: int64 */
@@ -4413,6 +4414,7 @@ export interface components {
             streaming?: string[];
             paid?: string[];
             inHouse?: boolean;
+            paidNext?: null | components["schemas"]["GuideProgramme"];
         };
         ListPatch: {
             name: null | string;
@@ -4760,6 +4762,11 @@ export interface components {
             /** @default  */
             credits: string;
             excluded?: boolean;
+            nextChannel?: string;
+            /** Format: date-time */
+            paidAiring?: null | string;
+            paidChannel?: string;
+            paidPlatform?: string;
         };
         SearchOption: {
             id: string;
@@ -4853,6 +4860,7 @@ export interface components {
             paid?: null | string[];
             last?: null | components["schemas"]["GuideProgramme"];
             evening?: null | components["schemas"]["GuideProgramme"];
+            paidNext?: null | components["schemas"]["GuideProgramme"];
         };
         TrackInfo: {
             /** Format: int32 */

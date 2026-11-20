@@ -4296,6 +4296,9 @@
           },
           "inHouse": {
             "type": "boolean"
+          },
+          "payPlatform": {
+            "type": "string"
           }
         }
       },
@@ -5068,6 +5071,16 @@
           },
           "inHouse": {
             "type": "boolean"
+          },
+          "paidNext": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GuideProgramme"
+              }
+            ]
           }
         }
       },
@@ -6342,6 +6355,22 @@
           },
           "excluded": {
             "type": "boolean"
+          },
+          "nextChannel": {
+            "type": "string"
+          },
+          "paidAiring": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "paidChannel": {
+            "type": "string"
+          },
+          "paidPlatform": {
+            "type": "string"
           }
         }
       },
@@ -6710,6 +6739,16 @@
             ]
           },
           "evening": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GuideProgramme"
+              }
+            ]
+          },
+          "paidNext": {
             "oneOf": [
               {
                 "type": "null"

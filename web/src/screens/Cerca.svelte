@@ -58,7 +58,7 @@
   import AlertPanel from '../lib/components/AlertPanel.svelte';
   import ListDialog from '../lib/components/ListDialog.svelte';
   import Button from '../lib/components/Button.svelte';
-  import { availOf, type Avail } from '../lib/avail';
+  import { availOfHit, type Avail } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, fromSaved, toSaved, type ListSummary, type SearchHit, type SearchOptions } from '../lib/api/client';
   import { day, time, vote } from '../lib/format';
@@ -240,11 +240,10 @@
   };
   const kindLabel: Record<string, string> = { film: 'Film', series: 'Serie TV', documentary: 'Documentario', programme: 'Programma' };
   const keyOf = (h: SearchHit) => (h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`);
-  // in TV: come le locandine, la € gialla solo se non si vede in altro modo
+  // come le locandine: TV per il passaggio che vedo, € per uno su un canale a pagamento che non ho (anche insieme)
   function availFor(h: SearchHit): Avail {
-    const a = availOf(h, mySubs);
-    if (!h.nextAiring) return a;
-    return { ...a, tv: `${day(h.nextAiring).toLowerCase()} ${time(h.nextAiring)}`, pay: [] };
+    const when = (t: string | null | undefined) => (t ? `${day(t).toLowerCase()} ${time(t)}` : '');
+    return availOfHit(h, mySubs, when(h.nextAiring), when(h.paidAiring));
   }
   // titolo solo su TMDB di cui non abbiamo chiesto le piattaforme: non si sa ancora dove si vede
   const unknownWhere = (h: SearchHit) => h.streaming == null && h.paid == null;
