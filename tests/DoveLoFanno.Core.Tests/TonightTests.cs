@@ -100,6 +100,40 @@ public sealed class TonightTests : IDisposable
         Assert.Equal(TonightResult.NoWork, t.Watched(a, 999999, Now, watched: false));
     }
 
+    // 20/11/2026: Antonio aveva messo nella serata «Geo» e «L'Eredità» del 18/11; ogni puntata è un'opera, quindi finita
+    // quella puntata restavano per sempre «Per ora non si vede». Un programma nella serata vale per tutte le puntate.
+    [Fact]
+    public void ProgrammaVale_PerTutteLePuntate()
+    {
+        string T(int min) => Now.AddMinutes(min).UtcDateTime.ToString("yyyyMMddHHmmss") + " +0000";
+        string xml = $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <tv>
+              <channel id="Rai3.it"><display-name>Rai 3</display-name></channel>
+              <programme channel="Rai3.it" start="{T(-180)}" stop="{T(-120)}"><title>Geo</title><sub-title>Puntata del 18</sub-title><category>Intrattenimento</category></programme>
+              <programme channel="Rai3.it" start="{T(60)}" stop="{T(120)}"><title>Geo</title><sub-title>Puntata del 20</sub-title><category>Intrattenimento</category></programme>
+              <programme channel="Rai3.it" start="{T(120)}" stop="{T(240)}"><title>Geo</title><category>Film</category><date>2001</date></programme>
+            </tv>
+            """;
+        var profiles = new ProfileStore(Db);
+        long a = profiles.Create("Anna", false, null, null, Now).Id;
+        var guide = new GuideStore(Db);
+        guide.Save(guide.AddSource("https://example.org/g.xml"), XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)), Now.LocalDateTime), Now);
+        var t = new TonightStore(Db, guide);
+        var all = guide.Query(new GuideQuery(Now.AddHours(-4), Now.AddHours(6))).Where(p => p.Title == "Geo").OrderBy(p => p.Start).ToList();
+        Assert.Equal(3, all.Select(p => p.WorkId).Distinct().Count());     // due puntate e un film omonimo: tre opere
+
+        t.Add(a, all[0].WorkId!.Value, Now);                                // la puntata già passata
+        var it = Assert.Single(t.Items(a, Now)!);
+        Assert.Equal(all[1].Id, it.Next!.Id);                               // la prossima puntata, non il film
+        Assert.Equal(all[0].Id, it.Last!.Id);
+
+        t.Remove(a, all[0].WorkId!.Value);
+        t.Add(a, all[2].WorkId!.Value, Now);                                // un film resta il suo passaggio
+        Assert.Equal(all[2].Id, Assert.Single(t.Items(a, Now)!).Next!.Id);
+        Assert.Null(Assert.Single(t.Items(a, Now)!).Last);
+    }
+
     [Fact]
     public void SenzaPassaggiFuturiNextVuoto()
     {

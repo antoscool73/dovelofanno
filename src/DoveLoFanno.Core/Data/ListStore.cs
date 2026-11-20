@@ -202,7 +202,7 @@ public sealed class ListStore(string dbPath, GuideStore guide)
                 SELECT w.id, w.kind, w.title, w.year, w.poster, w.rating, w.rating_source, ws.stars, coalesce(ws.watched, 0), li.added_at,
                        (SELECT x.id FROM library_items x JOIN works xw ON xw.id = x.work_id
                         WHERE (xw.id = w.id OR xw.parent_id = w.id) AND x.missing_since IS NULL ORDER BY x.season, x.episode, x.added_at DESC LIMIT 1),
-                       (SELECT p.id FROM programmes p WHERE p.work_id = w.id AND p.stop > $now ORDER BY p.start LIMIT 1),
+                       (SELECT p.id FROM programmes p WHERE p.work_id IN {TonightStore.SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 1),
                        coalesce((SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = w.id AND a.kind IN ('subscription', 'free')), ''),
                        coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), ''),
                        EXISTS (SELECT 1 FROM recordings rr WHERE rr.work_id = w.id AND rr.state IN ('completed', 'incomplete') AND rr.file <> '')

@@ -273,9 +273,15 @@
   function programmeCard(p: GuideProgramme, mode: 'tv' | 'ondemand' = 'tv'): Card {
     const avail = availOf(p, mySubs, mode === 'tv' ? p : null, tvText(p));
     const meta = genreYear(p.sub || p.group, p.year);
+    // su un canale che non vedo (Sky Cinema senza Sky) ma in streaming nei miei abbonamenti o in casa: si scrive come
+    // lo vedo ("Su Netflix", "In casa") al posto del canale, senza orario (scelta di Antonio, 20/11/2026)
+    const unseenTv = mode === 'tv' && !avail.tv;
+    const lines = mode === 'ondemand' || (unseenTv && avail.mine.length > 0) ? [`Su ${shortNames(avail.mine)}`, meta]
+      : unseenTv && avail.home ? ['In casa', meta]
+      : [channelOf(p), slot(p), meta];
     const card: Card = {
       key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
-      lines: mode === 'ondemand' ? [`Su ${shortNames(avail.mine)}`, meta] : [channelOf(p), slot(p), meta], open: () => (open = p),
+      lines, open: () => (open = p),
     };
     // passaggio su un canale che non vedo ma il titolo l'ho in casa o in streaming: il tocco apre la scheda (con Guarda)
     if (mode === 'tv' && !avail.tv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);

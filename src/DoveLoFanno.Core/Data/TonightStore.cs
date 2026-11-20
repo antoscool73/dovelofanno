@@ -25,6 +25,17 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
     static long? ListId(SqliteConnection c, long profileId) =>
         Db.ScalarLong(c, "SELECT id FROM lists WHERE profile_id = $p AND is_tonight = 1", ("$p", profileId));
 
+    /// <summary>
+    /// Opere i cui passaggi valgono per l'opera <paramref name="w"/> (alias SQL) in una lista: l'opera stessa e, per
+    /// programmi e documentari, ogni puntata con lo stesso titolo. Una puntata senza episodio è un'opera a sé
+    /// ("geo|puntata del 18 11 2026"), ma chi mette «Geo» nella serata vuole la trasmissione (scelta di Antonio, 20/11/2026).
+    /// </summary>
+    internal static string SameShow(string w) => $"""
+        (SELECT {w}.id UNION
+         SELECT s.id FROM works s WHERE {w}.kind IN ('programme', 'documentary') AND {w}.title_key <> ''
+                AND s.title_key = {w}.title_key AND s.kind IN ('programme', 'documentary'))
+        """;
+
     /// <summary>null se il profilo non esiste.</summary>
     public List<TonightItem>? Items(long profileId, DateTimeOffset now)
     {
@@ -33,16 +44,16 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
         {
             long? list = ListId(c, profileId);
             if (list == null) return null;
-            rows = Db.Query(c, """
+            rows = Db.Query(c, $"""
                 SELECT w.id, w.kind, w.title, w.year, w.rating, w.rating_source, li.added_at,
-                       (SELECT p.id FROM programmes p WHERE p.work_id = w.id AND p.stop > $now ORDER BY p.start LIMIT 1),
+                       (SELECT p.id FROM programmes p WHERE p.work_id IN {SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 1),
                        coalesce((SELECT group_concat(a.platform, '|') FROM availability a WHERE a.work_id = w.id AND a.kind IN ('subscription', 'free')), ''),
                        EXISTS (SELECT 1 FROM library_items i JOIN works e ON e.id = i.work_id
                                WHERE (e.id = w.id OR e.parent_id = w.id) AND i.missing_since IS NULL)
                        OR EXISTS (SELECT 1 FROM recordings r WHERE r.work_id = w.id AND r.state IN ('completed', 'incomplete') AND r.file <> ''),
                        w.poster,
                        coalesce((SELECT group_concat(DISTINCT a.platform) FROM availability a WHERE a.work_id = w.id AND a.kind IN ('rent', 'buy')), ''),
-                       (SELECT p.id FROM programmes p WHERE p.work_id = w.id AND p.stop <= $now AND p.stop > $past ORDER BY p.start DESC LIMIT 1)
+                       (SELECT p.id FROM programmes p WHERE p.work_id IN {SameShow("w")} AND p.stop <= $now AND p.stop > $past ORDER BY p.start DESC LIMIT 1)
                 FROM list_items li JOIN works w ON w.id = li.work_id
                 WHERE li.list_id = $l ORDER BY li.position, li.added_at
                 """,
