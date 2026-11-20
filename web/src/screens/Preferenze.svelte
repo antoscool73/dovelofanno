@@ -1,6 +1,6 @@
 <script lang="ts">
   // Preferenze del profilo: le liste nella pagina La mia serata (e gli esclusi dalle ricerche), i miei avvisi, i miei
-  // abbonamenti, le notifiche, la registrazione predefinita. Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
+  // abbonamenti, le notifiche (la registrazione predefinita dal 20/11/2026 è in Impostazioni › Registrazioni). Le preferenze di prima («Cosa proporre») dal 19/11/2026 sono
   // liste dinamiche: qui si sceglie solo quali liste mostrare.
   import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -8,22 +8,23 @@
   import ServicePicker from '../lib/components/ServicePicker.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
-    api, ApiError, type AlertRow, type GeneralSettings, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
+    api, ApiError, type AlertRow, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
   } from '../lib/api/client';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
   import { day, time } from '../lib/format';
 
-  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'notifiche' | 'registrazione';
+  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'notifiche';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'serata', label: 'La mia serata' },
     { id: 'avvisi', label: 'I miei avvisi' },
     { id: 'abbonamenti', label: 'I miei abbonamenti' },
     { id: 'notifiche', label: 'Notifiche' },
-    { id: 'registrazione', label: 'Registrazione predefinita' },
   ];
   // senza scheda nell'indirizzo (o con #proposte, quello di prima) si apre «La mia serata»
-  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'notifiche', 'registrazione'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
+  // #registrazione (la scheda di prima) porta a Impostazioni › Registrazioni
+  if (location.hash === '#registrazione') router.go('/impostazioni#registrazioni');
+  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
   $effect(() => { history.replaceState(null, '', '#' + tab); });
 
   const prof = $derived(session.profile);
@@ -34,7 +35,6 @@
   let alerts = $state<AlertRow[]>([]);
   let mySubs = $state<ProfileSubscriptions | null>(null);
   let family = $state<FamilySubscriptions | null>(null);
-  let general = $state<GeneralSettings | null>(null);
   let error = $state('');
   let message = $state('');
   let busy = $state(false);
@@ -43,10 +43,10 @@
     const p = session.profile;
     if (!p) return;
     try {
-      const [a, c, e, f, g, h] = await Promise.all([
-        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(), api.generalSettings(),
+      const [a, c, e, f, g] = await Promise.all([
+        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(),
       ]);
-      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g; general = h;
+      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Preferenze non lette';
@@ -82,14 +82,6 @@
   async function askPermission() {
     if (!canNotify) return;
     permission = await Notification.requestPermission();
-  }
-
-  // ---------------------------------------------------------------- registrazione predefinita
-  let gBefore = $state(''), gAfter = $state(''), gFormat = $state('mp4');
-  $effect(() => { if (general) { gBefore = String(general.beforeMin); gAfter = String(general.afterMin); gFormat = general.format; } });
-  function saveGeneral(e: SubmitEvent) {
-    e.preventDefault();
-    act(() => api.updateGeneralSettings({ beforeMin: Number(gBefore), afterMin: Number(gAfter), format: gFormat }), 'Salvato: vale per le prossime registrazioni.');
   }
 
   const kindLabel: Record<string, string> = { tv: 'In chiaro in TV', subscription: 'Nei miei abbonamenti', rent_buy: 'Noleggio o acquisto' };
@@ -193,23 +185,6 @@
       {/if}
       <h3>Telegram e orari di silenzio</h3>
       <p class="f-muted">Valgono per tutta la famiglia: <a href="/impostazioni#notifiche" onclick={navigate}>Impostazioni › Notifiche</a>.</p>
-
-    {:else if tab === 'registrazione'}
-      <h2>Registrazione predefinita</h2>
-      <p class="f-muted">Quello che usa il pulsante «Registra» in un tocco. Vale per tutta la famiglia.</p>
-      {#if general}
-        <form class="card" onsubmit={saveGeneral}>
-          <div class="f-row">
-            <label class="f-field">Minuti prima<input bind:value={gBefore} inputmode="numeric" size="4" /></label>
-            <label class="f-field">Minuti dopo<input bind:value={gAfter} inputmode="numeric" size="4" /></label>
-            <label class="f-field">Formato
-              <select bind:value={gFormat}><option value="mp4">Video (MP4)</option><option value="mp3">Solo audio (MP3)</option></select>
-            </label>
-          </div>
-          <p class="f-muted">Cartella delle registrazioni sul server: {general.recordingsDir}{general.freeGb != null ? ` · ${general.freeGb} GB liberi` : ''}.</p>
-          <div><Button variant="primary" type="submit" disabled={busy}>Salva</Button></div>
-        </form>
-      {/if}
     {/if}
   </div>
 </div>
@@ -227,7 +202,6 @@
   .pname { font-weight: 600; }
   .atitle { font-weight: 600; }
   .grow { flex: 1 1 180px; }
-  .card { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
   .empty p { margin: 0; }
   @media (max-width: 720px) { aside { max-width: none; flex-basis: 100%; flex-direction: row; flex-wrap: wrap; } aside h1, aside p { width: 100%; } }

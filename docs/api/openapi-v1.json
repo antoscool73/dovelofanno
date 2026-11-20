@@ -3288,6 +3288,131 @@
         }
       }
     },
+    "/api/v1/series": {
+      "get": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Le serie in registrazione: puntate in programma e registrate, la prossima",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesRule"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Registra la serie: crea la regola (o ritrova quella attiva) e programma le puntate in guida; risponde con le puntate trovate e i numeri di episodio che mancano",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSeriesRule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/series/{id}/check": {
+      "post": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Ricontrolla la guida per una serie e programma le puntate nuove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesCheck"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/series/{id}": {
+      "delete": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Smette di registrare la serie e annulla le sue registrazioni non ancora partite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/v1/guide": {
       "get": {
         "tags": [
@@ -5413,6 +5538,37 @@
           }
         }
       },
+      "NewSeriesRule": {
+        "required": [
+          "programmeId",
+          "workId",
+          "profileId"
+        ],
+        "type": "object",
+        "properties": {
+          "programmeId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "workId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "profileId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "NewSource": {
         "required": [
           "name",
@@ -6428,6 +6584,126 @@
           },
           "more": {
             "type": "boolean"
+          }
+        }
+      },
+      "SeriesCheck": {
+        "required": [
+          "rule",
+          "episodes",
+          "newlyScheduled",
+          "missing"
+        ],
+        "type": "object",
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/SeriesRule"
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeriesEpisode"
+            }
+          },
+          "newlyScheduled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SeriesEpisode": {
+        "required": [
+          "programme",
+          "episodeKey",
+          "status",
+          "recordingId"
+        ],
+        "type": "object",
+        "properties": {
+          "programme": {
+            "$ref": "#/components/schemas/GuideProgramme"
+          },
+          "episodeKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "recordingId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "SeriesRule": {
+        "required": [
+          "id",
+          "profileId",
+          "title",
+          "active",
+          "createdAt",
+          "checkedAt",
+          "scheduled",
+          "recorded",
+          "nextStart",
+          "nextChannel"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profileId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "scheduled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recorded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nextStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nextChannel": {
+            "type": "string"
           }
         }
       },

@@ -1,5 +1,6 @@
 <script lang="ts">
   // Dettaglio di un programma della guida: un tocco su Registra programma con margini e formato predefiniti.
+  import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
@@ -62,6 +63,9 @@
   async function record() {
     if (scheduled) { goTo('/registrazioni'); return; }
     if (p.channelId == null) return;
+    const how = await recordChoice(p);
+    if (how === null) return;
+    if (how === 'series') { scheduled = true; onchange(); return; }
     busy = true;
     error = '';
     try {
@@ -96,6 +100,9 @@
   async function recordOther(x: GuideProgramme) {
     if (x.scheduled) { goTo('/registrazioni'); return; }
     if (x.channelId == null) return;
+    const how = await recordChoice(x);
+    if (how === null) return;
+    if (how === 'series') { x.scheduled = true; onchange(); return; }
     otherBusy = x.id;
     error = '';
     try {

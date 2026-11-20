@@ -16,6 +16,21 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
 {
     DateTimeOffset lastProposals = DateTimeOffset.MinValue;
     DateTimeOffset lastOnline = DateTimeOffset.MinValue;
+    DateTimeOffset lastSeries = DateTimeOffset.MinValue;
+
+    /// <summary>«Registra la serie»: le puntate nuove che la guida riporta si programmano da sole, con una notifica.</summary>
+    void RunSeries(DateTimeOffset now)
+    {
+        foreach (var c in ctx.Series.CheckAll(now, SeriesApi.Defaults(ctx)))
+        {
+            var first = c.Episodes.Where(e => e.Status == "scheduled").Select(e => e.Programme).OrderBy(p => p.Start).First();
+            string text = c.NewlyScheduled == 1
+                ? $"{first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))} su {first.ChannelName}"
+                : $"{c.NewlyScheduled} puntate nuove, la prima {first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))}";
+            ctx.Notifications.Add(c.Rule.ProfileId, "recording", $"Serie: «{c.Rule.Title}» programmata", text, "/registrazioni", now);
+            log.LogInformation("Serie {Title}: {Count} puntate programmate", c.Rule.Title, c.NewlyScheduled);
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -34,6 +49,12 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
                 lastProposals = now;
                 try { await RunProposalsAsync(now, ct); }
                 catch (Exception ex) { log.LogError(ex, "Errore nel calcolo delle proposte"); }
+            }
+            if (now - lastSeries > TimeSpan.FromMinutes(30))
+            {
+                lastSeries = now;
+                try { RunSeries(now); }
+                catch (Exception ex) { log.LogError(ex, "Errore nel controllo delle serie"); }
             }
             if (now - lastOnline > TimeSpan.FromHours(6))
             {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import AppHeader from './lib/components/AppHeader.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
+  import SeriesDialog from './lib/components/SeriesDialog.svelte';
   import Button from './lib/components/Button.svelte';
   import Profili from './screens/Profili.svelte';
   import NonTrovata from './screens/NonTrovata.svelte';
@@ -97,6 +98,8 @@
 
 <!-- conferme delle azioni che cancellano o fermano qualcosa -->
 <ConfirmDialog />
+<!-- «Registra la serie»: solo questa puntata o tutte -->
+<SeriesDialog />
 
 <style>
   .center { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text-2); }

@@ -1,5 +1,6 @@
 <script lang="ts">
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
+  import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -80,6 +81,9 @@
   async function record(a: GuideProgramme) {
     if (a.channelId == null) return;
     if (a.scheduled) { router.go('/registrazioni'); return; }
+    const how = await recordChoice(a);
+    if (how === null) return;
+    if (how === 'series') { await load(); return; }
     busy = a.id;
     notice = '';
     try {

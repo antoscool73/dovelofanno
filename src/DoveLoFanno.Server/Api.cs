@@ -278,6 +278,9 @@ public static class Api
         // ---------------------------------------------------------------- ricerca dalla lente (aggiunta del 18/11/2026)
         SearchApi.Map(api);
 
+        // ---------------------------------------------------------------- «Registra la serie» (aggiunta del 20/11/2026)
+        SeriesApi.Map(api);
+
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");
 

@@ -3552,6 +3552,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Le serie in registrazione: puntate in programma e registrate, la prossima */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesRule"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Registra la serie: crea la regola (o ritrova quella attiva) e programma le puntate in guida; risponde con le puntate trovate e i numeri di episodio che mancano */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewSeriesRule"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesCheck"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ricontrolla la guida per una serie e programma le puntate nuove */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesCheck"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Smette di registrare la serie e annulla le sue registrazioni non ancora partite */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guide": {
         parameters: {
             query?: never;
@@ -4500,6 +4664,14 @@ export interface components {
             /** Format: int64 */
             programmeId?: null | number;
         };
+        NewSeriesRule: {
+            /** Format: int64 */
+            programmeId: null | number;
+            /** Format: int64 */
+            workId: null | number;
+            /** Format: int64 */
+            profileId: null | number;
+        };
         NewSource: {
             name: string;
             url: string;
@@ -4780,6 +4952,39 @@ export interface components {
             hits: components["schemas"]["SearchHit"][];
             tmdbNote: string;
             more?: boolean;
+        };
+        SeriesCheck: {
+            rule: components["schemas"]["SeriesRule"];
+            episodes: components["schemas"]["SeriesEpisode"][];
+            /** Format: int32 */
+            newlyScheduled: number;
+            missing: string[];
+        };
+        SeriesEpisode: {
+            programme: components["schemas"]["GuideProgramme"];
+            episodeKey: string;
+            status: string;
+            /** Format: int64 */
+            recordingId: null | number;
+        };
+        SeriesRule: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            profileId: null | number;
+            title: string;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            checkedAt: null | string;
+            /** Format: int32 */
+            scheduled: number;
+            /** Format: int32 */
+            recorded: number;
+            /** Format: date-time */
+            nextStart: null | string;
+            nextChannel: string;
         };
         ServicesBody: {
             services: string[];

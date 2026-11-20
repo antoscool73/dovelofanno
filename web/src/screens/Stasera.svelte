@@ -14,6 +14,7 @@
   import { dragScroll } from '../lib/dragScroll';
   import AvailLegend from '../lib/components/AvailLegend.svelte';
   import { availOf, availOfHit, type Avail } from '../lib/avail';
+  import { recordChoice } from '../lib/series.svelte';
   import { inMySubscriptions, mySubscriptionsFor, payPlatform, streamingFor } from '../lib/pay';
   import {
     api, ApiError, type GuideProgramme, type LibraryItem, type ListEntry, type ListSummary, type Recording, type SearchHit, type SearchQuery, type TonightItem,
@@ -155,6 +156,9 @@
 
   async function quickRecord(p: GuideProgramme) {
     if (p.channelId == null || p.scheduled) { open = p; return; }
+    const how = await recordChoice(p);
+    if (how === null) return;
+    if (how === 'series') { await load(); return; }
     busy = p.id;
     try {
       await api.scheduleRecording({ channelId: p.channelId, title: p.title, start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });

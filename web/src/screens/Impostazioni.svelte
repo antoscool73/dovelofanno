@@ -6,23 +6,26 @@
   import CartelleLibreria from './CartelleLibreria.svelte';
   import GestioneProfili from './GestioneProfili.svelte';
   import LimitiNotifiche from './LimitiNotifiche.svelte';
+  import ImpostazioniRegistrazioni from './ImpostazioniRegistrazioni.svelte';
   import Aggiornamenti from './Aggiornamenti.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
-  type Tab = 'sorgenti' | 'cartelle' | 'profili' | 'voti' | 'limiti' | 'notifiche' | 'backup' | 'aggiornamenti';
+  type Tab = 'sorgenti' | 'registrazioni' | 'cartelle' | 'profili' | 'voti' | 'notifiche' | 'backup' | 'aggiornamenti';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'sorgenti', label: 'Sorgenti' },
-    { id: 'cartelle', label: 'Cartelle' },
+    // margini, formato, limiti, cartella e serie (20/11/2026: prima tra Preferenze e la scheda Limiti)
+    { id: 'registrazioni', label: 'Registrazioni' },
+    { id: 'cartelle', label: 'Cartelle della libreria' },
     { id: 'profili', label: 'Profili e abbonamenti' },
     { id: 'voti', label: 'Voti dei film' },
-    { id: 'limiti', label: 'Limiti' },
     { id: 'notifiche', label: 'Notifiche' },
     { id: 'backup', label: 'Backup' },
     { id: 'aggiornamenti', label: 'Aggiornamenti' },
   ];
   // la scheda si ricorda nell'indirizzo (/impostazioni#profili), così i collegamenti dalle altre schermate ci arrivano
-  let tab = $state<Tab>(tabs.find((t) => location.hash === '#' + t.id)?.id ?? 'sorgenti');
+  // #limiti (la scheda di prima) porta a Registrazioni
+  let tab = $state<Tab>(location.hash === '#limiti' ? 'registrazioni' : tabs.find((t) => location.hash === '#' + t.id)?.id ?? 'sorgenti');
   $effect(() => { history.replaceState(null, '', '#' + tab); });
 
   let sources = $state<Source[]>([]);
@@ -274,7 +277,9 @@
       <Aggiornamenti />
     {:else if tab === 'profili'}
       <GestioneProfili />
-    {:else if tab === 'limiti' || tab === 'notifiche'}
+    {:else if tab === 'registrazioni'}
+      <ImpostazioniRegistrazioni />
+    {:else if tab === 'notifiche'}
       <LimitiNotifiche section={tab} />
     {/if}
   </div>

@@ -28,6 +28,8 @@ public sealed class ServerContext : IDisposable
     public WorkStore Works { get; }
     public LibraryStore Library { get; }
     public ListStore Lists { get; }
+    /// <summary>«Registra la serie» (20/11/2026).</summary>
+    public SeriesStore Series { get; }
     public NotificationStore Notifications { get; }
     public SubscriptionStore Subscriptions { get; }
     public PreferenceStore Preferences { get; }
@@ -71,6 +73,7 @@ public sealed class ServerContext : IDisposable
         Works = new WorkStore(DbPath, Guide);
         Library = new LibraryStore(DbPath);
         Lists = new ListStore(DbPath, Guide);
+        Series = new SeriesStore(DbPath, Guide, Recordings);
         Notifications = new NotificationStore(DbPath);
         Subscriptions = new SubscriptionStore(DbPath);
         Preferences = new PreferenceStore(DbPath, Guide);

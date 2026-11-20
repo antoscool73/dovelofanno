@@ -16,6 +16,9 @@ export type Recording = S['RecordingRow'] & { recordFrom: string; recordTo: stri
 export type RecordingDetail = Omit<S['RecordingDetail'], 'recording'> & { recording: Recording };
 export type NewRecording = S['NewRecording'];
 export type ScheduledRecording = S['ScheduledRecording'];
+export type SeriesRule = S['SeriesRule'];
+export type SeriesCheck = S['SeriesCheck'];
+export type SeriesEpisode = S['SeriesEpisode'];
 export type ImportResult = S['ImportResult'];
 export type BackupInfo = S['BackupInfo'];
 export type RatingSettings = S['RatingSettings'];
@@ -265,4 +268,11 @@ export const api = {
   scheduleRecording: (r: NewRecording) => call<ScheduledRecording>('POST', '/recordings', r),
   stopRecording: (id: number) => call<void>('POST', `/recordings/${id}/stop`),
   cancelRecording: (id: number) => call<void>('DELETE', `/recordings/${id}`),
+
+  // «Registra la serie» (20/11/2026)
+  seriesRules: () => call<SeriesRule[]>('GET', '/series'),
+  recordSeries: (b: { programmeId?: number | null; workId?: number | null; profileId?: number | null }) =>
+    call<SeriesCheck>('POST', '/series', { programmeId: null, workId: null, profileId: null, ...b }),
+  checkSeries: (id: number) => call<SeriesCheck>('POST', `/series/${id}/check`),
+  stopSeries: (id: number) => call<void>('DELETE', `/series/${id}`),
 };
