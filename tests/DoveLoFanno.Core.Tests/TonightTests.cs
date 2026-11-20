@@ -132,6 +132,11 @@ public sealed class TonightTests : IDisposable
         t.Add(a, all[2].WorkId!.Value, Now);                                // un film resta il suo passaggio
         Assert.Equal(all[2].Id, Assert.Single(t.Items(a, Now)!).Next!.Id);
         Assert.Null(Assert.Single(t.Items(a, Now)!).Last);
+
+        // la Scheda della puntata passata mostra i passaggi delle altre puntate, non quello del film omonimo
+        var works = new WorkStore(Db, guide);
+        Assert.Equal([all[1].Id], works.Detail(all[0].WorkId!.Value, a, Now)!.Airings.Select(p => p.Id));
+        Assert.Equal([all[2].Id], works.Detail(all[2].WorkId!.Value, a, Now)!.Airings.Select(p => p.Id));
     }
 
     // 20/11/2026: Geo delle 11:04 contava come «da vedere stasera». Evening è il primo passaggio dalle 20 alle 2.

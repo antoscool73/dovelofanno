@@ -63,7 +63,12 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
             ("$id", workId)).FirstOrDefault();
         if (w.Id == 0) return null;
 
-        var progIds = Db.Query(c, "SELECT id FROM programmes WHERE work_id = $w AND stop > $now ORDER BY start LIMIT 50",
+        // per programmi e documentari i passaggi di tutte le puntate con lo stesso titolo, come nella serata (20/11/2026:
+        // la Scheda di «L'Eredità» del 18/11 non mostrava i passaggi di oggi)
+        var progIds = Db.Query(c, $"""
+            SELECT p.id FROM programmes p, works w
+            WHERE w.id = $w AND p.work_id IN {TonightStore.SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 50
+            """,
             r => r.GetInt64(0), ("$w", workId), ("$now", Db.Unix(now)));
         var files = Db.Query(c, """
             SELECT r.id, r.file, r.start, ch.name, r.state, r.lost_minutes FROM recordings r JOIN channels ch ON ch.id = r.channel_id

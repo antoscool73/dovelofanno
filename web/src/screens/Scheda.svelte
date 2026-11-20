@@ -19,6 +19,7 @@
   let { id }: { id: number } = $props();
 
   let w = $state<WorkDetail | null>(null);
+  let hasTmdbKey = $state(true);
   let error = $state('');
   let busy = $state<number | null>(null);
   let notice = $state('');
@@ -47,6 +48,8 @@
     try {
       w = await api.work(id, session.profile?.id);
       error = '';
+      // la chiave TMDB serve solo a dire perché mancano le piattaforme (20/11/2026: il messaggio usciva anche con la chiave)
+      if (!w.tmdbId) api.ratingSettings().then((r) => (hasTmdbKey = r.hasTmdbKey)).catch(() => {});
       const prof = session.profile;
       if (prof) {
         api.profileSubscriptions(prof.id).then((s) => (mySubs = s.services)).catch(() => {});
@@ -338,7 +341,7 @@
         {#each byKind as k (k.kind)}
           <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
         {/each}
-        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{/if}</div>{/if}
+        {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else if !hasTmdbKey}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{:else if w.kind === 'programme' || w.kind === 'episode'}Si vede quando passa in TV: per ora la guida non ha passaggi in arrivo. Con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> ti avviso quando torna.{:else}Titolo non trovato su TMDB: le piattaforme dove si vede non si conoscono.{/if}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}
     </aside>
