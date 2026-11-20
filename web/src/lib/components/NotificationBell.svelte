@@ -85,8 +85,9 @@
 
 <style>
   .bell { position: relative; }
-  .btn { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text-2); cursor: pointer; }
-  .btn:hover { color: var(--text); }
+  /* senza riquadro, come lente e ingranaggio (Antonio, 20/11/2026): lo sfondo solo al passaggio e a pannello aperto */
+  .btn { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-s); border: 0; background: none; color: var(--text-2); cursor: pointer; }
+  .btn:hover, .btn[aria-expanded='true'] { color: var(--text); background: var(--card); }
   .count { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--rec); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .panel { position: absolute; right: 0; top: 48px; z-index: 50; width: min(380px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
   .phead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }

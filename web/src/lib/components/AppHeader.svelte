@@ -75,11 +75,12 @@
   }
   .icon:hover { color: var(--text); background: var(--card); }
   .icon[aria-current='page'] { color: var(--text); background: var(--raised); }
+  /* profilo senza riquadro (Antonio, 20/11/2026): avatar, nome e freccia; sfondo solo al passaggio */
   .profile {
-    display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px 4px 4px;
-    border-radius: 10px; background: var(--card); border: 1px solid var(--line-strong);
-    text-decoration: none; color: var(--text);
+    display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px 4px 4px;
+    border-radius: var(--radius-s); text-decoration: none; color: var(--text);
   }
+  .profile:hover { background: var(--card); }
   .profile svg { color: var(--muted); }
   .pname { font-size: 14px; font-weight: 600; }
   @media (max-width: 1000px) { .pname { display: none; } }
