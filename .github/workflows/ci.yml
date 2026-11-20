@@ -15,6 +15,36 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
+  # I collaudi di installazione (immagine Docker, servizio e installatore Windows) partono solo se cambia qualcosa che
+  # installano, con un tag, con l'avvio a mano o sul primo push di un ramo. Il rilascio (release.yml) li fa sempre.
+  changes:
+    name: File cambiati
+    runs-on: ubuntu-latest
+    outputs:
+      install: ${{ steps.diff.outputs.install }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          install=true
+          if [[ "$GITHUB_REF" != refs/tags/* && "$EVENT" != workflow_dispatch ]]; then
+            if [[ "$EVENT" == pull_request ]]; then range="$BASE...$GITHUB_SHA"; else range="$BEFORE..$GITHUB_SHA"; fi
+            if git diff --name-only "$range" > "$RUNNER_TEMP/changed"; then
+              cat "$RUNNER_TEMP/changed"
+              if ! grep -qE '^(deploy/|tools/ci/|Dockerfile$|\.dockerignore$|\.github/workflows/ci\.yml$|global\.json$|Directory\.Build\.props$|src/[^/]+/[^/]+\.csproj$|web/package(-lock)?\.json$)' "$RUNNER_TEMP/changed"; then
+                install=false
+              fi
+            fi
+          fi
+          echo "Collaudi di installazione: $install"
+          echo "install=$install" >> "$GITHUB_OUTPUT"
+
   test:
     name: Test (${{ matrix.os }})
     strategy:
@@ -107,6 +137,8 @@ jobs:
 
   docker:
     name: Immagine Docker
+    needs: changes
+    if: needs.changes.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -170,6 +202,8 @@ jobs:
 
   windows-service:
     name: Servizio Windows
+    needs: changes
+    if: needs.changes.outputs.install == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
