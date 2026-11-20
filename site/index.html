@@ -8,15 +8,121 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-<main class="wrap hero">
-  <img class="logo" src="/favicon.svg" alt="" width="88" height="88">
-  <h1 class="brand">Dove<span>Lo</span>Fanno</h1>
-  <p class="slogan">La risposta a «stasera che si guarda?»</p>
-  <p class="lead">Guida TV, abbonamenti in streaming, registrazioni e i film che hai già in casa, in un solo posto.
-    Gira su un computer di casa tua (un NAS o il PC sempre acceso): niente account, niente abbonamento, nessun dato che esce di casa.</p>
-  <p class="pill">In prova con pochi amici. Presto per tutti.</p>
-  <p class="small">Sei tra chi lo prova? <a href="/beta/">Pagina della beta</a> · Scrivi a <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off--></p>
+<body class="home-page">
+<!-- icone a linea, generiche: <svg class="ico"><use href="#i-..."/></svg> -->
+<svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="10.5" width="18" height="5" rx="1.5"/><path d="M6 19.5h12"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9.5" r="2.3"/><path d="M15.5 14.2A4.5 4.5 0 0 1 21 18.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5v10h13v-10"/><path d="M10 19.5v-5h4v5"/></symbol>
+</svg>
+
+<header class="h-top">
+  <div class="h-wrap">
+    <a class="h-logo" href="/"><img src="/favicon.svg" alt="" width="36" height="36"><b>Dove<span>Lo</span>Fanno</b></a>
+    <a class="h-btn small" href="/beta/">Area beta</a>
+  </div>
+</header>
+
+<section class="h-hero" aria-labelledby="titolo">
+  <div class="h-collage" aria-hidden="true">
+    <img src="/img/lista.webp" alt=""><img src="/img/guida.webp" alt=""><img src="/img/opera.webp" alt="">
+    <img src="/img/cerca.webp" alt=""><img src="/img/lista.webp" alt=""><img src="/img/guida.webp" alt="">
+    <img src="/img/opera.webp" alt=""><img src="/img/cerca.webp" alt=""><img src="/img/lista.webp" alt="">
+  </div>
+  <div class="h-hero-in">
+    <h1 id="titolo">La risposta a<br>«stasera che si guarda?»</h1>
+    <p class="h-sub">Guida TV, abbonamenti in streaming, registrazioni e i film che hai già in casa. In un posto solo.</p>
+    <p class="h-sub2">Gratis, senza account e senza pubblicità. Gira a casa tua.</p>
+    <div class="h-cta">
+      <a class="h-btn" href="/beta/">Sono tra chi lo prova <span aria-hidden="true">›</span></a>
+      <!--email_off--><a class="h-btn ghost" href="mailto:info@dovelofanno.it">Voglio provarlo anch'io</a><!--/email_off-->
+    </div>
+  </div>
+</section>
+<div class="h-arc" aria-hidden="true"></div>
+
+<main class="h-wrap">
+  <aside class="h-banner">
+    <img src="/favicon.svg" alt="" width="52" height="52">
+    <div><strong>In prova con pochi amici, presto per tutti.</strong>
+      <span>È un server che installi una volta su un NAS o su un PC sempre acceso. Poi lo usi dal browser, anche dal divano col telefono.</span></div>
+  </aside>
+
+  <h2 class="h-h2">Come si presenta</h2>
+  <div class="h-row" role="list">
+    <figure class="h-shot" role="listitem">
+      <span class="h-num" aria-hidden="true">1</span>
+      <img src="/img/lista.webp" alt="La mia lista: il film di stasera in grande, con voto, trama e il pulsante Registra; sotto, i titoli da vedere stasera." width="1440" height="900" loading="lazy">
+      <figcaption><strong>La mia lista</strong>Il film di stasera e i tuoi titoli, con dove e quando passano.</figcaption>
+    </figure>
+    <figure class="h-shot" role="listitem">
+      <span class="h-num" aria-hidden="true">2</span>
+      <img src="/img/guida.webp" alt="Guida TV a griglia: i canali in colonna e i programmi della serata, con generi e voti." width="1440" height="712" loading="lazy">
+      <figcaption><strong>Guida TV</strong>Cinque giorni di programmi, con generi, voti, stagione ed episodio.</figcaption>
+    </figure>
+    <figure class="h-shot" role="listitem">
+      <span class="h-num" aria-hidden="true">3</span>
+      <img src="/img/cerca.webp" alt="Ricerca dei film con Clint Eastwood ordinati per voto, ognuno con dove si vede: Prime Video, a pagamento o da farsi avvisare." width="1440" height="900" loading="lazy">
+      <figcaption><strong>Cerca</strong>Un attore, un regista, un titolo: e per ognuno dove si vede adesso.</figcaption>
+    </figure>
+    <figure class="h-shot" role="listitem">
+      <span class="h-num" aria-hidden="true">4</span>
+      <img src="/img/opera.webp" alt="Scheda di un film: locandina, trama, cast, voto e i pulsanti Registra, Trailer, Aggiungi alla mia lista, Avvisami." width="1440" height="900" loading="lazy">
+      <figcaption><strong>Scheda</strong>Tutto su un titolo, e un clic per registrarlo o farti avvisare.</figcaption>
+    </figure>
+    <figure class="h-shot tall" role="listitem">
+      <span class="h-num" aria-hidden="true">5</span>
+      <img src="/img/telefono.webp" alt="La mia lista sullo schermo di un telefono." width="780" height="1560" loading="lazy">
+      <figcaption><strong>Sul telefono</strong>Stessa app, dal divano.</figcaption>
+    </figure>
+  </div>
+  <p class="h-hint">Scorri di lato per vederle tutte.</p>
+
+  <h2 class="h-h2">Perché usarlo</h2>
+  <div class="h-cards">
+    <div class="h-card"><h3>Stasera, senza girare canali</h3><p>I film e i programmi della serata scelti secondo i tuoi gusti, con il voto IMDb accanto.</p><svg class="ico h-ico" aria-hidden="true"><use href="#i-moon"/></svg></div>
+    <div class="h-card"><h3>TV, streaming e casa insieme</h3><p>Ti dice se un titolo passa in TV, se è su Netflix, Prime o Disney+, o se ce l'hai già sul NAS.</p><svg class="ico h-ico" aria-hidden="true"><use href="#i-stack"/></svg></div>
+    <div class="h-card"><h3>Registra, anche tutta la serie</h3><p>Con una tua playlist IPTV registra un programma o tutte le puntate, saltando le repliche.</p><svg class="ico h-ico rec" aria-hidden="true"><use href="#i-rec"/></svg></div>
+    <div class="h-card"><h3>Profili per la famiglia</h3><p>Ognuno con le sue liste e i suoi avvisi. I profili dei bambini vedono solo quello che è adatto.</p><svg class="ico h-ico" aria-hidden="true"><use href="#i-people"/></svg></div>
+    <div class="h-card"><h3>Dal telefono, dal PC, dal tablet</h3><p>Si apre nel browser di qualunque dispositivo di casa. Niente app da installare.</p><svg class="ico h-ico" aria-hidden="true"><use href="#i-phone"/></svg></div>
+    <div class="h-card"><h3>I tuoi dati restano a casa</h3><p>Niente account e niente cloud: il programma non manda nulla a nessuno, nemmeno a noi.</p><svg class="ico h-ico" aria-hidden="true"><use href="#i-home"/></svg></div>
+  </div>
+
+  <h2 class="h-h2">Domande frequenti</h2>
+  <div class="h-faq">
+    <details><summary>Cos'è DoveLoFanno?</summary>
+      <p>Un programma che mette insieme guida TV, servizi di streaming e i film che hai in casa, e ti dice cosa guardare e
+        dove. Se gli dai una playlist IPTV registra anche i programmi.</p></details>
+    <details><summary>Quanto costa?</summary>
+      <p>Niente. È software libero (licenza GPL-3.0): niente abbonamento, niente pubblicità.</p></details>
+    <details><summary>Dove si installa?</summary>
+      <p>Su un computer di casa che resta acceso: un NAS con Docker (Synology, QNAP e simili), un mini-PC o un Raspberry Pi,
+        oppure un PC Windows. Poi lo usi dal browser di qualunque dispositivo della stessa rete.</p></details>
+    <details><summary>Mi dà i canali TV?</summary>
+      <p>No. DoveLoFanno non include né fornisce canali o contenuti. Per registrare serve una playlist M3U che hai il
+        diritto di usare; senza, guida, liste e streaming funzionano lo stesso.</p></details>
+    <details><summary>Che fine fanno i miei dati?</summary>
+      <p>Restano sul tuo computer. Il programma parla solo con la guida TV, con TMDB per voti e locandine e, una volta al
+        giorno, con questo sito per sapere se c'è una versione nuova (si può spegnere).</p></details>
+    <details><summary>Come lo provo?</summary>
+      <p>Per ora è in prova con pochi amici. Se vuoi provarlo anche tu, scrivi a
+        <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->.</p></details>
+  </div>
+
+  <div class="h-end">
+    <p>Vuoi sapere quando esce per tutti, o provarlo prima?</p>
+    <!--email_off--><a class="h-btn" href="mailto:info@dovelofanno.it">Scrivimi <span aria-hidden="true">›</span></a><!--/email_off-->
+  </div>
 </main>
+
+<footer class="h-wrap h-foot">
+  <p>DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+    <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off--> · <a href="/beta/">Area beta</a></p>
+  <p>Le immagini mostrano l'app con la guida TV vera. Locandine, voti e dati dei film vengono da TMDB: questo prodotto
+    usa l'API di TMDB ma non è approvato né certificato da TMDB.</p>
+</footer>
 </body>
 </html>
