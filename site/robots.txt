@@ -1,0 +1,5 @@
+# La pagina della beta è riservata (Cloudflare Access) e ha già X-Robots-Tag: noindex.
+User-agent: *
+Allow: /
+
+Sitemap: https://dovelofanno.it/sitemap.xml

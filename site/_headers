@@ -10,3 +10,10 @@
 /beta/*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store
+
+# lo stesso sito su pages.dev (e le anteprime dei commit) non va indicizzato: l'indirizzo ufficiale è dovelofanno.it
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
