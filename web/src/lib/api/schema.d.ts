@@ -4852,6 +4852,7 @@ export interface components {
             poster: string;
             paid?: null | string[];
             last?: null | components["schemas"]["GuideProgramme"];
+            evening?: null | components["schemas"]["GuideProgramme"];
         };
         TrackInfo: {
             /** Format: int32 */

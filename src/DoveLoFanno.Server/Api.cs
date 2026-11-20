@@ -209,7 +209,7 @@ public static class Api
 
         // "La mia serata in TV" del profilo (aggiunta della wave 5)
         prof.MapGet("/{id:long}/tonight", IResult (long id, ServerContext ctx) =>
-            ctx.Tonight.Items(id, ctx.Clock.GetUtcNow()) is { } items ? Results.Ok(items) : Results.NotFound())
+            ctx.Tonight.Items(id, ctx.Clock.GetUtcNow(), ctx.Clock.LocalTimeZone) is { } items ? Results.Ok(items) : Results.NotFound())
             .WithSummary("La mia serata in TV: i titoli del profilo con il prossimo passaggio in guida")
             .Produces<List<TonightItem>>().Produces(StatusCodes.Status404NotFound);
 

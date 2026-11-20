@@ -134,6 +134,41 @@ public sealed class TonightTests : IDisposable
         Assert.Null(Assert.Single(t.Items(a, Now)!).Last);
     }
 
+    // 20/11/2026: Geo delle 11:04 contava come «da vedere stasera». Evening è il primo passaggio dalle 20 alle 2.
+    [Fact]
+    public void PassaggioDiSera_DistintoDaQuelloDiGiorno()
+    {
+        var day = new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero);          // le 9 in UTC
+        string T(int h, int m = 0) => day.Date.AddHours(h).AddMinutes(m).ToString("yyyyMMddHHmmss") + " +0000";
+        string xml = $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <tv>
+              <channel id="Rai3.it"><display-name>Rai 3</display-name></channel>
+              <programme channel="Rai3.it" start="{T(11)}" stop="{T(12)}"><title>Geo</title><sub-title>Mattina</sub-title><category>Intrattenimento</category></programme>
+              <programme channel="Rai3.it" start="{T(16)}" stop="{T(17)}"><title>Geo</title><sub-title>Pomeriggio</sub-title><category>Intrattenimento</category></programme>
+              <programme channel="Rai3.it" start="{T(21, 30)}" stop="{T(22, 30)}"><title>Geo</title><sub-title>Sera</sub-title><category>Intrattenimento</category></programme>
+              <programme channel="Rai3.it" start="{T(13)}" stop="{T(14)}"><title>Solo di giorno</title><category>Intrattenimento</category></programme>
+            </tv>
+            """;
+        long a = new ProfileStore(Db).Create("Anna", false, null, null, day).Id;
+        var guide = new GuideStore(Db);
+        guide.Save(guide.AddSource("https://example.org/g.xml"), XmltvReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)), day.LocalDateTime), day);
+        var t = new TonightStore(Db, guide);
+        var progs = guide.Query(new GuideQuery(day, day.AddHours(15))).ToList();
+        t.Add(a, progs.First(p => p.Title == "Geo").WorkId!.Value, day);
+        t.Add(a, progs.Single(p => p.Title == "Solo di giorno").WorkId!.Value, day);
+
+        var items = t.Items(a, day, TimeZoneInfo.Utc)!;
+        var geo = items.Single(i => i.Title == "Geo");
+        Assert.Equal(day.Date.AddHours(11), geo.Next!.Start.UtcDateTime);              // prossimo: quello di giorno
+        Assert.Equal(day.Date.AddHours(21.5), geo.Evening!.Start.UtcDateTime);         // di sera: le 21:30
+        var only = items.Single(i => i.Title == "Solo di giorno");
+        Assert.NotNull(only.Next);
+        Assert.Null(only.Evening);
+        // a Roma (UTC+1) le 19 UTC sono le 20: anche il passaggio delle 16 UTC resta di giorno, le 21:30 UTC sono sera
+        Assert.Equal(day.Date.AddHours(21.5), t.Items(a, day, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"))!.Single(i => i.Title == "Geo").Evening!.Start.UtcDateTime);
+    }
+
     [Fact]
     public void SenzaPassaggiFuturiNextVuoto()
     {

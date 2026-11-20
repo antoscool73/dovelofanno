@@ -5,12 +5,13 @@ namespace DoveLoFanno.Data;
 /// <summary>
 /// Un titolo della lista "La mia serata in TV" con il suo prossimo passaggio in guida, le piattaforme dove si vede in
 /// streaming (abbonamento o gratis), se c'è in casa (file o registrazione riuscita) e l'ultimo passaggio già trasmesso
-/// negli ultimi 3 giorni (Last).
+/// negli ultimi 3 giorni (Last). Evening è il primo passaggio di sera (dalle 20 alle 2), che può venire dopo Next quando
+/// Next è di giorno: in "Da vedere stasera" contano solo i passaggi di sera (scelta di Antonio, 20/11/2026).
 /// </summary>
 public sealed record TonightItem(
     long WorkId, string Kind, string Title, int Year, double? Rating, string RatingSource, DateTimeOffset AddedAt, GuideProgramme? Next,
     IReadOnlyList<string>? Streaming = null, bool InHouse = false, string Poster = "", IReadOnlyList<string>? Paid = null,
-    GuideProgramme? Last = null);
+    GuideProgramme? Last = null, GuideProgramme? Evening = null);
 
 public enum TonightResult { Ok, NoProfile, NoWork }
 
@@ -36,9 +37,10 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
                 AND s.title_key = {w}.title_key AND s.kind IN ('programme', 'documentary'))
         """;
 
-    /// <summary>null se il profilo non esiste.</summary>
-    public List<TonightItem>? Items(long profileId, DateTimeOffset now)
+    /// <summary>null se il profilo non esiste. <paramref name="zone"/> decide che cosa è "di sera" (predefinito: ora locale).</summary>
+    public List<TonightItem>? Items(long profileId, DateTimeOffset now, TimeZoneInfo? zone = null)
     {
+        var evening = new Dictionary<long, long?>();
         List<(long Work, string Kind, string Title, int Year, double? Rating, string Src, long Added, long? Prog, string Streaming, bool Home, string Poster, string Paid, long? Last)> rows;
         using (var c = Open())
         {
@@ -60,13 +62,35 @@ public sealed class TonightStore(string dbPath, GuideStore guide)
                 r => (r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.IsDBNull(4) ? (double?)null : r.GetDouble(4), r.GetString(5), r.GetInt64(6), Db.NLong(r, 7),
                     r.GetString(8), r.GetInt64(9) == 1, r.GetString(10), r.GetString(11), Db.NLong(r, 12)),
                 ("$l", list), ("$now", Db.Unix(now)), ("$past", Db.Unix(now.AddDays(-3))));
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i].Prog != null) evening[rows[i].Work] = EveningAiring(c, rows[i].Work, now, zone ?? TimeZoneInfo.Local);
         }
         return rows.Select(x => new TonightItem(x.Work, x.Kind, x.Title, x.Year, x.Rating, x.Src, Db.FromUnix(x.Added),
             x.Prog is long pid ? guide.Programme(pid) : null,
             x.Streaming.Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), x.Home, WorkStore.ImageUrl(x.Poster, "w342"),
             x.Paid.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
             // ultimo passaggio già trasmesso negli ultimi 3 giorni ("programmazione passata" in Stasera)
-            x.Last is long lid ? guide.Programme(lid) : null)).ToList();
+            x.Last is long lid ? guide.Programme(lid) : null,
+            evening.GetValueOrDefault(x.Work) is long eid ? guide.Programme(eid) : null)).ToList();
+    }
+
+    /// <summary>Un passaggio è "di sera" se comincia dalle 20 alle 2 di notte, ora locale.</summary>
+    public static bool IsEvening(DateTimeOffset start, TimeZoneInfo zone)
+    {
+        int h = TimeZoneInfo.ConvertTime(start, zone).Hour;
+        return h >= 20 || h < 2;
+    }
+
+    /// <summary>Primo passaggio di sera non ancora finito dell'opera (o della trasmissione, vedi <see cref="SameShow"/>).</summary>
+    static long? EveningAiring(SqliteConnection c, long workId, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        var next = Db.Query(c, $"""
+            SELECT p.id, p.start FROM programmes p, works w
+            WHERE w.id = $w AND p.work_id IN {SameShow("w")} AND p.stop > $now ORDER BY p.start LIMIT 100
+            """, r => (r.GetInt64(0), r.GetInt64(1)), ("$w", workId), ("$now", Db.Unix(now)));
+        foreach (var (id, start) in next)
+            if (IsEvening(Db.FromUnix(start), zone)) return id;
+        return null;
     }
 
     public TonightResult Add(long profileId, long workId, DateTimeOffset now)

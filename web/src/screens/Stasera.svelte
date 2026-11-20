@@ -130,7 +130,7 @@
   const hero = $derived.by(() => {
     const { to } = eveningWindow(now);
     const mine = tonightList
-      .map((i) => i.next)
+      .map((i) => i.evening)
       .filter((n): n is GuideProgramme => !!n && new Date(n.start) < to)
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return mine[0] ?? tonightFilms.find((p) => p.rating != null && recordable(p)) ?? tonightFilms[0] ?? null;
@@ -220,9 +220,10 @@
   );
   const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
 
-  // la mia serata: si vede stasera un titolo che passa in TV entro le 2, che è in casa o che è in streaming nei miei
-  // abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo
-  const onTvTonight = (i: TonightItem) => !!i.next && new Date(i.next.start) < eveningWindow(now).to;
+  // la mia serata: si vede stasera un titolo che passa in TV di sera (dalle 20, entro le 2), che è in casa o che è in
+  // streaming nei miei abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo. Un passaggio
+  // di giorno (Geo alle 11) non è «stasera»: la locandina resta sotto con «Oggi 11:04» (scelta di Antonio, 20/11/2026)
+  const onTvTonight = (i: TonightItem) => !!i.evening && new Date(i.evening.start) < eveningWindow(now).to;
   const tonightAvailable = $derived(tonightList.filter((i) => onTvTonight(i) || i.inHouse || streamingFor(i, mySubs).length > 0));
   // passati: già trasmessi negli ultimi 3 giorni e oggi non si vedono in nessun altro modo (nessun passaggio in arrivo,
   // non in casa, nessuna piattaforma): si mostrano solo con l'interruttore "Mostra programmazione passata"
@@ -266,6 +267,8 @@
       || (midnight(s).getTime() - midnight(now).getTime() === 86_400_000 && s.getHours() < 6 && now.getHours() >= 12);
     const r = range(p.start, p.stop);
     if (past) return `Passato ${day(p.start, now).toLowerCase().replace('stasera', 'oggi')} ${r}`;
+    // oggi di giorno (dalle 6 alle 20): non è «stasera»
+    if (midnight(s).getTime() === midnight(now).getTime() && s.getHours() >= 6 && s.getHours() < 20) return `Oggi ${r}`;
     return tonight ? r : `${day(p.start, now)} ${r}`;
   }
   const genreYear = (genre: string, year: number) => [genre, year || ''].filter(Boolean).join(' · ');
@@ -289,7 +292,7 @@
   }
 
   function tonightCard(i: TonightItem, available: boolean): Card {
-    const tv = onTvTonight(i) ? i.next : null;
+    const tv = onTvTonight(i) ? i.evening : null;
     const avail = availOf(i, mySubs, i.next, i.next ? tvText(i.next) : '');
     const g = i.next ?? i.last;
     const meta = genreYear(g?.sub || g?.group || kindLabel[i.kind] || '', i.year);
@@ -302,10 +305,11 @@
     else lines = [laterReason(i), meta];
     return {
       key: `t${i.workId}`, poster: i.poster || i.next?.poster || i.next?.icon || i.last?.poster || i.last?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
-      scheduled: !!tv?.scheduled, avail, dim: !available,
+      scheduled: !!(tv ?? i.next)?.scheduled, avail, dim: !available,
       lines,
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
-      rec: tv && recordable(tv) ? tv : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia serata',
+      // si registra anche un passaggio di giorno (il prossimo)
+      rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia serata',
     };
   }
 
