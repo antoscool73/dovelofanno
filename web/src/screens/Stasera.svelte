@@ -2,6 +2,7 @@
   // Home («La mia serata»): risponde a "stasera che si guarda?". In evidenza il titolo migliore della serata, poi
   // "Da vedere stasera" (la lista della mia serata), le liste che il profilo ha scelto (dinamiche: i risultati della loro
   // ricerca; a mano: i loro titoli), le registrazioni in corso e in arrivo, i film di stasera e della settimana per voto.
+  import HomeListsDialog from '../lib/components/HomeListsDialog.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -91,6 +92,7 @@
   type HomeRow = { list: ListSummary; hits: SearchHit[]; entries: ListEntry[]; loading: boolean; error: string; more: boolean };
   let homeRows = $state<HomeRow[]>([]);
   let homeLoaded = $state(false);
+  let choosingLists = $state(false);
   async function loadHome() {
     const prof = session.profile;
     if (!prof) { homeRows = []; homeLoaded = true; return; }
@@ -469,10 +471,17 @@
       {/each}
       {#if homeLoaded && homeRows.length === 0 && session.profile}
         <Section key="liste" title="Le mie liste">
-          <p class="muted small">Qui compaiono le liste che scegli in <a href="/preferenze#serata" onclick={navigate}>Preferenze › La mia lista</a>. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
+          <p class="muted small">Qui compaiono le liste che scegli con «Scegli le liste», qui sotto. Una lista dinamica si crea dalla <a href="/cerca" onclick={navigate}>ricerca</a>: scegli i filtri e «Salva come lista».</p>
         </Section>
       {/if}
+      <!-- quali liste vedere qui: un popup con una casella per lista (Antonio, 20/11/2026) -->
+      {#if homeLoaded && session.profile}
+        <div><button type="button" class="choose" onclick={() => (choosingLists = true)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></svg>
+          Scegli le liste da vedere qui</button></div>
+      {/if}
     </div>
+    {#if choosingLists}<HomeListsDialog onclose={() => { choosingLists = false; loadHome(); }} />{/if}
 
     {#if live.length > 0 || upcoming.length > 0}
       <Section key="registrazioni" title="In registrazione e in arrivo">
@@ -573,6 +582,8 @@
 {/if}
 
 <style>
+  .choose { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: var(--radius-s); border: 1px dashed var(--line-btn); background: none; color: var(--text-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .choose:hover { color: var(--text); background: var(--card); }
   .edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-s); color: var(--muted); }
   .edit:hover { color: var(--text); background: var(--card); }
   .pad { padding: 0 var(--gutter); }
