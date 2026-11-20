@@ -15,3 +15,5 @@ comando di build vuoto, cartella di output `site`).
   Va aggiornato (versione, data, note) nel commit del tag: `release.yml` si ferma se non coincide con il tag. Pages lo
   pubblica appena il commit arriva su `main`, quindi qualche minuto prima che i file siano su R2.
 - Nessuna risorsa esterna (caratteri di sistema, niente script): `_headers` lo impone con la Content-Security-Policy.
+- Gli indirizzi email stanno tra `<!--email_off-->` e `<!--/email_off-->`: altrimenti l'«Email Address Obfuscation» di
+  Cloudflare li sostituisce con «[email protected]» e uno script che la nostra Content-Security-Policy blocca.
