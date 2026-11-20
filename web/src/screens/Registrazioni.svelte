@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openConvert } from '../lib/convert.svelte';
   import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -204,6 +205,9 @@
               <div class="meta">{meta(r)}</div>
               {#if note(r)}<div class="note">{note(r)}</div>{/if}
             </div>
+            {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state)}
+              <div class="acts"><Button size="s" variant="secondary" onclick={() => openConvert({ recordingId: r.id, name: fileName(r.file) })}>Converti...</Button></div>
+            {/if}
           </li>
         {/each}
       </ul>

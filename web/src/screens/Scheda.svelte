@@ -1,5 +1,6 @@
 <script lang="ts">
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
+  import { openConvert } from '../lib/convert.svelte';
   import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
@@ -298,6 +299,7 @@
                 <Button size="s" variant={f.playable ? 'primary' : 'secondary'} href="/guarda/{f.itemId}" onclick={navigate}>{f.playable ? (f.positionS > 0 && !f.watched ? '▶ Riprendi' : '▶ Guarda') : 'Prepara e guarda'}</Button>
                 {#if session.profile && !session.profile.isChild}
                   <Button size="s" variant="ghost" onclick={() => (rematch = f.itemId)}>Abbina di nuovo…</Button>
+                  <Button size="s" variant="ghost" onclick={() => openConvert({ libraryItemId: f.itemId, name: f.name })}>Converti...</Button>
                 {/if}
               </li>
             {/each}
@@ -308,7 +310,8 @@
           <ul class="rows">
             {#each w.inHouse as f (f.recordingId)}
               <li><span class="r-main"><strong>{fileName(f.file)}</strong><span class="muted small">Registrato {day(f.start).toLowerCase()} da {f.channelName}{f.lostMinutes ? ` · mancano ${minutes(f.lostMinutes)}` : ''}</span></span>
-                {#if f.state === 'incomplete'}<Badge tone="orange">Incompleta</Badge>{:else if f.state === 'stopped'}<Badge tone="neutral">Fermata</Badge>{:else}<Badge tone="green">In casa</Badge>{/if}</li>
+                {#if f.state === 'incomplete'}<Badge tone="orange">Incompleta</Badge>{:else if f.state === 'stopped'}<Badge tone="neutral">Fermata</Badge>{:else}<Badge tone="green">In casa</Badge>{/if}
+                <Button size="s" variant="ghost" onclick={() => openConvert({ recordingId: f.recordingId, name: fileName(f.file) })}>Converti...</Button></li>
             {/each}
           </ul>
           <p class="muted small">La registrazione entra nella libreria tra poco: poi la guardi da qui.</p>

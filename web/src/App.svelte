@@ -2,6 +2,7 @@
   import AppHeader from './lib/components/AppHeader.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SeriesDialog from './lib/components/SeriesDialog.svelte';
+  import ConvertDialog from './lib/components/ConvertDialog.svelte';
   import Button from './lib/components/Button.svelte';
   import Profili from './screens/Profili.svelte';
   import NonTrovata from './screens/NonTrovata.svelte';
@@ -100,6 +101,8 @@
 <ConfirmDialog />
 <!-- «Registra la serie»: solo questa puntata o tutte -->
 <SeriesDialog />
+<!-- «Converti...»: registrazioni e file in MP4 o MP3 -->
+<ConvertDialog />
 
 <style>
   .center { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text-2); }

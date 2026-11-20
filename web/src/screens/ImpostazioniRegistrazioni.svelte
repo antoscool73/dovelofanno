@@ -1,14 +1,17 @@
 <script lang="ts">
   // Impostazioni › Registrazioni (20/11/2026, richiesta di Antonio): tutto quello che riguarda le registrazioni in un
   // posto solo. Predefinite (margini e formato, prima in Preferenze), limiti (registrazioni contemporanee e spazio,
-  // prima nella scheda Limiti), cartella e come vengono divise, le serie in registrazione («Registra la serie»).
+  // prima nella scheda Limiti), cartella e come vengono divise, le serie in registrazione («Registra la serie»), le
+  // conversioni («Converti...»).
   import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
-  import { api, ApiError, type GeneralSettings, type SeriesRule } from '../lib/api/client';
-  import { day, time } from '../lib/format';
+  import Badge from '../lib/components/Badge.svelte';
+  import { api, ApiError, type ConversionRow, type GeneralSettings, type SeriesRule } from '../lib/api/client';
+  import { day, fileName, time } from '../lib/format';
 
   let general = $state<GeneralSettings | null>(null);
   let rules = $state<SeriesRule[]>([]);
+  let conversions = $state<ConversionRow[]>([]);
   let error = $state('');
   let message = $state('');
   let busy = $state(false);
@@ -17,7 +20,7 @@
 
   async function load() {
     try {
-      [general, rules] = await Promise.all([api.generalSettings(), api.seriesRules()]);
+      [general, rules, conversions] = await Promise.all([api.generalSettings(), api.seriesRules(), api.conversions()]);
       before = String(general.beforeMin);
       after = String(general.afterMin);
       format = general.format;
@@ -29,6 +32,17 @@
     }
   }
   load();
+  // mentre una conversione è in coda o in corso l'elenco si rilegge ogni 5 secondi
+  $effect(() => {
+    if (!conversions.some((c) => c.state === 'queued' || c.state === 'running')) return;
+    const t = setInterval(async () => { try { conversions = await api.conversions(); } catch { /* al prossimo giro */ } }, 5000);
+    return () => clearInterval(t);
+  });
+  const convState: Record<string, { label: string; tone: 'blue' | 'green' | 'red' | 'neutral' | 'orange' }> = {
+    queued: { label: 'In coda', tone: 'neutral' }, running: { label: 'In corso', tone: 'blue' }, done: { label: 'Fatta', tone: 'green' },
+    failed: { label: 'Non riuscita', tone: 'red' }, cancelled: { label: 'Annullata', tone: 'neutral' },
+  };
+  const methodText: Record<string, string> = { copy: 'senza ricodifica', audio: 'audio ricodificato', video: 'ricodificata', mp3: '' };
 
   async function act(fn: () => Promise<unknown>, ok: string) {
     busy = true;
@@ -106,6 +120,30 @@
           </div>
           <Button size="s" variant="secondary" disabled={busy} onclick={() => check(r)}>Cerca puntate nuove</Button>
           <Button size="s" disabled={busy} onclick={() => stop(r)}>Smetti di registrare</Button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</div>
+
+<div class="card">
+  <h3>Conversioni</h3>
+  <p class="f-muted">«Converti...» trasforma una registrazione o un file in casa in MP4 o MP3: lo trovi nelle registrazioni finite (Registrazioni) e nei file della Scheda (In casa). Si fanno sul server una alla volta; il file nuovo va accanto all'originale, che resta, e alla fine arriva una notifica.</p>
+  {#if conversions.length === 0}
+    <p class="f-muted">Nessuna conversione, per ora.</p>
+  {:else}
+    <ul class="rules">
+      {#each conversions as c (c.id)}
+        <li>
+          <div class="grow">
+            <div class="rt">{c.title} <span class="f-muted small">→ {c.format.toUpperCase()}</span></div>
+            <div class="f-muted small">
+              {c.state === 'done' ? `${fileName(c.output)}${methodText[c.method] ? ` · ${methodText[c.method]}` : ''}` : c.state === 'failed' ? c.error : fileName(c.source)}
+              · {day(c.createdAt).toLowerCase()} {time(c.createdAt)}
+            </div>
+          </div>
+          <Badge tone={convState[c.state]?.tone ?? 'neutral'}>{convState[c.state]?.label ?? c.state}</Badge>
+          {#if c.state === 'queued'}<Button size="s" disabled={busy} onclick={() => act(() => api.cancelConversion(c.id), 'Conversione annullata.')}>Annulla</Button>{/if}
         </li>
       {/each}
     </ul>

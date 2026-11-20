@@ -19,6 +19,7 @@ export type ScheduledRecording = S['ScheduledRecording'];
 export type SeriesRule = S['SeriesRule'];
 export type SeriesCheck = S['SeriesCheck'];
 export type SeriesEpisode = S['SeriesEpisode'];
+export type ConversionRow = S['ConversionRow'];
 export type ImportResult = S['ImportResult'];
 export type BackupInfo = S['BackupInfo'];
 export type RatingSettings = S['RatingSettings'];
@@ -275,4 +276,10 @@ export const api = {
     call<SeriesCheck>('POST', '/series', { programmeId: null, workId: null, profileId: null, ...b }),
   checkSeries: (id: number) => call<SeriesCheck>('POST', `/series/${id}/check`),
   stopSeries: (id: number) => call<void>('DELETE', `/series/${id}`),
+
+  // «Converti...» (20/11/2026)
+  conversions: () => call<ConversionRow[]>('GET', '/conversions'),
+  convert: (b: { recordingId?: number | null; libraryItemId?: number | null; format: 'mp4' | 'mp3'; profileId?: number | null }) =>
+    call<ConversionRow>('POST', '/conversions', { recordingId: null, libraryItemId: null, profileId: null, ...b }),
+  cancelConversion: (id: number) => call<void>('DELETE', `/conversions/${id}`),
 };

@@ -3716,6 +3716,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/conversions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Le ultime conversioni, le più recenti prima */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversionRow"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Mette in coda una conversione in MP4 o MP3; il file nuovo va accanto all'originale, che resta */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewConversion"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversionRow"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Annulla una conversione ancora in coda */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guide": {
         parameters: {
             query?: never;
@@ -4264,6 +4392,23 @@ export interface components {
              */
             order: number;
         };
+        ConversionRow: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            profileId: null | number;
+            source: string;
+            title: string;
+            format: string;
+            state: string;
+            output: string;
+            method: string;
+            error: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt: null | string;
+        };
         FamilySubscriptions: {
             services: string[];
             known: string[];
@@ -4629,6 +4774,15 @@ export interface components {
             year: number;
             /** Format: int32 */
             votes: number;
+        };
+        NewConversion: {
+            /** Format: int64 */
+            recordingId: null | number;
+            /** Format: int64 */
+            libraryItemId: null | number;
+            format: string;
+            /** Format: int64 */
+            profileId: null | number;
         };
         NewGuideSource: {
             url: string;

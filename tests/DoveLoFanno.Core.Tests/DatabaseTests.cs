@@ -33,7 +33,7 @@ public sealed class DatabaseTests : IDisposable
         "profiles", "subscriptions", "settings", "sources", "guide_sources", "guide_channels", "channels", "streams",
         "works", "programmes", "rating_cache", "recordings", "recording_parts", "library_items", "watch_states",
         "lists", "list_items", "preferences", "ignored_works", "proposals_seen", "availability", "alerts", "alert_events",
-        "library_folders", "notifications", "list_home", "series_rules",
+        "library_folders", "notifications", "list_home", "series_rules", "conversions",
     ];
 
     [Fact]

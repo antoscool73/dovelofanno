@@ -3413,6 +3413,107 @@
         }
       }
     },
+    "/api/v1/conversions": {
+      "get": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Le ultime conversioni, le più recenti prima",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversionRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Mette in coda una conversione in MP4 o MP3; il file nuovo va accanto all'originale, che resta",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewConversion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/conversions/{id}": {
+      "delete": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Annulla una conversione ancora in coda",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/guide": {
       "get": {
         "tags": [
@@ -4051,6 +4152,67 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          }
+        }
+      },
+      "ConversionRow": {
+        "required": [
+          "id",
+          "profileId",
+          "source",
+          "title",
+          "format",
+          "state",
+          "output",
+          "method",
+          "error",
+          "createdAt",
+          "finishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profileId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "source": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5396,6 +5558,41 @@
           "votes": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "NewConversion": {
+        "required": [
+          "recordingId",
+          "libraryItemId",
+          "format",
+          "profileId"
+        ],
+        "type": "object",
+        "properties": {
+          "recordingId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "libraryItemId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "format": {
+            "type": "string"
+          },
+          "profileId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
           }
         }
       },

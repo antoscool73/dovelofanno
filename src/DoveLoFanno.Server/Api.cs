@@ -281,6 +281,9 @@ public static class Api
         // ---------------------------------------------------------------- «Registra la serie» (aggiunta del 20/11/2026)
         SeriesApi.Map(api);
 
+        // ---------------------------------------------------------------- «Converti...» (aggiunta del 20/11/2026)
+        ConversionApi.Map(api);
+
         // ---------------------------------------------------------------- guida TV (aggiunta della wave 5)
         var gd = api.MapGroup("/guide").WithTags("Guida");
 

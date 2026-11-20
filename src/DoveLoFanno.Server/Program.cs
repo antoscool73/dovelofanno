@@ -28,6 +28,8 @@ builder.Services.AddSingleton<LibraryHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LibraryHost>());
 builder.Services.AddSingleton<NotifyHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NotifyHost>());
+builder.Services.AddSingleton<ConversionHost>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ConversionHost>());
 builder.Services.AddSingleton<UpdateHost>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateHost>());
 builder.Services.AddSingleton<PreviewService>();
