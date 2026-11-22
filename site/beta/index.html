@@ -214,11 +214,17 @@
       <p><strong>Programma non ancora firmato.</strong> Nella beta i file di Windows non hanno una firma digitale (la
         sto chiedendo). Per questo:</p>
       <ul>
+        <li>Già al download il browser può avvisare che il file «non viene scaricato comunemente» o «potrebbe essere
+          pericoloso». In <strong>Edge</strong>: sulla riga del file, «…» › «Mantieni», poi «Mostra altro» ›
+          «Mantieni comunque». In <strong>Chrome</strong>: nell'elenco dei download, «Mantieni» o «Scarica comunque».
+          Per essere sicuro che sia proprio il mio file, confronta l'impronta SHA-256 della tabella
+          <a href="#download">Download</a> con quella che dà PowerShell:
+          <code>Get-FileHash .\DoveLoFanno-0.2.1-setup.exe</code>.</li>
         <li>Se nel PC è attivo <strong>Smart App Control</strong> (Sicurezza di Windows › Controllo app e browser),
           Windows lo blocca e non c'è modo di autorizzarlo: su quel PC per ora non si può installare (non spegnerlo
           apposta: protegge il PC). Meglio un NAS, o un altro PC.</li>
-        <li>Altrimenti compare l'avviso di SmartScreen «Windows ha protetto il PC»: «Ulteriori informazioni» ›
-          «Esegui comunque».</li>
+        <li>Altrimenti, quando apri il file, compare l'avviso di SmartScreen «Windows ha protetto il PC»:
+          «Ulteriori informazioni» › «Esegui comunque».</li>
       </ul>
     </div>
     <ol>
