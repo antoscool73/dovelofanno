@@ -11,7 +11,7 @@
 <body>
 <header class="bar">
   <div class="wrap bar-in">
-    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.1</span></a>
+    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.2</span></a>
     <nav class="areas" aria-label="Dove lo installi">
       <a href="/beta/synology/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
       <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
@@ -55,15 +55,15 @@
       <tbody>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-amd64.tar.gz">dovelofanno-0.2.1-docker-amd64.tar.gz</a>
-            <div class="hash" data-hash="docker-amd64">SHA-256 ec6d0452ac165f28ab4410bec336c856565f1d647aca49caf8b0e98dc490b6d6</div></td>
+          <td><a href="https://download.dovelofanno.it/0.2.2/dovelofanno-0.2.2-docker-amd64.tar.gz">dovelofanno-0.2.2-docker-amd64.tar.gz</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 6a3d523989e69f42bc971227707a1e90396606a8f76715fb5a2df4cba0c453a4</div></td>
           <td>Intel o AMD (quasi tutti i modelli «+» e «xs»)</td>
           <td class="size" data-size="docker-amd64">244 MB</td>
         </tr>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-arm64.tar.gz">dovelofanno-0.2.1-docker-arm64.tar.gz</a>
-            <div class="hash" data-hash="docker-arm64">SHA-256 9903f93d3e8f2f527af5396c2154b0ea90bb6a740072fa6b034fa326dd74821d</div></td>
+          <td><a href="https://download.dovelofanno.it/0.2.2/dovelofanno-0.2.2-docker-arm64.tar.gz">dovelofanno-0.2.2-docker-arm64.tar.gz</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 ad52a8767ef11263f1633cc54d60900c98e73615141477e3ccabce92caaf73a7</div></td>
           <td>Realtek (ARM a 64 bit)</td>
           <td class="size" data-size="docker-arm64">235 MB</td>
         </tr>
@@ -82,7 +82,7 @@
       <li><strong>L'immagine.</strong> Apri <strong>Container Manager</strong> › <strong>Immagine</strong> ›
         <strong>Aggiungi</strong> › <strong>Aggiungi da file</strong> e scegli il file <code>.tar.gz</code> scaricato.
         <span class="expect">il caricamento richiede qualche minuto; poi nell'elenco compare <code>dovelofanno</code>
-        con l'etichetta <code>0.2.1</code>.</span></li>
+        con l'etichetta <code>0.2.2</code>.</span></li>
       <li><strong>Il progetto.</strong> Container Manager › <strong>Progetto</strong> › <strong>Crea</strong>:
         <ul>
           <li>Nome del progetto: <code>dovelofanno</code></li>
@@ -92,7 +92,7 @@
         </ul>
 <pre><code>services:
   dovelofanno:
-    image: dovelofanno:0.2.1
+    image: dovelofanno:0.2.2
     container_name: dovelofanno
     restart: unless-stopped
     user: "1026:100"
@@ -147,7 +147,7 @@
       <li>Container Manager › Immagine › Aggiungi › Aggiungi da file: il nuovo <code>.tar.gz</code>.</li>
       <li>Container Manager › Progetto › <code>dovelofanno</code> › <strong>Arresta</strong>.</li>
       <li>Nella scheda <strong>YAML</strong> del progetto cambia il numero nella riga <code>image</code> (per esempio da
-        <code>dovelofanno:0.2.1</code> al numero nuovo) e salva.</li>
+        <code>dovelofanno:0.2.2</code> al numero nuovo) e salva.</li>
       <li>Azione › <strong>Crea</strong> (o Compila): il progetto riparte con la versione nuova. Dati, liste e
         registrazioni restano.</li>
     </ol>
