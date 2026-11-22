@@ -1,6 +1,6 @@
 ﻿; Installatore di DoveLoFanno per Windows (Inno Setup 6). Lo compila tools/ci/build-installer.ps1:
 ;   ISCC.exe /DAppVersion=0.1.0 /DPackageDir=<cartella del dotnet publish win-x64> /DOutputDir=<uscita> DoveLoFanno.iss
-; Fa tutto da solo: runtime ASP.NET Core 10 da Microsoft se manca, ffmpeg con winget se manca, programma in
+; Fa tutto da solo: runtime .NET 10 e ASP.NET Core 10 da Microsoft se mancano, ffmpeg con winget se manca, programma in
 ; Programmi\DoveLoFanno, servizio Windows con avvio automatico, porta 8765 aperta solo sulle reti private.
 ; Aggiornare = lanciare l'installatore della versione nuova (dati e registrazioni restano). Disinstallare = Impostazioni
 ; di Windows › App: chiede se togliere anche il database; le registrazioni restano sempre.

@@ -4,8 +4,10 @@
     Prerequisiti dell'installatore di DoveLoFanno: un passo per volta, così l'installatore mostra cosa sta facendo.
 
 .DESCRIPTION
-    -Step runtime  ASP.NET Core Runtime 10 (x64) di Microsoft: se manca lo scarica da Microsoft (aka.ms/dotnet),
-                   controlla che il file sia firmato da Microsoft e lo installa senza finestre.
+    -Step runtime  .NET Runtime 10 e ASP.NET Core Runtime 10 (x64) di Microsoft: quello che manca lo scarica da
+                   Microsoft (aka.ms/dotnet), controlla che il file sia firmato da Microsoft e lo installa senza finestre.
+                   Servono tutti e due: l'installatore .exe di ASP.NET Core non porta il runtime .NET di base
+                   (Microsoft.NETCore.App) e senza quello il servizio non parte (PC di prova pulito, 21/11/2026).
     -Step ffmpeg   ffmpeg: se non c'è, lo installa con winget (pacchetto Gyan.FFmpeg, per tutto il PC, così lo vede
                    anche il servizio). Non lo distribuiamo noi.
     -Step stop     ferma il servizio DoveLoFanno, se c'è (prima di sostituire i file in un aggiornamento).
@@ -21,11 +23,32 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'      # la barra di avanzamento di Invoke-WebRequest rallenta molto il download
 if ($Log) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null; Start-Transcript -LiteralPath $Log -Append | Out-Null }
 
-function Test-AspNetRuntime {
-    # il runtime condiviso sta in Programmi\dotnet\shared\Microsoft.AspNetCore.App\10.x.y
-    $root = Join-Path $env:ProgramFiles 'dotnet\shared\Microsoft.AspNetCore.App'
+function Test-SharedRuntime([string]$Framework) {
+    # i runtime condivisi stanno in Programmi\dotnet\shared\<framework>\10.x.y
+    $root = Join-Path $env:ProgramFiles ('dotnet\shared\' + $Framework)
     if (-not (Test-Path -LiteralPath $root)) { return $false }
     return [bool](Get-ChildItem -LiteralPath $root -Directory | Where-Object { $_.Name -match '^10\.' })
+}
+
+function Install-SharedRuntime([string]$Name, [string]$Framework, [string]$Package) {
+    if ((Test-SharedRuntime $Framework) -and -not $ForceDownload) { Write-Host "$Name 10 già installato"; return }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $url = "https://aka.ms/dotnet/10.0/$Package-win-x64.exe"
+    $exe = Join-Path $env:TEMP ("$Package-10-" + [guid]::NewGuid().ToString('N') + '.exe')
+    Write-Host "Scarico $Name da Microsoft: $url"
+    Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
+    $sig = Get-AuthenticodeSignature -LiteralPath $exe
+    if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+        Remove-Item -LiteralPath $exe -Force
+        throw "il file scaricato non è firmato da Microsoft ($($sig.Status)): installazione fermata"
+    }
+    Write-Host "Firma: $($sig.SignerCertificate.Subject)"
+    $p = Start-Process -FilePath $exe -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
+    Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
+    # 3010 = installato, serve un riavvio di Windows (il servizio parte lo stesso)
+    if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { throw "installazione di $Name non riuscita (codice $($p.ExitCode))" }
+    if (-not (Test-SharedRuntime $Framework)) { throw "$Name installato ma non trovato in Programmi\dotnet\shared\$Framework" }
+    Write-Host "$Name 10 installato"
 }
 
 function Find-Ffmpeg {
@@ -40,24 +63,9 @@ function Find-Ffmpeg {
 try {
     switch ($Step) {
         'runtime' {
-            if ((Test-AspNetRuntime) -and -not $ForceDownload) { Write-Host 'Runtime ASP.NET Core 10 già installato'; break }
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            $url = 'https://aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe'
-            $exe = Join-Path $env:TEMP ('aspnetcore-runtime-10-' + [guid]::NewGuid().ToString('N') + '.exe')
-            Write-Host "Scarico il runtime da Microsoft: $url"
-            Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
-            $sig = Get-AuthenticodeSignature -LiteralPath $exe
-            if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
-                Remove-Item -LiteralPath $exe -Force
-                throw "il file scaricato non è firmato da Microsoft ($($sig.Status)): installazione fermata"
-            }
-            Write-Host "Firma: $($sig.SignerCertificate.Subject)"
-            $p = Start-Process -FilePath $exe -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
-            Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
-            # 3010 = installato, serve un riavvio di Windows (il servizio parte lo stesso)
-            if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { throw "installazione del runtime non riuscita (codice $($p.ExitCode))" }
-            if (-not (Test-AspNetRuntime)) { throw 'runtime installato ma non trovato in Programmi\dotnet' }
-            Write-Host 'Runtime ASP.NET Core 10 installato'
+            # prima il runtime di base, poi ASP.NET Core che si appoggia a lui
+            Install-SharedRuntime 'Runtime .NET' 'Microsoft.NETCore.App' 'dotnet-runtime'
+            Install-SharedRuntime 'Runtime ASP.NET Core' 'Microsoft.AspNetCore.App' 'aspnetcore-runtime'
         }
         'ffmpeg' {
             $found = Find-Ffmpeg

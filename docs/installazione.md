@@ -34,8 +34,9 @@ services:
 1. Scaricare `DoveLoFanno-<versione>-setup.exe` e aprirlo (chiede i permessi di amministratore).
 2. Scegliere dove salvare le registrazioni (proposta: `C:\Users\Public\Videos\DoveLoFanno`).
 3. L'installatore fa il resto:
-   - runtime ASP.NET Core 10 di Microsoft, se manca: lo scarica da `aka.ms/dotnet`, controlla che sia firmato da
-     Microsoft e lo installa (il programma non lo include: le correzioni di sicurezza arrivano da Microsoft);
+   - runtime .NET 10 e runtime ASP.NET Core 10 di Microsoft, se mancano: li scarica da `aka.ms/dotnet`, controlla
+     che siano firmati da Microsoft e li installa (il programma non li include: le correzioni di sicurezza arrivano da
+     Microsoft). Servono tutti e due: l'installatore di ASP.NET Core non porta il runtime .NET di base;
    - ffmpeg, se manca: `winget install Gyan.FFmpeg` per tutto il PC (lo deve vedere anche il servizio);
    - programma in `C:\Program Files\DoveLoFanno\server`, dati in `C:\ProgramData\DoveLoFanno`, servizio "DoveLoFanno"
      con avvio automatico e riavvio in caso di errore, porta 8765 aperta solo sulle reti private.
@@ -49,8 +50,8 @@ Senza finestre (per chi installa su più PC): `DoveLoFanno-<versione>-setup.exe 
 
 Installazione a mano, senza installatore: `dotnet publish src/DoveLoFanno.Server -c Release -r win-x64
 --self-contained false -o app` (dopo `cd web && npm ci && npm run build`), poi da PowerShell come amministratore
-`deploy\windows\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"` (serve il runtime ASP.NET
-Core 10 e ffmpeg); `Uninstall-DoveLoFanno.ps1` per togliere. L'installatore si compila con
+`deploy\windows\Install-DoveLoFanno.ps1 -Package .\app -RecordingsDir "D:\Registrazioni"` (servono i runtime .NET e
+ASP.NET Core 10 e ffmpeg); `Uninstall-DoveLoFanno.ps1` per togliere. L'installatore si compila con
 `tools\ci\build-installer.ps1` (Inno Setup 6).
 
 Il servizio tiene sveglio il PC durante le registrazioni (`powercfg /requests` mostra "DoveLoFanno: registrazione in

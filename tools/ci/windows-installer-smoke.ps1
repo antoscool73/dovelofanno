@@ -24,6 +24,11 @@ try {
     $prep = Join-Path $PSScriptRoot '..\..\deploy\windows\Prepare-DoveLoFanno.ps1'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $prep -Step runtime -ForceDownload
     Check ($LASTEXITCODE -eq 0) 'runtime scaricato e installato'
+    # il runner ha già i runtime: qui si controlla che il passo scarichi e installi tutti e due (su un PC pulito
+    # mancava Microsoft.NETCore.App e il servizio non partiva, 21/11/2026)
+    foreach ($fw in 'Microsoft.NETCore.App', 'Microsoft.AspNetCore.App') {
+        Check ([bool](Get-ChildItem (Join-Path $env:ProgramFiles "dotnet\shared\$fw") -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^10\.' })) "$fw 10"
+    }
 
     Step 'Installazione da zero'
     Run-Setup

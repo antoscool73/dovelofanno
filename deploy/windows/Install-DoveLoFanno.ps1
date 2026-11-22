@@ -38,6 +38,13 @@ if ($Log) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) 
 
 if (-not (Test-Path -LiteralPath (Join-Path $Package $Exe))) { throw "$Exe non trovato in $Package" }
 if (-not $RecordingsDir) { $RecordingsDir = Join-Path $DataDir 'registrazioni' }
+# senza i runtime condivisi il servizio esce subito e Windows dice solo "Impossibile avviare il servizio"
+foreach ($fw in 'Microsoft.NETCore.App', 'Microsoft.AspNetCore.App') {
+    $fwDir = Join-Path $env:ProgramFiles "dotnet\shared\$fw"
+    if (-not (Get-ChildItem -LiteralPath $fwDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^10\.' })) {
+        throw "manca il runtime $fw 10 di Microsoft (https://dotnet.microsoft.com/download/dotnet/10.0)"
+    }
+}
 
 if (-not $Ffmpeg) {
     $cmd = Get-Command ffmpeg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
