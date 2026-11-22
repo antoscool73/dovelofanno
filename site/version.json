@@ -1,6 +1,6 @@
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "date": "2026-11-22",
-  "notes": "Installatore per Windows corretto: su un PC senza .NET il servizio non partiva. Ora installa da Microsoft anche il runtime .NET di base.",
+  "notes": "Installatore per Windows corretto: se sul PC c'era già un runtime .NET 10 più vecchio, il servizio non partiva. Ora lo aggiorna e, se qualcosa va storto, scrive la causa nel registro dell'installazione.",
   "url": "https://dovelofanno.it/beta/#aggiornare"
 }
