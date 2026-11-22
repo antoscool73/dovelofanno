@@ -1,6 +1,6 @@
 # DoveLoFanno
 
-**La risposta a «stasera che si guarda?».** Guida TV, registratore e libreria di casa in un solo server domestico
+**La risposta a _stasera che si guarda?_** Guida TV, registratore e libreria di casa in un solo server domestico
 (Docker su NAS o mini-PC, oppure servizio Windows), da usare dal browser di qualunque dispositivo della casa.
 
 > **Stato: pre-release 0.x.** Funziona ed è usato ogni giorno, ma interfaccia e API possono ancora cambiare.
