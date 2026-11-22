@@ -38,12 +38,49 @@ if ($Log) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) 
 
 if (-not (Test-Path -LiteralPath (Join-Path $Package $Exe))) { throw "$Exe non trovato in $Package" }
 if (-not $RecordingsDir) { $RecordingsDir = Join-Path $DataDir 'registrazioni' }
-# senza i runtime condivisi il servizio esce subito e Windows dice solo "Impossibile avviare il servizio"
+# senza i runtime condivisi (o con il runtime di base più vecchio di quello che chiede ASP.NET Core) il servizio
+# esce subito e Windows dice solo "Impossibile avviare il servizio"
+function Get-SharedRuntimeVersion([string]$Framework) {
+    Get-ChildItem -LiteralPath (Join-Path $env:ProgramFiles "dotnet\shared\$Framework") -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^10\.\d+\.\d+$' } | ForEach-Object { [version]$_.Name } |
+        Sort-Object -Descending | Select-Object -First 1
+}
+$runtimes = @{}
 foreach ($fw in 'Microsoft.NETCore.App', 'Microsoft.AspNetCore.App') {
-    $fwDir = Join-Path $env:ProgramFiles "dotnet\shared\$fw"
-    if (-not (Get-ChildItem -LiteralPath $fwDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^10\.' })) {
-        throw "manca il runtime $fw 10 di Microsoft (https://dotnet.microsoft.com/download/dotnet/10.0)"
+    $runtimes[$fw] = Get-SharedRuntimeVersion $fw
+    if (-not $runtimes[$fw]) { throw "manca il runtime $fw 10 di Microsoft (https://dotnet.microsoft.com/download/dotnet/10.0)" }
+}
+$aspCfg = Join-Path $env:ProgramFiles "dotnet\shared\Microsoft.AspNetCore.App\$($runtimes['Microsoft.AspNetCore.App'])\Microsoft.AspNetCore.App.runtimeconfig.json"
+if (Test-Path -LiteralPath $aspCfg) {
+    $need = (Get-Content -LiteralPath $aspCfg -Raw | ConvertFrom-Json).runtimeOptions.framework.version
+    if ($need -match '^\d+\.\d+\.\d+$' -and $runtimes['Microsoft.NETCore.App'] -lt [version]$need) {
+        throw "il runtime .NET $($runtimes['Microsoft.NETCore.App']) è più vecchio di $need, che serve ad ASP.NET Core $($runtimes['Microsoft.AspNetCore.App']) (https://dotnet.microsoft.com/download/dotnet/10.0)"
     }
+}
+Write-Host "Runtime: .NET $($runtimes['Microsoft.NETCore.App']), ASP.NET Core $($runtimes['Microsoft.AspNetCore.App'])"
+
+function Write-StartDiagnostics {
+    # Windows dice solo "Impossibile avviare il servizio": si avvia il programma una volta a mano, come lo avvia il
+    # servizio, e si scrive nel registro quello che stampa, più gli eventi recenti del registro Applicazione
+    Write-Host '--- Diagnosi: avvio del programma fuori dal servizio (al massimo 20 s)'
+    $out = Join-Path $env:TEMP ('dlf-avvio-' + [guid]::NewGuid().ToString('N'))
+    try {
+        $p = Start-Process -FilePath (Join-Path $InstallDir $Exe) -ArgumentList '--environment', 'Production', '--contentRoot', ('"' + $InstallDir + '"') `
+            -WorkingDirectory $InstallDir -NoNewWindow -PassThru -RedirectStandardOutput "$out.out" -RedirectStandardError "$out.err"
+        $null = $p.Handle    # senza, in PS 5.1 ExitCode resta vuoto
+        if (-not $p.WaitForExit(20000)) { Write-Host 'Il programma è ancora in funzione dopo 20 s: lo fermo'; $p.Kill(); $p.WaitForExit(5000) | Out-Null }
+        else { Write-Host "Il programma è uscito con il codice $($p.ExitCode)" }
+        foreach ($f in "$out.out", "$out.err") {
+            if (Test-Path -LiteralPath $f) { Get-Content -LiteralPath $f -Tail 60 | ForEach-Object { Write-Host $_ }; Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+        }
+    } catch { Write-Host "Avvio a mano non riuscito: $($_.Exception.Message)" }
+    Write-Host '--- Diagnosi: eventi degli ultimi 10 minuti (registro Applicazione)'
+    try {
+        Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-10) } -MaxEvents 200 -ErrorAction Stop |
+            Where-Object { $_.ProviderName -match 'DoveLoFanno|\.NET|Application Error|Service Control Manager' } |
+            Select-Object -First 15 | ForEach-Object { Write-Host "$($_.TimeCreated) $($_.ProviderName): $($_.Message)" }
+    } catch { Write-Host "Nessun evento ($($_.Exception.Message))" }
+    Write-Host '--- Fine della diagnosi'
 }
 
 if (-not $Ffmpeg) {
@@ -98,12 +135,26 @@ if (-not $NoFirewall) {
 }
 
 Write-Host "Avvio del servizio"
-Start-Service -Name $ServiceName
+try { Start-Service -Name $ServiceName }
+catch {
+    Write-Host "Il servizio non parte: $($_.Exception.Message)"
+    Write-StartDiagnostics
+    throw "il servizio DoveLoFanno non parte: la causa è nella diagnosi qui sopra"
+}
 $ok = $false
 for ($i = 0; $i -lt 60; $i++) {
     try { $h = Invoke-RestMethod "http://127.0.0.1:$Port/api/v1/health" -TimeoutSec 3; if ($h.status -eq 'ok') { $ok = $true; break } } catch { }
     Start-Sleep -Seconds 1
 }
-if (-not $ok) { throw "il servizio non risponde su http://127.0.0.1:$Port (vedere il Visualizzatore eventi, registro Applicazione)" }
+if (-not $ok) {
+    if ((Get-Service -Name $ServiceName).Status -ne 'Running') { Write-StartDiagnostics }
+    else {
+        Write-Host '--- Diagnosi: eventi degli ultimi 10 minuti (registro Applicazione)'
+        Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-10) } -MaxEvents 200 -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -match 'DoveLoFanno|\.NET|Application Error' } | Select-Object -First 15 |
+            ForEach-Object { Write-Host "$($_.TimeCreated) $($_.ProviderName): $($_.Message)" }
+    }
+    throw "il servizio non risponde su http://127.0.0.1:$($Port): la causa è nella diagnosi qui sopra"
+}
 Write-Host "DoveLoFanno in funzione: http://localhost:$Port  (dati: $DataDir, registrazioni: $RecordingsDir)"
 if ($Log) { Stop-Transcript | Out-Null }

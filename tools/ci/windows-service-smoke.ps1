@@ -38,6 +38,23 @@ try {
     $b = Invoke-RestMethod "$api/backups" -Method Post
     Check (Test-Path (Join-Path $data "backup\$($b.name)")) 'file di backup'
 
+    Step 'Servizio che non parte: la causa finisce nel registro'
+    # come sul PC di prova del 22/11/2026: il programma chiede un runtime che non c'è e Windows dice solo
+    # "Impossibile avviare il servizio"; il registro deve riportare il messaggio del programma
+    $broken = Join-Path $env:RUNNER_TEMP 'pacchetto-rotto'
+    if (Test-Path -LiteralPath $broken) { Remove-Item -LiteralPath $broken -Recurse -Force }
+    Copy-Item -LiteralPath $Package -Destination $broken -Recurse
+    $rc = Join-Path $broken 'DoveLoFanno.Server.runtimeconfig.json'
+    (Get-Content -LiteralPath $rc -Raw) -replace '"version":\s*"10\.[^"]*"', '"version": "99.0.0"' | Set-Content -LiteralPath $rc -Encoding UTF8
+    $brokenLog = Join-Path $env:RUNNER_TEMP 'installazione-rotta.log'
+    $failed = $false
+    try { & (Join-Path $deploy 'Install-DoveLoFanno.ps1') -Package $broken -Log $brokenLog } catch { $failed = $true; Write-Host "Errore atteso: $($_.Exception.Message)" }
+    try { Stop-Transcript | Out-Null } catch { }
+    Check $failed 'installazione fermata'
+    $text = Get-Content -LiteralPath $brokenLog -Raw
+    Check ($text -match 'Diagnosi') 'diagnosi nel registro'
+    Check ($text -match '99\.0\.0') 'messaggio del programma (runtime 99.0.0 mancante) nel registro'
+
     Step 'Disinstallazione (i dati restano)'
     & (Join-Path $deploy 'Uninstall-DoveLoFanno.ps1')
     Check ($null -eq (Get-Service DoveLoFanno -ErrorAction SilentlyContinue)) 'servizio tolto'

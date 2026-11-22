@@ -8,6 +8,8 @@
                    Microsoft (aka.ms/dotnet), controlla che il file sia firmato da Microsoft e lo installa senza finestre.
                    Servono tutti e due: l'installatore .exe di ASP.NET Core non porta il runtime .NET di base
                    (Microsoft.NETCore.App) e senza quello il servizio non parte (PC di prova pulito, 21/11/2026).
+                   Il runtime di base deve essere almeno della versione che chiede ASP.NET Core: se è più vecchio
+                   lo aggiorna.
     -Step ffmpeg   ffmpeg: se non c'è, lo installa con winget (pacchetto Gyan.FFmpeg, per tutto il PC, così lo vede
                    anche il servizio). Non lo distribuiamo noi.
     -Step stop     ferma il servizio DoveLoFanno, se c'è (prima di sostituire i file in un aggiornamento).
@@ -23,15 +25,33 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'      # la barra di avanzamento di Invoke-WebRequest rallenta molto il download
 if ($Log) { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null; Start-Transcript -LiteralPath $Log -Append | Out-Null }
 
-function Test-SharedRuntime([string]$Framework) {
-    # i runtime condivisi stanno in Programmi\dotnet\shared\<framework>\10.x.y
+function Get-SharedRuntimeVersion([string]$Framework) {
+    # i runtime condivisi stanno in Programmi\dotnet\shared\<framework>\10.x.y: la versione 10 più alta, senza le
+    # anteprime (10.0.0-rc.2...), che il programma non usa; $null se non ce n'è
     $root = Join-Path $env:ProgramFiles ('dotnet\shared\' + $Framework)
-    if (-not (Test-Path -LiteralPath $root)) { return $false }
-    return [bool](Get-ChildItem -LiteralPath $root -Directory | Where-Object { $_.Name -match '^10\.' })
+    if (-not (Test-Path -LiteralPath $root)) { return $null }
+    $v = Get-ChildItem -LiteralPath $root -Directory | Where-Object { $_.Name -match '^10\.\d+\.\d+$' } |
+        ForEach-Object { [version]$_.Name } | Sort-Object -Descending | Select-Object -First 1
+    return $v
 }
 
-function Install-SharedRuntime([string]$Name, [string]$Framework, [string]$Package) {
-    if ((Test-SharedRuntime $Framework) -and -not $ForceDownload) { Write-Host "$Name 10 già installato"; return }
+function Test-SharedRuntime([string]$Framework) { return $null -ne (Get-SharedRuntimeVersion $Framework) }
+
+function Get-AspNetBaseRequirement {
+    # ASP.NET Core 10.0.N vuole il runtime di base almeno 10.0.N (rollForward LatestPatch nel suo runtimeconfig):
+    # con un runtime di base più vecchio il servizio non parte e Windows dice solo "Impossibile avviare il servizio"
+    $asp = Get-SharedRuntimeVersion 'Microsoft.AspNetCore.App'
+    if (-not $asp) { return $null }
+    $cfg = Join-Path $env:ProgramFiles "dotnet\shared\Microsoft.AspNetCore.App\$asp\Microsoft.AspNetCore.App.runtimeconfig.json"
+    if (Test-Path -LiteralPath $cfg) {
+        $fw = (Get-Content -LiteralPath $cfg -Raw | ConvertFrom-Json).runtimeOptions.framework
+        if ($fw -and $fw.version -match '^\d+\.\d+\.\d+$') { return [version]$fw.version }
+    }
+    return $asp
+}
+
+function Install-SharedRuntime([string]$Name, [string]$Framework, [string]$Package, [switch]$Update) {
+    if ((Test-SharedRuntime $Framework) -and -not $ForceDownload -and -not $Update) { Write-Host "$Name 10 già installato ($(Get-SharedRuntimeVersion $Framework))"; return }
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $url = "https://aka.ms/dotnet/10.0/$Package-win-x64.exe"
     $exe = Join-Path $env:TEMP ("$Package-10-" + [guid]::NewGuid().ToString('N') + '.exe')
@@ -48,7 +68,7 @@ function Install-SharedRuntime([string]$Name, [string]$Framework, [string]$Packa
     # 3010 = installato, serve un riavvio di Windows (il servizio parte lo stesso)
     if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { throw "installazione di $Name non riuscita (codice $($p.ExitCode))" }
     if (-not (Test-SharedRuntime $Framework)) { throw "$Name installato ma non trovato in Programmi\dotnet\shared\$Framework" }
-    Write-Host "$Name 10 installato"
+    Write-Host "$Name 10 installato ($(Get-SharedRuntimeVersion $Framework))"
 }
 
 function Find-Ffmpeg {
@@ -66,6 +86,16 @@ try {
             # prima il runtime di base, poi ASP.NET Core che si appoggia a lui
             Install-SharedRuntime 'Runtime .NET' 'Microsoft.NETCore.App' 'dotnet-runtime'
             Install-SharedRuntime 'Runtime ASP.NET Core' 'Microsoft.AspNetCore.App' 'aspnetcore-runtime'
+            # il runtime di base già presente (messo da un altro programma o a mano) può essere più vecchio di quello
+            # che chiede ASP.NET Core, che scarichiamo sempre all'ultima versione (PC di prova, 22/11/2026)
+            $need = Get-AspNetBaseRequirement
+            $base = Get-SharedRuntimeVersion 'Microsoft.NETCore.App'
+            if ($need -and $base -lt $need) {
+                Write-Host "Runtime .NET $base più vecchio di quello che serve ad ASP.NET Core ($need): lo aggiorno"
+                Install-SharedRuntime 'Runtime .NET' 'Microsoft.NETCore.App' 'dotnet-runtime' -Update
+                $base = Get-SharedRuntimeVersion 'Microsoft.NETCore.App'
+                if ($base -lt $need) { throw "il runtime .NET $base è ancora più vecchio di $need, che serve ad ASP.NET Core" }
+            }
         }
         'ffmpeg' {
             $found = Find-Ffmpeg
