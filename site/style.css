@@ -173,7 +173,8 @@ header.bar { position: sticky; top: 0; z-index: 10; background: var(--navy); bor
 .bar-in { display: flex; align-items: center; gap: 14px; height: 62px; }
 header.bar a.home { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 19px; }
 header.bar a.home b span { color: var(--blue); }
-header.bar .tag { font-size: 12px; color: var(--green-text); background: var(--green-soft); padding: 2px 9px; border-radius: 999px; font-weight: 600; }
+header.bar .tag { font-size: 12px; color: var(--green-text); background: var(--green-soft); padding: 2px 9px; border-radius: 999px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+header.bar a.tag:hover { color: var(--text); }
 nav.areas { margin-left: auto; display: flex; gap: 4px; }
 nav.areas a {
   display: flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 8px;
@@ -181,10 +182,11 @@ nav.areas a {
 }
 nav.areas a:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
 nav.areas a[aria-current="page"] { background: var(--blue-soft); color: var(--text); font-weight: 600; }
-nav.areas a:focus-visible, header.bar a.home:focus-visible { outline: 3px solid rgba(110, 155, 255, 0.6); outline-offset: 1px; }
+nav.areas a:focus-visible, header.bar a.home:focus-visible, header.bar a.tag:focus-visible { outline: 3px solid rgba(110, 155, 255, 0.6); outline-offset: 1px; }
 nav.areas .ico { color: var(--blue); width: 20px; height: 20px; }
 @media (max-width: 720px) {
-  header.bar .tag, header.bar a.home b { display: none; }
+  header.bar a.home b { display: none; }
+  header.bar .tag { font-size: 11px; padding: 2px 7px; }
   .bar-in { gap: 8px; height: 64px; }
   nav.areas { gap: 0; flex: 1; justify-content: space-between; }
   nav.areas a { flex-direction: column; gap: 2px; padding: 5px 6px; font-size: 12px; }
