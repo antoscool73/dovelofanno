@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0",
-  "date": "2026-11-20",
-  "notes": "Registra la serie (tutte le puntate, repliche saltate), Converti in MP4 o MP3, La mia lista con «Da vedere stasera» e «I miei titoli», canali a pagamento riconosciuti, filtro Disponibile più semplice, stagione ed episodio sempre in vista, barra in alto con lente e ingranaggio.",
+  "version": "0.2.1",
+  "date": "2026-11-22",
+  "notes": "Installatore per Windows corretto: su un PC senza .NET il servizio non partiva. Ora installa da Microsoft anche il runtime .NET di base.",
   "url": "https://dovelofanno.it/beta/#aggiornare"
 }
