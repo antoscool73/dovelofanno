@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DoveLoFanno beta su QNAP</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=4">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.1</span></a>
+    <nav class="areas" aria-label="Dove lo installi">
+      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
+      <a href="/beta/qnap/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
+      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
+      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>DoveLoFanno su un NAS QNAP</h1>
+  <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
+    dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
+  <ul class="facts">
+    <li><strong>Tempo</strong>: circa 20 minuti</li>
+    <li><strong>Difficoltà</strong>: media, ma si fa tutto dal browser</li>
+    <li><strong>Serve</strong>: l'accesso da amministratore al NAS (QTS o QuTS hero)</li>
+  </ul>
+  <div class="note warn">
+    <p><strong>Istruzioni non ancora provate su un QNAP vero.</strong> Le stai collaudando tu: se una voce ha un nome
+      diverso o qualcosa non torna, scrivimi cosa vedi (anche con uno screenshot) e le correggo.</p>
+  </div>
+
+  <section id="prima">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <ul class="checklist">
+      <li><strong>Container Station.</strong> Entra nel NAS dal browser, apri <strong>App Center</strong> e cerca
+        <em>Container Station</em> (serve la versione 3). Se c'è, installalo e aprilo una volta: al primo avvio crea la
+        cartella condivisa <code>Container</code> (accetta la proposta). Se non c'è, il tuo modello non può far girare
+        DoveLoFanno: usa un <a href="/beta/windows/">PC Windows</a> e il NAS come archivio.</li>
+      <li><strong>Il tipo di processore</strong>, per scaricare il file giusto: Pannello di controllo › Sistema ›
+        Stato del sistema › Informazioni sul sistema, riga «Processore». Intel (Celeron, Pentium, Core…) o AMD (Ryzen…)
+        → file <strong>amd64</strong>. ARM (Annapurna Labs, Cortex-A…) → file <strong>arm64</strong>.</li>
+      <li><strong>L'indirizzo del NAS</strong>: è quello che scrivi nel browser per entrare, senza la parte dopo i due
+        punti (per esempio <code>192.168.1.30</code>). Se non lo sai, te lo dice il programma Qfinder Pro di QNAP.</li>
+    </ul>
+  </section>
+
+  <section id="scarica">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <p>Scarica sul computer da cui stai lavorando <strong>uno</strong> dei due file, quello del tuo processore. È grande:
+      ci vuole qualche minuto. Non aprirlo e non decomprimerlo.</p>
+    <table class="dl">
+      <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-amd64.tar.gz">dovelofanno-0.2.1-docker-amd64.tar.gz</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 ec6d0452ac165f28ab4410bec336c856565f1d647aca49caf8b0e98dc490b6d6</div></td>
+          <td>Intel o AMD (la maggior parte dei QNAP)</td>
+          <td class="size" data-size="docker-amd64">244 MB</td>
+        </tr>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-arm64.tar.gz">dovelofanno-0.2.1-docker-arm64.tar.gz</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 9903f93d3e8f2f527af5396c2154b0ea90bb6a740072fa6b034fa326dd74821d</div></td>
+          <td>ARM a 64 bit (alcuni modelli economici)</td>
+          <td class="size" data-size="docker-arm64">235 MB</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="installa">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>Installa, passo per passo</h2>
+    <ol>
+      <li><strong>Le cartelle.</strong> Apri <strong>File Station</strong>, entra nella cartella condivisa
+        <code>Container</code> e crea una cartella <code>dovelofanno</code>. Dentro <code>dovelofanno</code> creane
+        altre due: <code>data</code> e <code>registrazioni</code>.
+        <span class="expect"><code>Container › dovelofanno</code> con dentro <code>data</code> e
+        <code>registrazioni</code>, vuote.</span></li>
+      <li><strong>L'immagine.</strong> Apri <strong>Container Station</strong> › <strong>Immagini</strong> ›
+        <strong>Importa</strong> e scegli il file <code>.tar.gz</code> scaricato.
+        <span class="expect">il caricamento richiede qualche minuto; poi nell'elenco compare <code>dovelofanno</code>
+        con l'etichetta <code>0.2.1</code>.</span></li>
+      <li><strong>L'applicazione.</strong> Container Station › <strong>Applicazioni</strong> › <strong>Crea</strong>.
+        Nome dell'applicazione: <code>dovelofanno</code>. Nel riquadro del testo cancella quello che c'è e incolla
+        esattamente questo (gli spazi all'inizio delle righe contano):
+<pre><code>services:
+  dovelofanno:
+    image: dovelofanno:0.2.1
+    container_name: dovelofanno
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - /share/Container/dovelofanno/data:/data
+      - /share/Container/dovelofanno/registrazioni:/recordings
+    environment:
+      TZ: Europe/Rome</code></pre>
+      </li>
+      <li>Se c'è il pulsante <strong>Convalida</strong>, premilo (controlla che il testo sia scritto bene), poi
+        <strong>Crea</strong>.
+        <span class="expect">l'applicazione <code>dovelofanno</code> nell'elenco, prima «in creazione» e poi «in
+        esecuzione».</span></li>
+      <li><strong>Aprilo.</strong> Nel browser scrivi <code>http://</code><em>indirizzo-del-NAS</em><code>:8765</code>
+        (per esempio <code>http://192.168.1.30:8765</code>). La prima volta aspetta un minuto prima di provare.
+        <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
+    </ol>
+    <div class="next">
+      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+    </div>
+    <p class="small">Lo stesso indirizzo funziona da telefono, tablet e altri computer collegati al Wi-Fi di casa. Le
+      registrazioni finiscono in <code>Container/dovelofanno/registrazioni</code>.</p>
+  </section>
+
+  <section id="problemi">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <ul>
+      <li><strong>«Crea» dà errore sulle cartelle.</strong> Controlla che la cartella condivisa si chiami proprio
+        <code>Container</code> (con la C maiuscola) e che dentro ci siano <code>dovelofanno/data</code> e
+        <code>dovelofanno/registrazioni</code>. Se la tua cartella condivisa ha un altro nome, cambialo nelle due righe
+        che iniziano con <code>- /share/</code>.</li>
+      <li><strong>Il browser non apre la pagina.</strong> Controlla in Container Station che l'applicazione sia «in
+        esecuzione» e che l'indirizzo finisca con <code>:8765</code>.</li>
+      <li><strong>«Importa» dà errore.</strong> Probabilmente il file è dell'altro processore (amd64 al posto di arm64 o
+        viceversa) o è arrivato a metà: riscaricalo.</li>
+      <li><strong>I log</strong> sono in <code>Container/dovelofanno/data/logs</code>: mandameli a
+        <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+    </ul>
+  </section>
+
+  <section id="aggiornare">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina e scarica
+      il nuovo file. Poi importalo in Container Station › Immagini, apri l'applicazione <code>dovelofanno</code>, cambia
+      il numero nella riga <code>image</code> (per esempio da <code>dovelofanno:0.2.1</code> al numero nuovo) e salva:
+      l'applicazione riparte con la versione nuova. Dati, liste e registrazioni restano.</p>
+    <p><strong>Togliere</strong>: Container Station › Applicazioni › <code>dovelofanno</code> › Elimina, poi in Immagini
+      elimina <code>dovelofanno</code>. La cartella <code>Container/dovelofanno</code> con dati e registrazioni resta:
+      cancellala da File Station solo se non ti servono più.</p>
+  </section>
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  <a href="/beta/">Beta</a> ·
+  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
+</footer>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DoveLoFanno beta su Synology</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=4">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.1</span></a>
+    <nav class="areas" aria-label="Dove lo installi">
+      <a href="/beta/synology/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
+      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
+      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
+      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>DoveLoFanno su un NAS Synology</h1>
+  <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
+    dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
+  <ul class="facts">
+    <li><strong>Tempo</strong>: circa 20 minuti</li>
+    <li><strong>Difficoltà</strong>: media, ma si fa tutto dal browser</li>
+    <li><strong>Serve</strong>: l'accesso da amministratore al NAS (DSM)</li>
+  </ul>
+
+  <section id="prima">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <ul class="checklist">
+      <li><strong>Container Manager.</strong> Entra nel NAS dal browser (DSM), apri <strong>Centro pacchetti</strong> e
+        cerca <em>Container Manager</em>. Se c'è, installalo (se ti chiede di creare la cartella condivisa
+        <code>docker</code>, accetta). Se non c'è, il tuo modello non può far girare DoveLoFanno: usa un
+        <a href="/beta/windows/">PC Windows</a> e il NAS come archivio.</li>
+      <li><strong>Il tipo di processore</strong>, per scaricare il file giusto: Pannello di controllo › Centro
+        informazioni › Generale, riga «Nome CPU». Intel (Celeron, Pentium, Atom, Xeon…) o AMD (Ryzen, V1500B…) →
+        file <strong>amd64</strong>. Realtek (RTD1296, RTD1619…) → file <strong>arm64</strong>.</li>
+      <li><strong>L'indirizzo del NAS</strong>: è quello che scrivi nel browser per entrare in DSM, senza la parte dopo i
+        due punti (per esempio <code>192.168.1.20</code>).</li>
+    </ul>
+  </section>
+
+  <section id="scarica">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <p>Scarica sul computer da cui stai lavorando <strong>uno</strong> dei due file, quello del tuo processore. È grande:
+      ci vuole qualche minuto. Non aprirlo e non decomprimerlo.</p>
+    <table class="dl">
+      <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-amd64.tar.gz">dovelofanno-0.2.1-docker-amd64.tar.gz</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 ec6d0452ac165f28ab4410bec336c856565f1d647aca49caf8b0e98dc490b6d6</div></td>
+          <td>Intel o AMD (quasi tutti i modelli «+» e «xs»)</td>
+          <td class="size" data-size="docker-amd64">244 MB</td>
+        </tr>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-arm64.tar.gz">dovelofanno-0.2.1-docker-arm64.tar.gz</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 9903f93d3e8f2f527af5396c2154b0ea90bb6a740072fa6b034fa326dd74821d</div></td>
+          <td>Realtek (ARM a 64 bit)</td>
+          <td class="size" data-size="docker-arm64">235 MB</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="installa">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Installa, passo per passo</h2>
+    <ol>
+      <li><strong>Le cartelle.</strong> Apri <strong>File Station</strong>, entra nella cartella condivisa
+        <code>docker</code> e crea una cartella <code>dovelofanno</code> (pulsante Crea › Crea cartella). Dentro
+        <code>dovelofanno</code> creane altre due: <code>data</code> e <code>registrazioni</code>.
+        <span class="expect"><code>docker › dovelofanno</code> con dentro <code>data</code> e <code>registrazioni</code>,
+        vuote.</span></li>
+      <li><strong>L'immagine.</strong> Apri <strong>Container Manager</strong> › <strong>Immagine</strong> ›
+        <strong>Aggiungi</strong> › <strong>Aggiungi da file</strong> e scegli il file <code>.tar.gz</code> scaricato.
+        <span class="expect">il caricamento richiede qualche minuto; poi nell'elenco compare <code>dovelofanno</code>
+        con l'etichetta <code>0.2.1</code>.</span></li>
+      <li><strong>Il progetto.</strong> Container Manager › <strong>Progetto</strong> › <strong>Crea</strong>:
+        <ul>
+          <li>Nome del progetto: <code>dovelofanno</code></li>
+          <li>Percorso: <strong>Imposta percorso</strong> e scegli <code>docker/dovelofanno</code></li>
+          <li>Origine: <strong>Crea docker-compose.yml</strong>, poi copia e incolla esattamente questo testo
+            (gli spazi all'inizio delle righe contano):</li>
+        </ul>
+<pre><code>services:
+  dovelofanno:
+    image: dovelofanno:0.2.1
+    container_name: dovelofanno
+    restart: unless-stopped
+    user: "1026:100"
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data
+      - ./registrazioni:/recordings
+    environment:
+      TZ: Europe/Rome</code></pre>
+      </li>
+      <li><strong>Avanti</strong>. Se compaiono le impostazioni del portale web (Web Station), lasciale spente e
+        <strong>Avanti</strong>. Nel riepilogo lascia la spunta «Avvia il progetto» e <strong>Fine</strong>.
+        <span class="expect">una finestra di avanzamento che finisce con <code>Exit Code: 0</code>; chiudila. Il
+        progetto <code>dovelofanno</code> diventa verde, «In esecuzione».</span></li>
+      <li><strong>Aprilo.</strong> Nel browser scrivi <code>http://</code><em>indirizzo-del-NAS</em><code>:8765</code>
+        (per esempio <code>http://192.168.1.20:8765</code>). La prima volta aspetta un minuto prima di provare.
+        <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
+    </ol>
+    <div class="next">
+      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+    </div>
+    <p class="small">Lo stesso indirizzo funziona da telefono, tablet e altri computer collegati al Wi-Fi di casa. Le
+      registrazioni finiscono in <code>docker/dovelofanno/registrazioni</code>: se usi Jellyfin o Plex, puoi far
+      leggere a loro quella cartella.</p>
+  </section>
+
+  <section id="problemi">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <ul>
+      <li><strong>Il progetto si ferma subito, o il registro parla di «permission denied».</strong> È la riga
+        <code>user: "1026:100"</code>: dice con quale utente del NAS lavora DoveLoFanno, e quell'utente deve poter
+        scrivere in <code>data</code> e <code>registrazioni</code>. <code>1026</code> è di solito il primo
+        amministratore creato, <code>100</code> il gruppo «users». Se sul tuo NAS non va, scrivimi e troviamo insieme i
+        numeri giusti.</li>
+      <li><strong>Il browser non apre la pagina.</strong> Controlla in Container Manager › Progetto che
+        <code>dovelofanno</code> sia «In esecuzione» e che l'indirizzo finisca con <code>:8765</code>. Se hai attivato il
+        firewall del NAS (Pannello di controllo › Sicurezza › Firewall), aggiungi una regola che consenta la porta
+        8765.</li>
+      <li><strong>«Aggiungi da file» dà errore.</strong> Probabilmente il file è dell'altro processore (amd64 al posto di
+        arm64 o viceversa) o è arrivato a metà: riscaricalo.</li>
+      <li><strong>I log</strong> sono in <code>docker/dovelofanno/data/logs</code>: mandameli a
+        <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+    </ul>
+  </section>
+
+  <section id="aggiornare">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina e scarica
+      il nuovo file. Poi:</p>
+    <ol>
+      <li>Container Manager › Immagine › Aggiungi › Aggiungi da file: il nuovo <code>.tar.gz</code>.</li>
+      <li>Container Manager › Progetto › <code>dovelofanno</code> › <strong>Arresta</strong>.</li>
+      <li>Nella scheda <strong>YAML</strong> del progetto cambia il numero nella riga <code>image</code> (per esempio da
+        <code>dovelofanno:0.2.1</code> al numero nuovo) e salva.</li>
+      <li>Azione › <strong>Crea</strong> (o Compila): il progetto riparte con la versione nuova. Dati, liste e
+        registrazioni restano.</li>
+    </ol>
+    <p><strong>Togliere</strong>: Container Manager › Progetto › <code>dovelofanno</code> › Arresta, poi Elimina; in
+      Immagine elimina <code>dovelofanno</code>. La cartella <code>docker/dovelofanno</code> con dati e registrazioni
+      resta: cancellala da File Station solo se non ti servono più.</p>
+  </section>
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  <a href="/beta/">Beta</a> ·
+  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
+</footer>
+</body>
+</html>

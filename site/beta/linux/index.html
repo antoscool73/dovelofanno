@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DoveLoFanno beta su Linux</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=4">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.1</span></a>
+    <nav class="areas" aria-label="Dove lo installi">
+      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
+      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
+      <a href="/beta/linux/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
+      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>DoveLoFanno su Linux e altri NAS con Docker</h1>
+  <p class="lead">Per mini-PC, Raspberry Pi 4 o 5, server di casa, Unraid, TrueNAS, OpenMediaVault: ovunque ci sia
+    Docker. DoveLoFanno gira in un <em>container</em> e tiene tutti i suoi dati in una cartella.</p>
+  <ul class="facts">
+    <li><strong>Tempo</strong>: circa 15 minuti</li>
+    <li><strong>Difficoltà</strong>: serve un po' di pratica col terminale</li>
+    <li><strong>Serve</strong>: Docker con <code>docker compose</code></li>
+  </ul>
+  <p class="small">Mai usato un terminale? Allora è più semplice un <a href="/beta/windows/">PC Windows</a>. Se hai un
+    Synology o un QNAP, usa le loro pagine.</p>
+
+  <section id="prima">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <p>Apri un terminale sul server (direttamente o con <code>ssh</code>) e controlla due cose.</p>
+    <ul class="checklist">
+      <li><strong>Il processore</strong>: scrivi <code>uname -m</code>. <code>x86_64</code> → file
+        <strong>amd64</strong>; <code>aarch64</code> → file <strong>arm64</strong>. Se esce <code>armv7l</code> il
+        sistema è a 32 bit e DoveLoFanno non ci gira (su un Raspberry Pi 4 o 5 basta installare Raspberry Pi OS a
+        64 bit).</li>
+      <li><strong>Docker</strong>: scrivi <code>docker compose version</code>. Se risponde con un numero di versione,
+        ci sei. Altrimenti installa Docker seguendo la
+        <a href="https://docs.docker.com/engine/install/" rel="noopener">guida ufficiale</a> per il tuo sistema.</li>
+    </ul>
+  </section>
+
+  <section id="scarica">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <p>Scarica il file del tuo processore <strong>con il browser</strong>: questa pagina è riservata agli amici della
+      beta, quindi <code>wget</code> o <code>curl</code> dal server non funzionano.</p>
+    <table class="dl">
+      <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-amd64.tar.gz">dovelofanno-0.2.1-docker-amd64.tar.gz</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 ec6d0452ac165f28ab4410bec336c856565f1d647aca49caf8b0e98dc490b6d6</div></td>
+          <td><code>x86_64</code>: Intel o AMD</td>
+          <td class="size" data-size="docker-amd64">244 MB</td>
+        </tr>
+        <tr>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
+          <td><a href="https://download.dovelofanno.it/0.2.1/dovelofanno-0.2.1-docker-arm64.tar.gz">dovelofanno-0.2.1-docker-arm64.tar.gz</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 9903f93d3e8f2f527af5396c2154b0ea90bb6a740072fa6b034fa326dd74821d</div></td>
+          <td><code>aarch64</code>: Raspberry Pi 4/5 e altri ARM</td>
+          <td class="size" data-size="docker-arm64">235 MB</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Poi copialo sul server, per esempio dal tuo computer con
+      <code>scp dovelofanno-0.2.1-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
+      Per controllarlo: <code>sha256sum dovelofanno-0.2.1-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
+  </section>
+
+  <section id="installa">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Installa, passo per passo</h2>
+    <ol>
+      <li><strong>Carica l'immagine</strong> (con <code>arm64</code> al posto di <code>amd64</code> se è il tuo caso):
+<pre><code>docker load -i dovelofanno-0.2.1-docker-amd64.tar.gz</code></pre>
+        <span class="expect"><code>Loaded image: dovelofanno:0.2.1</code> dopo qualche decina di secondi.</span></li>
+      <li><strong>Crea le cartelle</strong> e guarda i numeri del tuo utente:
+<pre><code>mkdir -p ~/dovelofanno/data ~/dovelofanno/registrazioni
+cd ~/dovelofanno
+id -u; id -g</code></pre>
+        <span class="expect">due numeri, spesso <code>1000</code> e <code>1000</code>.</span></li>
+      <li><strong>Crea il file <code>compose.yaml</code></strong>: <code>nano compose.yaml</code>, incolla questo testo
+        mettendo nella riga <code>user</code> i due numeri del passo prima, poi salva con <kbd>Ctrl</kbd>+<kbd>O</kbd>,
+        <kbd>Invio</kbd> ed esci con <kbd>Ctrl</kbd>+<kbd>X</kbd>.
+<pre><code>services:
+  dovelofanno:
+    image: dovelofanno:0.2.1
+    container_name: dovelofanno
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/data
+      - ./registrazioni:/recordings
+    environment:
+      TZ: Europe/Rome</code></pre>
+      </li>
+      <li><strong>Avvialo</strong>:
+<pre><code>docker compose up -d</code></pre>
+        <span class="expect"><code>Container dovelofanno  Started</code>. Con <code>docker compose logs -f</code> vedi
+        cosa fa (esci con <kbd>Ctrl</kbd>+<kbd>C</kbd>, il programma resta acceso).</span></li>
+      <li><strong>Aprilo</strong>: l'indirizzo del server te lo dice <code>hostname -I</code> (il primo numero). Nel
+        browser di un altro computer scrivi <code>http://</code><em>indirizzo</em><code>:8765</code>, per esempio
+        <code>http://192.168.1.40:8765</code>.
+        <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
+    </ol>
+    <div class="next">
+      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+    </div>
+    <p class="small"><strong>Unraid, TrueNAS, OpenMediaVault</strong> hanno un loro modo di caricare un'immagine e un
+      file compose: valgono lo stesso file e le stesse due cartelle. Se non trovi la strada, scrivimi.</p>
+  </section>
+
+  <section id="problemi">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <ul>
+      <li><strong>Il container si ferma subito con «permission denied».</strong> I numeri della riga <code>user</code>
+        non sono quelli del proprietario delle cartelle: controlla con <code>ls -ln ~/dovelofanno</code>.</li>
+      <li><strong>Dagli altri computer non si apre.</strong> Se il server ha un firewall attivo, apri la porta: con ufw
+        <code>sudo ufw allow 8765/tcp</code>.</li>
+      <li><strong><code>exec format error</code></strong>: hai caricato il file dell'altro processore.</li>
+      <li><strong>I log</strong> sono in <code>~/dovelofanno/data/logs</code> e in <code>docker compose logs</code>:
+        mandameli a <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+    </ul>
+  </section>
+
+  <section id="aggiornare">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <p><strong>Aggiornare</strong>: scarica e copia il nuovo file, <code>docker load -i</code> come la prima volta,
+      cambia il numero nella riga <code>image</code> di <code>compose.yaml</code> e dalla cartella
+      <code>~/dovelofanno</code> lancia <code>docker compose up -d</code>. Dati, liste e registrazioni restano.</p>
+    <p><strong>Togliere</strong>: dalla cartella <code>~/dovelofanno</code> <code>docker compose down</code>, poi
+      <code>docker image rm dovelofanno:0.2.1</code>. La cartella con dati e registrazioni resta finché non la cancelli
+      tu.</p>
+  </section>
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  <a href="/beta/">Beta</a> ·
+  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
+</footer>
+</body>
+</html>

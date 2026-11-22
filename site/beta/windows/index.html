@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DoveLoFanno beta su Windows</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=4">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="home" href="/beta/" aria-label="DoveLoFanno beta, pagina iniziale"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b><span class="tag">Beta 0.2.1</span></a>
+    <nav class="areas" aria-label="Dove lo installi">
+      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
+      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
+      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
+      <a href="/beta/windows/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>DoveLoFanno su un PC Windows</h1>
+  <p class="lead">Si installa come un normale programma. Poi lavora da solo in sottofondo: parte quando accendi il PC,
+    anche se nessuno entra in Windows, e lo usi dal browser.</p>
+  <ul class="facts">
+    <li><strong>Tempo</strong>: circa 10 minuti</li>
+    <li><strong>Difficoltà</strong>: facile</li>
+    <li><strong>Serve</strong>: internet e la password di amministratore del PC</li>
+  </ul>
+
+  <section id="prima">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <ul class="checklist">
+      <li><strong>Windows 10 o 11 a 64 bit.</strong> Per controllare: Start › Impostazioni › Sistema › Informazioni,
+        alla riga «Tipo di sistema» deve esserci «64 bit». Quasi tutti i PC degli ultimi dieci anni lo sono.</li>
+      <li><strong>Un PC che resta acceso.</strong> Le registrazioni partono solo a PC acceso. Mentre registra
+        DoveLoFanno impedisce la sospensione, ma tra una registrazione e l'altra il PC può addormentarsi e di solito non
+        si risveglia da solo. Meglio impostare Start › Impostazioni › Sistema › Alimentazione › Schermo e sospensione:
+        «Metti il dispositivo in sospensione dopo» › <strong>Mai</strong> (con l'alimentatore collegato). Lo schermo
+        invece può spegnersi. Su un portatile non chiudere il coperchio.</li>
+      <li><strong>Spazio su disco</strong>: mezzo GB per il programma e i suoi componenti, e circa 2,5 GB per ogni ora
+        di TV registrata.</li>
+      <li><strong>Smart App Control spento.</strong> Start › Sicurezza di Windows › Controllo app e browser ›
+        Impostazioni di Smart App Control. Se è <em>Attivato</em>, Windows blocca DoveLoFanno e non c'è modo di dargli il
+        permesso (durante la beta il programma non ha ancora una firma digitale): su quel PC per ora non si può
+        installare, e non spegnerlo apposta, protegge il PC. Se è <em>Disattivato</em> o <em>Valutazione</em>, va bene.</li>
+    </ul>
+  </section>
+
+  <section id="scarica">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <div class="next">
+      <a class="btn" href="https://download.dovelofanno.it/0.2.1/DoveLoFanno-0.2.1-setup.exe"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>DoveLoFanno-0.2.1-setup.exe · 4,2 MB</a>
+    </div>
+    <div class="hash" data-hash="win-x64">SHA-256 2f53c8dd1ba6b423442e1d707477b7a5accb3e1e6b662dfba42b87bc7af59073</div>
+    <p>Il browser potrebbe avvisarti che il file «non viene scaricato comunemente» o «potrebbe essere pericoloso». È
+      normale: il programma è nuovo e non ha ancora una firma digitale, quindi Windows non lo conosce.</p>
+    <ul>
+      <li><strong>Edge</strong>: sulla riga del file, «…» › <strong>Mantieni</strong>, poi «Mostra altro» ›
+        <strong>Mantieni comunque</strong>.</li>
+      <li><strong>Chrome</strong>: nell'elenco dei download, <strong>Mantieni</strong> o <strong>Scarica comunque</strong>.</li>
+    </ul>
+    <p class="small">Per essere sicuro che il file sia proprio il mio e sia arrivato intero: tasto destro sul pulsante
+      Start › Terminale, scrivi <code>Get-FileHash $HOME\Downloads\DoveLoFanno-0.2.1-setup.exe</code> e premi
+      <kbd>Invio</kbd>. Il codice che compare deve essere uguale a quello qui sopra (maiuscole e minuscole non contano).</p>
+  </section>
+
+  <section id="installa">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Installa, passo per passo</h2>
+    <ol>
+      <li>Apri la cartella <strong>Download</strong> e fai doppio clic su <code>DoveLoFanno-0.2.1-setup.exe</code>.
+        <span class="expect">una finestra blu «Windows ha protetto il PC». Clicca <strong>Ulteriori
+        informazioni</strong> e poi <strong>Esegui comunque</strong>.</span></li>
+      <li>Windows chiede «Vuoi consentire a questa app di apportare modifiche al dispositivo?»: <strong>Sì</strong>
+        (se è un account senza permessi, qui serve la password di amministratore).</li>
+      <li>Si apre l'installatore, in italiano. Se chiede la cartella del programma, lascia quella proposta e
+        <strong>Avanti</strong>.</li>
+      <li><strong>Dove salvo le registrazioni?</strong> All'inizio è proposta <code>Video pubblici\DoveLoFanno</code>.
+        Va bene; se hai un secondo disco più capiente, scegli una cartella lì con <strong>Sfoglia</strong>.
+        Poi <strong>Avanti</strong> e <strong>Installa</strong>.</li>
+      <li>Aspetta. L'installatore scarica da solo quello che manca, sempre dai siti ufficiali:
+        <span class="expect">in basso scorrono «Controllo il runtime .NET di Microsoft…», «Controllo ffmpeg…» (il più
+        lungo: scarica circa 250 MB) e «Avvio il servizio DoveLoFanno…». Possono servire diversi minuti: la barra si
+        muove ma non avanza, è normale. Non chiudere la finestra.</span></li>
+      <li>Alla fine lascia la spunta <strong>Apri DoveLoFanno nel browser</strong> e clicca <strong>Fine</strong>.
+        <span class="expect">il browser si apre su <code>localhost:8765</code> con la schermata dei profili.</span></li>
+    </ol>
+    <div class="next">
+      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+    </div>
+  </section>
+
+  <section id="usarlo">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-phone"/></svg>Usarlo, anche dal telefono</h2>
+    <ul>
+      <li><strong>Da questo PC</strong>: Start › <strong>DoveLoFanno</strong> apre il browser all'indirizzo
+        <code>http://localhost:8765</code>. Non c'è una finestra da tenere aperta: il programma lavora anche a browser
+        chiuso.</li>
+      <li><strong>Dal telefono e dagli altri computer di casa</strong>: nel browser scrivi
+        <code>http://</code><em>nome-del-PC</em><code>:8765</code>. Il nome del PC lo trovi in Start › Impostazioni ›
+        Sistema › Informazioni, alla riga «Nome dispositivo» (per esempio <code>http://desktop-rossi:8765</code>). Se col
+        nome non va, usa l'indirizzo numerico: nel Terminale scrivi <code>ipconfig</code> e cerca «Indirizzo IPv4»
+        (per esempio <code>http://192.168.1.50:8765</code>).</li>
+      <li>Dagli altri apparecchi funziona solo se la rete del PC è <strong>privata</strong>: Start › Impostazioni ›
+        Rete e Internet › Wi-Fi (o Ethernet) › la tua rete › «Tipo di profilo di rete»: <strong>Rete privata</strong>.
+        Sulle reti pubbliche (bar, albergo) DoveLoFanno resta chiuso, per sicurezza.</li>
+    </ul>
+  </section>
+
+  <section id="problemi">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <ul>
+      <li><strong>L'installatore dice che qualcosa «non si è installato» o che il servizio «non è partito».</strong>
+        Il messaggio indica un registro: <code>C:\ProgramData\DoveLoFanno\logs\installazione.log</code>. Mandamelo a
+        <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->. Puoi
+        rilanciare l'installatore quando vuoi: riprende da dove serve.</li>
+      <li><strong>Il browser dice «Impossibile raggiungere il sito».</strong> Aspetta un minuto e ricarica la pagina:
+        dopo un'accensione il programma ci mette un po' a partire. Se continua, riavvia il PC.</li>
+      <li><strong>Dal telefono non si apre, dal PC sì.</strong> Controlla che la rete sia «privata» (qui sopra), che il
+        telefono sia sul Wi-Fi di casa e non sui dati mobili, e prova con l'indirizzo numerico.</li>
+      <li><strong>Una registrazione non è partita.</strong> Quasi sempre il PC era spento o in sospensione: vedi
+        «Prima di cominciare». I log delle registrazioni sono in <code>C:\ProgramData\DoveLoFanno\logs</code>.</li>
+    </ul>
+  </section>
+
+  <section id="aggiornare">
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina,
+      scarica il nuovo installatore e aprilo come la prima volta. Dati, liste e registrazioni restano.</p>
+    <p><strong>Togliere</strong>: Start › Impostazioni › App › App installate › DoveLoFanno › «…» › Disinstalla. Ti
+      chiede se togliere anche database e impostazioni; le registrazioni restano comunque nella loro cartella. Il runtime
+      .NET e ffmpeg restano installati: se non ti servono per altro puoi toglierli dallo stesso elenco.</p>
+  </section>
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  <a href="/beta/">Beta</a> ·
+  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
+</footer>
+</body>
+</html>

@@ -42,6 +42,7 @@ pre {
   padding: 12px 14px; overflow-x: auto; line-height: 1.45; margin: 10px 0;
 }
 pre code { background: none; padding: 0; }
+p code, li code { overflow-wrap: anywhere; }
 
 .wrap { max-width: 820px; margin: 0 auto; padding: 0 16px; }
 .small { font-size: 14px; color: var(--muted); }
@@ -167,12 +168,53 @@ section.h-hero {
 }
 @media (prefers-reduced-motion: reduce) { .h-faq summary::after { transition: none; } }
 
-/* Pagina della beta */
-header.top { border-bottom: 1px solid var(--line); background: var(--navy); }
-header.top .wrap { display: flex; align-items: center; gap: 12px; height: 60px; }
-header.top a.home { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 19px; }
-header.top a.home span { color: var(--blue); }
-header.top .tag { margin-left: auto; font-size: 13px; color: var(--green-text); background: var(--green-soft); padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+/* Area beta: barra fissa in alto con il logo e le quattro aree (beta/*) */
+header.bar { position: sticky; top: 0; z-index: 10; background: var(--navy); border-bottom: 1px solid var(--line-strong); }
+.bar-in { display: flex; align-items: center; gap: 14px; height: 62px; }
+header.bar a.home { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 19px; }
+header.bar a.home b span { color: var(--blue); }
+header.bar .tag { font-size: 12px; color: var(--green-text); background: var(--green-soft); padding: 2px 9px; border-radius: 999px; font-weight: 600; }
+nav.areas { margin-left: auto; display: flex; gap: 4px; }
+nav.areas a {
+  display: flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 8px;
+  color: var(--text-2); text-decoration: none; font-size: 15px; white-space: nowrap;
+}
+nav.areas a:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+nav.areas a[aria-current="page"] { background: var(--blue-soft); color: var(--text); font-weight: 600; }
+nav.areas a:focus-visible, header.bar a.home:focus-visible { outline: 3px solid rgba(110, 155, 255, 0.6); outline-offset: 1px; }
+nav.areas .ico { color: var(--blue); width: 20px; height: 20px; }
+@media (max-width: 720px) {
+  header.bar .tag, header.bar a.home b { display: none; }
+  .bar-in { gap: 8px; height: 64px; }
+  nav.areas { gap: 0; flex: 1; justify-content: space-between; }
+  nav.areas a { flex-direction: column; gap: 2px; padding: 5px 6px; font-size: 12px; }
+}
+/* i titoli raggiunti con #ancora non finiscono sotto la barra */
+section, h2[id], [id].anchor { scroll-margin-top: 76px; }
+
+.lead { font-size: 18px; color: var(--text); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; padding: 0; list-style: none; }
+.facts li { margin: 0; background: var(--card); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+.facts li strong { color: var(--text); }
+.expect { display: block; margin-top: 6px; padding-left: 12px; border-left: 3px solid var(--green); color: var(--muted); font-size: 15px; }
+.expect::before { content: 'Cosa vedrai: '; color: var(--green-text); font-weight: 600; }
+.checklist { list-style: none; padding-left: 0; }
+.checklist li { position: relative; padding-left: 30px; }
+.checklist li::before {
+  content: ''; position: absolute; left: 4px; top: 6px; width: 14px; height: 14px; border-radius: 4px;
+  border: 2px solid var(--blue);
+}
+.next { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--green); color: #0b1a12; font-weight: 700;
+  text-decoration: none; border-radius: 8px; padding: 9px 16px;
+}
+.btn:hover { background: #4fd891; color: #0b1a12; }
+.btn.ghost { background: var(--card); color: var(--text); border: 1px solid var(--line-strong); }
+.btn.ghost:hover { border-color: var(--blue); color: var(--text); }
+.btn .ico { width: 20px; height: 20px; }
+kbd { font-family: var(--font); font-size: 14px; background: var(--raised); border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; color: var(--text); }
+.choice .meta { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
 
 nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 8px; }
 nav.toc a { background: var(--card); border: 1px solid var(--line-strong); border-radius: 999px; padding: 5px 12px; font-size: 14px; text-decoration: none; color: var(--text-2); }
