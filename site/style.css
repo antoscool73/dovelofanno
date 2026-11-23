@@ -168,6 +168,44 @@ section.h-hero {
 }
 @media (prefers-reduced-motion: reduce) { .h-faq summary::after { transition: none; } }
 
+/* Frecce del carosello delle schermate (23/11/2026, Antonio: niente trascinamento col mouse). Le crea /carosello.js:
+   senza script non ci sono e il carosello si scorre come prima. Sul telefono (puntatore a dito) restano nascoste. */
+.h-car { position: relative; }
+.h-arrow {
+  position: absolute; top: 112px; z-index: 3; width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; padding: 0 0 4px;
+  border: 1px solid var(--line-strong); background: rgba(13, 16, 21, 0.86); color: var(--text);
+  font: inherit; font-size: 30px; line-height: 1; cursor: pointer; transition: opacity 0.2s, background 0.2s;
+}
+.h-arrow:hover { background: var(--raised); }
+.h-arrow:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.h-arrow.prev { left: -10px; }
+.h-arrow.next { right: -10px; }
+.h-arrow:disabled { opacity: 0; pointer-events: none; }
+@media (pointer: coarse) { .h-arrow { display: none; } }
+
+/* Comparsa allo scorrimento (23/11/2026, Antonio: «come i siti WordPress»): solo CSS, legata allo scorrimento e non al
+   tempo (tornando su si riavvolge). Titoli, riquadri e domande salgono in dissolvenza; le schermate entrano da destra
+   una dopo l'altra. Dove il browser non conosce animation-timeline (oggi Firefox) o con «riduci le animazioni» resta
+   tutto fermo e visibile come prima. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes h-rise { from { opacity: 0; transform: translateY(36px); } to { opacity: 1; transform: none; } }
+    @keyframes h-slide { from { opacity: 0; transform: translateX(120px); } to { opacity: 1; transform: none; } }
+    .home-page .h-banner, .home-page .h-h2, .home-page .h-card, .home-page .h-faq details, .home-page .h-end {
+      animation: h-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 80%;
+    }
+    /* le schermate stanno in un contenitore che scorre di lato: la linea del tempo è quella del carosello nella pagina */
+    .home-page .h-row { view-timeline: --h-shots block; }
+    .home-page .h-shot { animation: h-slide linear both; animation-timeline: --h-shots; }
+    .home-page .h-shot:nth-child(1) { animation-range: entry 0% entry 70%; }
+    .home-page .h-shot:nth-child(2) { animation-range: entry 10% entry 80%; }
+    .home-page .h-shot:nth-child(3) { animation-range: entry 20% entry 90%; }
+    .home-page .h-shot:nth-child(4) { animation-range: entry 30% entry 100%; }
+    .home-page .h-shot:nth-child(n+5) { animation-range: entry 40% cover 30%; }
+  }
+}
+
 /* Area beta: barra fissa in alto con il logo e le quattro aree (beta/*) */
 header.bar { position: sticky; top: 0; z-index: 10; background: var(--navy); border-bottom: 1px solid var(--line-strong); }
 .bar-in { display: flex; align-items: center; gap: 14px; height: 62px; }
