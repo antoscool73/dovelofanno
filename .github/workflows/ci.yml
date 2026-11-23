@@ -17,11 +17,16 @@ env:
 jobs:
   # I collaudi di installazione (immagine Docker, servizio e installatore Windows) partono solo se cambia qualcosa che
   # installano, con un tag, con l'avvio a mano o sul primo push di un ramo. Il rilascio (release.yml) li fa sempre.
+  # Per risparmiare minuti (23/11/2026, credito gratuito di Actions finito): test e interfaccia web si saltano se il push
+  # cambia solo sito, documenti o testi; i test su Windows (contano il doppio) girano solo con un tag (rilascio o
+  # wave), con l'avvio a mano o in una PR. Sui push normali basta Linux.
   changes:
     name: File cambiati
     runs-on: ubuntu-latest
     outputs:
       install: ${{ steps.diff.outputs.install }}
+      code: ${{ steps.diff.outputs.code }}
+      oses: ${{ steps.diff.outputs.oses }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +38,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           install=true
+          code=true
           if [[ "$GITHUB_REF" != refs/tags/* && "$EVENT" != workflow_dispatch ]]; then
             if [[ "$EVENT" == pull_request ]]; then range="$BASE...$GITHUB_SHA"; else range="$BEFORE..$GITHUB_SHA"; fi
             if git diff --name-only "$range" > "$RUNNER_TEMP/changed"; then
@@ -40,17 +46,30 @@ jobs:
               if ! grep -qE '^(deploy/|tools/ci/|Dockerfile$|\.dockerignore$|\.github/workflows/ci\.yml$|global\.json$|Directory\.Build\.props$|src/[^/]+/[^/]+\.csproj$|web/package(-lock)?\.json$)' "$RUNNER_TEMP/changed"; then
                 install=false
               fi
+              # solo sito, documenti o testi (ma non il contratto dell'API in docs/api): niente da compilare né da collaudare
+              if [[ -s "$RUNNER_TEMP/changed" ]] && ! grep -qvE '^(site/|docs/|[^/]+\.md$|LICENSE$|\.github/ISSUE_TEMPLATE/)' "$RUNNER_TEMP/changed" && ! grep -q '^docs/api/' "$RUNNER_TEMP/changed"; then
+                code=false
+              fi
             fi
           fi
-          echo "Collaudi di installazione: $install"
+          if [[ "$GITHUB_REF" == refs/tags/* || "$EVENT" == workflow_dispatch || "$EVENT" == pull_request ]]; then
+            oses='["windows-latest","ubuntu-latest"]'
+          else
+            oses='["ubuntu-latest"]'
+          fi
+          echo "Collaudi di installazione: $install · test e web: $code · sistemi: $oses"
           echo "install=$install" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "oses=$oses" >> "$GITHUB_OUTPUT"
 
   test:
     name: Test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: ${{ fromJSON(needs.changes.outputs.oses) }}
     runs-on: ${{ matrix.os }}
     env:
       # le PR da fork non vedono i segreti: per loro l'oracolo dei voti si salta, per il repository è obbligatorio
@@ -114,6 +133,8 @@ jobs:
 
   web:
     name: Interfaccia web
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
