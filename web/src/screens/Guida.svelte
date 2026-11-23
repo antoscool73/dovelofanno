@@ -8,14 +8,13 @@
   import { tick } from 'svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
-  import ProgrammaDialog from './ProgrammaDialog.svelte';
   import NuovaRegistrazione from './NuovaRegistrazione.svelte';
   import LivePreview from '../lib/components/LivePreview.svelte';
   import SeenButton from '../lib/components/SeenButton.svelte';
   import { seenState } from '../lib/seen.svelte';
   import { api, ApiError, type Channel, type GuideProgramme, type GuideStatus } from '../lib/api/client';
   import { byChannelOrder, day, dayChip, episodeOf, midnight, range, time, vote } from '../lib/format';
-  import { navigate } from '../lib/router.svelte';
+  import { navigate, router } from '../lib/router.svelte';
   import { dragScroll } from '../lib/dragScroll';
   import { SCOPES, loadFilter, saveFilter, shownInGuide, type ChannelFilter, type Scope } from '../lib/channels';
   import { session } from '../lib/session.svelte';
@@ -46,7 +45,8 @@
   let minRating = $state(0);
   let text = $state('');
   let results = $state<GuideProgramme[] | null>(null);
-  let open = $state<GuideProgramme | null>(null);
+  // un clic su un programma apre sempre la sua scheda (23/11/2026, Antonio: niente più popup del programma)
+  const openWork = (p: GuideProgramme) => { if (p.workId != null) router.go(`/opera/${p.workId}`); };
   let scroller = $state<HTMLDivElement | null>(null);
   let refreshing = $state(false);
   let ppm = $state(savedZoom());
@@ -445,7 +445,6 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Aggiornamento non partito'; refreshing = false; }
   }
 
-  function changed() { reloadAll(); if (results) onSearch(); }
 
   const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 </script>
@@ -510,11 +509,11 @@
             <div class="muted small">{previewRow.name} · clic sul nome di un canale per cambiarlo</div>
             {#if previewNow}
               {@const pn = previewNow}
-              <button type="button" class="plink now" onclick={() => (open = pn)}>Ora: {pn.title}{episodeOf(pn) ? ` · ${episodeOf(pn)}` : ''} <span class="muted">fino alle {time(pn.stop)}</span></button>
+              <button type="button" class="plink now" onclick={() => openWork(pn)}>Ora: {pn.title}{episodeOf(pn) ? ` · ${episodeOf(pn)}` : ''} <span class="muted">fino alle {time(pn.stop)}</span></button>
             {/if}
             {#if previewNext}
               {@const px = previewNext}
-              <button type="button" class="plink" onclick={() => (open = px)}>Dopo: {px.title} · {range(px.start, px.stop)}{px.rating != null ? ` · ★ ${vote(px.rating)}` : ''}</button>
+              <button type="button" class="plink" onclick={() => openWork(px)}>Dopo: {px.title} · {range(px.start, px.stop)}{px.rating != null ? ` · ★ ${vote(px.rating)}` : ''}</button>
             {/if}
           </div>
     </section>
@@ -578,7 +577,7 @@
     {#if results.length === 0}<p class="muted">Nessun programma nei giorni della guida.</p>{/if}
     <ul class="list">
       {#each results as p (p.id)}
-        <li><button type="button" class="lrow" onclick={() => (open = p)}>
+        <li><button type="button" class="lrow" onclick={() => openWork(p)}>
           <span class="lwhen"><strong>{day(p.start, now)}</strong><span>{range(p.start, p.stop)}</span></span>
           <span class="lch">{p.channelName || p.guideChannelName}</span>
           <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[episodeOf(p), p.group, p.sub, p.year || '', p.directors].filter(Boolean).join(' · ')}</span></span>
@@ -595,7 +594,7 @@
     </div>
   {:else if mode === 'griglia'}
     <!-- col mouse si trascina in orizzontale e in verticale (23/11/2026, Antonio); al tocco scorre come sempre -->
-    <div class="grid-box" bind:this={scroller} onscroll={onScroll} use:dragScroll={{ vertical: true }}>
+    <div class="grid-box" data-row bind:this={scroller} onscroll={onScroll} use:dragScroll={{ vertical: true }}>
       <div class="grid" style:width="{CH + totalMin * ppm}px" style:--ch="{CH}px">
         <div class="ticks">
           <!-- il giorno dell'orario sul bordo sinistro: resta fermo in alto a sinistra mentre si scorre -->
@@ -614,7 +613,7 @@
             {#each r.shown as x (x.p.id)}
               {@const p = x.p}
               <button type="button" class="prog" class:dim={!matches(p)} class:rec={p.scheduled} class:prop={proposed.has(p.id) && !p.scheduled} class:past={new Date(p.stop) <= now} class:seen={seenState.has(p.workId)}
-                style:left="{CH + x.a * ppm}px" style:width="{Math.max(8, (x.b - x.a) * ppm - 4)}px" onclick={() => { tipOut(); open = p; }}
+                style:left="{CH + x.a * ppm}px" style:width="{Math.max(8, (x.b - x.a) * ppm - 4)}px" onclick={() => { tipOut(); openWork(p); }}
                 onpointerenter={(e) => tipIn(e, p, r.name)} onpointerleave={tipOut} onpointerdown={tipOut}
                 aria-label="{p.title}, {day(p.start, now)} {range(p.start, p.stop)}, {r.name}{p.scheduled ? ', in programma' : ''}{proposed.has(p.id) ? ', proposta per te' : ''}">
                 <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{#if seenState.has(p.workId)}<span class="seenmark" aria-label="visto">✓</span>{/if}{p.title}{p.episode && p.group !== 'Film' ? ` · ${p.episode}` : ''}</span>
@@ -650,7 +649,7 @@
   {:else}
     <ul class="list">
       {#each listItems as p (p.id)}
-        <li><button type="button" class="lrow" class:past={new Date(p.stop) <= now} onclick={() => (open = p)}>
+        <li><button type="button" class="lrow" class:past={new Date(p.stop) <= now} onclick={() => openWork(p)}>
           <span class="lwhen"><strong>{time(p.start)}</strong><span>{time(p.stop)}</span></span>
           <span class="lch">{p.channelName || p.guideChannelName}</span>
           <span class="lwhat"><span class="ltitle">{p.title}{#if p.scheduled} <span class="dot" aria-label="in programma"></span>{/if}</span><span class="lmeta">{[episodeOf(p), p.group, p.sub, p.country, p.year || '', p.actors].filter(Boolean).join(' · ')}</span></span>
@@ -685,9 +684,6 @@
     {/if}
     {#if p.description}<span class="tdesc">{p.description}</span>{/if}
   </div>
-{/if}
-{#if open}
-  <ProgrammaDialog p={open} onclose={() => (open = null)} onchange={changed} />
 {/if}
 {#if freeFor != null}
   {#key freeFor}<NuovaRegistrazione channel={freeFor} onclose={() => (freeFor = null)} ondone={() => (freeFor = null)} />{/key}

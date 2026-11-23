@@ -1,6 +1,8 @@
 // Router minimo con indirizzi veri (/guida, /registrazioni...): il server rimanda a index.html ogni
 // indirizzo che non è un file né /api. Nessuna dipendenza esterna.
 
+import { entryKey, newEntryState, restoreHere, saveHere } from './scrollMemory';
+
 export type Route = 'stasera' | 'cerca' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
 
 const paths: Record<string, Route> = {
@@ -38,15 +40,18 @@ class Router {
   libraryListId = $derived(Number(this.path.match(/^\/libreria\/liste\/(\d+)/)?.[1] ?? 0));
 
   constructor() {
-    window.addEventListener('popstate', () => { this.path = window.location.pathname; this.nav++; });
+    // la posizione la rimette scrollMemory (anche le file di locandine), non il browser
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    entryKey();
+    window.addEventListener('popstate', () => { this.path = window.location.pathname; this.nav++; restoreHere(); });
   }
 
   /** Va a un indirizzo dell'app; un'ancora (/opera/12#avvisami) resta nell'indirizzo ma non nel percorso. */
   go(path: string, replace = false): void {
     const url = new URL(path, window.location.origin);
     if (url.pathname === this.path && url.hash === window.location.hash) return;
-    if (replace) history.replaceState(null, '', url.pathname + url.hash);
-    else history.pushState(null, '', url.pathname + url.hash);
+    if (replace) history.replaceState(history.state, '', url.pathname + url.hash);
+    else { saveHere(); history.pushState(newEntryState(), '', url.pathname + url.hash); }
     this.path = url.pathname;
     this.nav++;
     window.scrollTo(0, 0);

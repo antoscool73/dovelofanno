@@ -26,7 +26,7 @@
   // la scheda si ricorda nell'indirizzo (/impostazioni#profili), così i collegamenti dalle altre schermate ci arrivano
   // #limiti (la scheda di prima) porta a Registrazioni
   let tab = $state<Tab>(location.hash === '#limiti' ? 'registrazioni' : tabs.find((t) => location.hash === '#' + t.id)?.id ?? 'sorgenti');
-  $effect(() => { history.replaceState(null, '', '#' + tab); });
+  $effect(() => { history.replaceState(history.state, '', '#' + tab); });
 
   let sources = $state<Source[]>([]);
   let channels = $state<Channel[]>([]);

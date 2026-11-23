@@ -33,7 +33,7 @@
   // #registrazione (la scheda di prima) porta a Impostazioni › Registrazioni
   if (location.hash === '#registrazione') router.go('/impostazioni#registrazioni');
   let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'canali', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
-  $effect(() => { history.replaceState(null, '', '#' + tab); });
+  $effect(() => { history.replaceState(history.state, '', '#' + tab); });
 
   const prof = $derived(session.profile);
   const child = $derived(!!prof?.isChild);

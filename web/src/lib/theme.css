@@ -99,3 +99,6 @@ input::placeholder { color: var(--placeholder); }
   color: var(--text-2); font-size: 14px; cursor: pointer;
 }
 .f-chip[aria-pressed='true'] { background: var(--blue-soft); border-color: var(--blue); color: var(--text); font-weight: 600; }
+
+/* la locandina da cui si era partiti, tornando con «Indietro» (lib/scrollMemory.ts) */
+.was-here { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 12px; }

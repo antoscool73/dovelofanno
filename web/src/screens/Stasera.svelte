@@ -8,7 +8,6 @@
   import RecordButton from '../lib/components/RecordButton.svelte';
   import SeenButton from '../lib/components/SeenButton.svelte';
   import { seenState } from '../lib/seen.svelte';
-  import ProgrammaDialog from './ProgrammaDialog.svelte';
   import Section from '../lib/components/Section.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import { platforms } from '../lib/platforms.svelte';
@@ -37,7 +36,8 @@
   let guideFilms = $state<GuideProgramme[]>([]);
   let loading = $state(true);
   let error = $state('');
-  let open = $state<GuideProgramme | null>(null);
+  // un clic su una locandina apre sempre la scheda del titolo (23/11/2026, Antonio: niente più popup del programma)
+  const openWork = (p: GuideProgramme) => { if (p.workId != null) router.go(`/opera/${p.workId}`); };
   let busy = $state<number | null>(null);
   let now = $state(new Date());
 
@@ -173,7 +173,7 @@
   }
 
   async function quickRecord(p: GuideProgramme) {
-    if (p.channelId == null || p.scheduled) { open = p; return; }
+    if (p.channelId == null || p.scheduled) { openWork(p); return; }
     const how = await recordChoice(p);
     if (how === null) return;
     if (how === 'series') { await load(); return; }
@@ -310,10 +310,8 @@
       : [canSee ? channelOf(p) : paidChannel(p), slot(p), meta];
     const card: Card = {
       key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
-      lines, open: () => (open = p), workId: p.workId,
+      lines, open: () => openWork(p), workId: p.workId,
     };
-    // passaggio su un canale che non vedo ma il titolo l'ho in casa o in streaming: il tocco apre la scheda (con Guarda)
-    if (unseenTv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
     return card;
   }
 
@@ -335,7 +333,7 @@
       key: `t${i.workId}`, poster: i.poster || g?.poster || g?.icon || '', title: i.title, rating: i.rating ?? null, rated: RATED_KINDS.includes(i.kind),
       scheduled: !!(tv ?? i.next)?.scheduled, avail, dim: !available,
       lines,
-      open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
+      open: () => router.go(`/opera/${i.workId}`),
       // si registra anche un passaggio di giorno (il prossimo)
       rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, drop: () => drop(i), dropLabel: 'Togli dalla mia lista',
       // segnato come visto esce dalla mia lista (lo fa il server): si rilegge
@@ -400,7 +398,7 @@
         {#if hero.actors || hero.directors}<p class="credits">{hero.actors ? `Con ${hero.actors}` : ''}{hero.actors && hero.directors ? ' · ' : ''}{hero.directors ? `Regia di ${hero.directors}` : ''}</p>{/if}
         <div class="actions">
           {#if recordable(hero)}<RecordButton scheduled={hero.scheduled} busy={busy === hero.id} onclick={() => quickRecord(hero)} />{/if}
-          <Button variant="soft" size="l" onclick={() => (hero.workId != null ? router.go(`/opera/${hero.workId}`) : (open = hero))}>Dettagli</Button>
+          <Button variant="soft" size="l" onclick={() => openWork(hero)}>Dettagli</Button>
         </div>
       </div>
     </section>
@@ -517,7 +515,7 @@
       <ul class="cards" use:dragScroll>
         {#each list.filter((c) => !seenState.hidden(c.workId)) as c (c.key)}
           <li class:dim={c.dim}>
-            <button type="button" class="card" onclick={c.open}>
+            <button type="button" class="card" data-k={c.key} onclick={c.open}>
               <span class="poster">
                 <PosterImg src={c.poster} title={c.title} />
                 {#if c.rating != null}<span class="stars">★ {vote(c.rating)}</span>{:else if c.rated}<span class="stars na" title="Voto non ancora disponibile">★ N/A</span>{/if}
@@ -595,9 +593,6 @@
   </div>
 {/if}
 
-{#if open}
-  <ProgrammaDialog p={open} onclose={() => (open = null)} onchange={load} />
-{/if}
 
 <style>
   .toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
