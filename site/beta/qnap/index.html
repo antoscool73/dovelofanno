@@ -32,8 +32,8 @@
     <li><strong>Serve</strong>: l'accesso da amministratore al NAS (QTS o QuTS hero)</li>
   </ul>
   <div class="note warn">
-    <p><strong>Istruzioni non ancora provate su un QNAP vero.</strong> Le stai collaudando tu: se una voce ha un nome
-      diverso o qualcosa non torna, scrivimi cosa vedi (anche con uno screenshot) e le correggo.</p>
+    <p><strong>Istruzioni provate da poco su un QNAP vero</strong> (TS-253A, Container Station 3.1.2). Se una voce ha
+      un nome diverso o qualcosa non torna, scrivimi cosa vedi (anche con uno screenshot) e le correggo.</p>
   </div>
 
   <section id="prima">
@@ -54,23 +54,24 @@
   <section id="scarica">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
     <p>Scarica sul computer da cui stai lavorando <strong>uno</strong> dei due file, quello del tuo processore. È grande:
-      ci vuole qualche minuto. Non aprirlo e non decomprimerlo.</p>
+      ci vuole qualche minuto. Non aprirlo e non decomprimerlo. Per QNAP serve proprio questo file: quello della pagina
+      Linux non va bene (Container Station non lo riconosce).</p>
     <table class="dl">
       <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
       <tbody>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.2.2/dovelofanno-0.2.2-docker-amd64.tar.gz">dovelofanno-0.2.2-docker-amd64.tar.gz</a>
-            <div class="hash" data-hash="docker-amd64">SHA-256 6a3d523989e69f42bc971227707a1e90396606a8f76715fb5a2df4cba0c453a4</div></td>
+          <td><a href="https://download.dovelofanno.it/prova-qnap/0.2.2/dovelofanno-0.2.2-docker-amd64-classico.tar">dovelofanno-0.2.2-docker-amd64-classico.tar</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 b78d3cb9e2523fb2765ef16c55bb822c5205de7dfa81dc68058a3c9fe717b4f8</div></td>
           <td>Intel o AMD (la maggior parte dei QNAP)</td>
-          <td class="size" data-size="docker-amd64">244 MB</td>
+          <td class="size" data-size="docker-amd64">673 MB</td>
         </tr>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.2.2/dovelofanno-0.2.2-docker-arm64.tar.gz">dovelofanno-0.2.2-docker-arm64.tar.gz</a>
-            <div class="hash" data-hash="docker-arm64">SHA-256 ad52a8767ef11263f1633cc54d60900c98e73615141477e3ccabce92caaf73a7</div></td>
+          <td><a href="https://download.dovelofanno.it/prova-qnap/0.2.2/dovelofanno-0.2.2-docker-arm64-classico.tar">dovelofanno-0.2.2-docker-arm64-classico.tar</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 edace57a3488b0bfec5064edb9fb7162698db79475bd27555aa56c35ba2fbd49</div></td>
           <td>ARM a 64 bit (alcuni modelli economici)</td>
-          <td class="size" data-size="docker-arm64">235 MB</td>
+          <td class="size" data-size="docker-arm64">687 MB</td>
         </tr>
       </tbody>
     </table>
@@ -84,10 +85,13 @@
         altre due: <code>data</code> e <code>registrazioni</code>.
         <span class="expect"><code>Container › dovelofanno</code> con dentro <code>data</code> e
         <code>registrazioni</code>, vuote.</span></li>
-      <li><strong>L'immagine.</strong> Apri <strong>Container Station</strong> › <strong>Immagini</strong> ›
-        <strong>Importa</strong> e scegli il file <code>.tar.gz</code> scaricato.
+      <li><strong>L'immagine.</strong> Apri <strong>Container Station</strong> e, nel menu a sinistra,
+        <strong>Immagine</strong> › <strong>Importa</strong>; scegli il file scaricato. Attenzione: anche la sezione
+        <strong>Container</strong> ha un pulsante «Importa», ma serve ad altro e dà «Invalid File Format».
         <span class="expect">il caricamento richiede qualche minuto; poi nell'elenco compare <code>dovelofanno</code>
-        con l'etichetta <code>0.2.2</code>.</span></li>
+        con la versione <code>0.2.2</code>.</span>
+        <strong>Non avviarla</strong> con il pulsante ▶ accanto all'immagine: il container lo crea da solo
+        l'applicazione del passo successivo, con le cartelle e la porta giuste.</li>
       <li><strong>L'applicazione.</strong> Container Station › <strong>Applicazioni</strong> › <strong>Crea</strong>.
         Nome dell'applicazione: <code>dovelofanno</code>. Nel riquadro del testo cancella quello che c'è e incolla
         esattamente questo (gli spazi all'inizio delle righe contano):
@@ -128,8 +132,12 @@
         che iniziano con <code>- /share/</code>.</li>
       <li><strong>Il browser non apre la pagina.</strong> Controlla in Container Station che l'applicazione sia «in
         esecuzione» e che l'indirizzo finisca con <code>:8765</code>.</li>
-      <li><strong>«Importa» dà errore.</strong> Probabilmente il file è dell'altro processore (amd64 al posto di arm64 o
-        viceversa) o è arrivato a metà: riscaricalo.</li>
+      <li><strong>«Importa» dà «Invalid File Format».</strong> Controlla di essere in <strong>Immagine</strong> ›
+        Importa (non in Container) e di aver preso il file di questa pagina. Se è così, il file è dell'altro processore
+        (amd64 al posto di arm64 o viceversa) o è arrivato a metà: riscaricalo.</li>
+      <li><strong>«Crea» dice che c'è già un container con lo stesso nome.</strong> Succede se l'immagine è stata avviata
+        con ▶. In <strong>Container</strong>, ingranaggio accanto a <code>dovelofanno</code> › Ferma, poi Elimina; se in
+        Applicazioni è rimasta una <code>dovelofanno</code> in errore, elimina anche quella. Poi rifai il passo 3.</li>
       <li><strong>I log</strong> sono in <code>Container/dovelofanno/data/logs</code>: mandameli a
         <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
     </ul>
@@ -138,10 +146,10 @@
   <section id="aggiornare">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
     <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina e scarica
-      il nuovo file. Poi importalo in Container Station › Immagini, apri l'applicazione <code>dovelofanno</code>, cambia
+      il nuovo file. Poi importalo in Container Station › Immagine › Importa, apri l'applicazione <code>dovelofanno</code>, cambia
       il numero nella riga <code>image</code> (per esempio da <code>dovelofanno:0.2.2</code> al numero nuovo) e salva:
       l'applicazione riparte con la versione nuova. Dati, liste e registrazioni restano.</p>
-    <p><strong>Togliere</strong>: Container Station › Applicazioni › <code>dovelofanno</code> › Elimina, poi in Immagini
+    <p><strong>Togliere</strong>: Container Station › Applicazioni › <code>dovelofanno</code> › Elimina, poi in Immagine
       elimina <code>dovelofanno</code>. La cartella <code>Container/dovelofanno</code> con dati e registrazioni resta:
       cancellala da File Station solo se non ti servono più.</p>
   </section>

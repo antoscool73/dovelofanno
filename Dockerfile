@@ -13,6 +13,8 @@ RUN npm run build
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
+# numero di versione del rilascio (release.yml e ci.yml sui tag); vuoto = quello di Directory.Build.props (-dev)
+ARG VERSION=
 WORKDIR /src
 COPY global.json Directory.Build.props DoveLoFanno.slnx ./
 COPY src/DoveLoFanno.Core/DoveLoFanno.Core.csproj src/DoveLoFanno.Core/
@@ -24,7 +26,7 @@ RUN RID="linux-$([ "$TARGETARCH" = amd64 ] && echo x64 || echo "$TARGETARCH")" \
 COPY src/ src/
 COPY --from=web /src/src/DoveLoFanno.Server/wwwroot src/DoveLoFanno.Server/wwwroot
 RUN dotnet publish src/DoveLoFanno.Server/DoveLoFanno.Server.csproj -c Release -r "$(cat /rid)" --no-restore \
-        --self-contained false -p:UseAppHost=false -o /app
+        --self-contained false -p:UseAppHost=false ${VERSION:+-p:Version=$VERSION} -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # ffmpeg e ffprobe della distribuzione (licenza e sorgenti: pacchetto ffmpeg di Ubuntu); tzdata per l'ora locale

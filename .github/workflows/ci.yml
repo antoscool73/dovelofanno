@@ -164,12 +164,13 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: dovelofanno:test
+          build-args: VERSION=0.0.0-ci
           cache-from: type=gha
 
       - name: Collaudo del container (installazione, registrazione, riavvio, backup)
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
-          bash tools/ci/docker-smoke.sh dovelofanno:test
+          EXPECT_VERSION=0.0.0-ci bash tools/ci/docker-smoke.sh dovelofanno:test
 
       - name: Pubblicazione su GitHub Container Registry
         if: github.event_name == 'push'
@@ -177,16 +178,18 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           tags=(-t "${image}:edge")
+          args=()
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version="${GITHUB_REF#refs/tags/v}"
             tags=(-t "${image}:${version}" -t "${image}:latest")
+            args=(--build-arg "VERSION=${version}")
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             tags=(-t "${image}:${GITHUB_REF#refs/tags/}")
           fi
           docker buildx build --platform linux/amd64,linux/arm64 --cache-from type=gha \
             --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.licenses=GPL-3.0-or-later" \
-            "${tags[@]}" --push .
+            "${args[@]}" "${tags[@]}" --push .
 
   secrets-scan:
     name: Segreti (gitleaks)

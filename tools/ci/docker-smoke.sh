@@ -56,6 +56,10 @@ run_container() {
 step "Installazione da zero"
 run_container
 curl -fsS "$API/health" | tee /dev/stderr | jq -e '.status == "ok" and .api == "v1"' >/dev/null
+if [ -n "${EXPECT_VERSION:-}" ]; then
+  CUR=$(curl -fsS "$API/settings/updates" | jq -r .current)
+  [ "$CUR" = "$EXPECT_VERSION" ] || fail "versione dell'immagine $CUR, attesa $EXPECT_VERSION"
+fi
 [ "$(docker exec dlf id -u)" = "1654" ] || fail "il container non gira come utente app"
 docker exec dlf ffmpeg -version | head -1
 
