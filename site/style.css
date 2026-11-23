@@ -304,3 +304,9 @@ footer { padding: 28px 0 40px; }
   table.dl td { display: block; border: 0; padding: 2px 0; }
   table.dl td.ic { display: none; }
 }
+
+/* intro col jingle (23/11/2026) */
+.h-intro { position: relative; margin: 0 auto 28px; max-width: 880px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #000; aspect-ratio: 16 / 9; }
+.h-intro video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.h-intro-btn { position: absolute; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(13, 16, 21, 0.65); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.h-intro-btn:hover { background: rgba(13, 16, 21, 0.9); }

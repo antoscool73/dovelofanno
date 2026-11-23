@@ -15,6 +15,10 @@
   import { session } from '../lib/session.svelte';
   import { day, time } from '../lib/format';
   import PreferenzeCanali from './PreferenzeCanali.svelte';
+  import { introOn, setIntroOn } from '../lib/intro';
+  import Intro from '../lib/components/Intro.svelte';
+  let introEnabled = $state(introOn());
+  let introPreview = $state(false);
 
   type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'canali' | 'notifiche';
   const tabs: { id: Tab; label: string }[] = [
@@ -207,6 +211,10 @@
       {:else}
         <div><Button variant="primary" onclick={askPermission}>Attiva le notifiche del browser</Button></div>
       {/if}
+      <label class="introsw"><input type="checkbox" checked={introEnabled} onchange={(e) => { introEnabled = e.currentTarget.checked; setIntroOn(introEnabled); }} />
+        <span><strong>Intro all'ingresso</strong> <span class="f-muted">il logo animato con il jingle, una volta ogni volta che apri DoveLoFanno; si salta con un clic</span></span></label>
+      <div><Button variant="soft" size="s" onclick={() => (introPreview = true)}>Guarda l'intro</Button></div>
+      {#if introPreview}<Intro onclose={() => (introPreview = false)} />{/if}
       <h3>Telegram e orari di silenzio</h3>
       <p class="f-muted">Valgono per tutta la famiglia: <a href="/impostazioni#notifiche" onclick={navigate}>Impostazioni › Notifiche</a>.</p>
     {/if}
@@ -214,6 +222,8 @@
 </div>
 
 <style>
+  .introsw { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+  .introsw input { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); flex: 0 0 auto; }
   .fam { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
   .wrap { display: flex; flex-wrap: wrap; gap: 32px; padding: 28px var(--gutter) 64px; max-width: 1340px; }
   aside { flex: 1 1 220px; max-width: 240px; display: flex; flex-direction: column; gap: 6px; }

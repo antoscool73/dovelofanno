@@ -36,8 +36,9 @@
 }
 </script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=7">
 <script src="/carosello.js?v=1" defer></script>
+<script src="/intro.js?v=2" defer></script>
 </head>
 <body class="home-page">
 <!-- icone a linea, generiche: <svg class="ico"><use href="#i-..."/></svg> -->
@@ -76,6 +77,11 @@
 <div class="h-arc" aria-hidden="true"></div>
 
 <main class="h-wrap">
+  <!-- intro col jingle (23/11/2026): parte muta da sola, col pulsante si rivede con l'audio -->
+  <figure class="h-intro">
+    <video id="intro" src="/intro.mp4" poster="/intro.jpg" muted playsinline preload="metadata" aria-label="Il logo di DoveLoFanno animato, con il jingle"></video>
+    <button type="button" id="intro-audio" class="h-intro-btn" aria-label="Guarda l'intro con l'audio"><span aria-hidden="true">🔊</span> Con l'audio</button>
+  </figure>
   <aside class="h-banner">
     <img src="/favicon.svg" alt="" width="52" height="52">
     <div><strong>In prova con pochi amici, presto per tutti.</strong>

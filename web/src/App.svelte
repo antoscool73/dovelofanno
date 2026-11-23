@@ -16,6 +16,10 @@
   import Libreria from './screens/Libreria.svelte';
   import Player from './screens/Player.svelte';
   import Cerca from './screens/Cerca.svelte';
+  import Intro from './lib/components/Intro.svelte';
+  import { introDue } from './lib/intro';
+  // intro col jingle all'ingresso nell'app (dopo la scelta del profilo), una volta per scheda
+  let intro = $state(introDue());
   import { api, ApiError, type Profile } from './lib/api/client';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
@@ -73,6 +77,7 @@
 {:else if router.route === 'guarda'}
   <Player id={router.itemId} />
 {:else}
+  {#if intro}<Intro onclose={() => (intro = false)} />{/if}
   <AppHeader />
   <main>
     {#if router.route === 'stasera'}
