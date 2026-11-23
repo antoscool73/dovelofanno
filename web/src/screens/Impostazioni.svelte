@@ -235,6 +235,16 @@
         <p class="muted small">Se un canale è in più playlist si usa la prima in elenco; se quel flusso si ferma durante una registrazione, si passa da solo al successivo.</p>
       {/if}
 
+      <form class="add" onsubmit={add}>
+        <h3>Aggiungi una playlist</h3>
+        <div class="row">
+          <label class="field n">Nome (facoltativo)<input bind:value={newName} placeholder="Playlist di casa" /></label>
+          <label class="field u">Indirizzo della playlist M3U o file sul server<input bind:value={newUrl} placeholder="https://…/playlist.m3u" required /></label>
+        </div>
+        <p class="muted small">DoveLoFanno non include canali né playlist e non li fornisce: aggiungi solo playlist che hai il diritto di usare. La guida TV, se la playlist la indica, si collega da sola.</p>
+        <div><Button variant="primary" type="submit" disabled={busy !== null || newUrl.trim() === ''}>{busy === 'add' ? 'Verifica in corso…' : 'Verifica e aggiungi'}</Button></div>
+      </form>
+
       {#if problems.length > 0}
         <h3>Canali con problemi</h3>
         <ul class="problems">
@@ -247,16 +257,6 @@
           {/each}
         </ul>
       {/if}
-
-      <form class="add" onsubmit={add}>
-        <h3>Aggiungi una playlist</h3>
-        <div class="row">
-          <label class="field n">Nome (facoltativo)<input bind:value={newName} placeholder="Playlist di casa" /></label>
-          <label class="field u">Indirizzo della playlist M3U o file sul server<input bind:value={newUrl} placeholder="https://…/playlist.m3u" required /></label>
-        </div>
-        <p class="muted small">DoveLoFanno non include canali né playlist e non li fornisce: aggiungi solo playlist che hai il diritto di usare. La guida TV, se la playlist la indica, si collega da sola.</p>
-        <div><Button variant="primary" type="submit" disabled={busy !== null || newUrl.trim() === ''}>{busy === 'add' ? 'Verifica in corso…' : 'Verifica e aggiungi'}</Button></div>
-      </form>
     {:else if tab === 'voti'}
       <VotiFilm />
     {:else if tab === 'cartelle'}

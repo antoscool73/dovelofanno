@@ -30,4 +30,6 @@ Vite (MIT), TypeScript (Apache-2.0), svelte-check (MIT), openapi-typescript (MIT
 
 ## Dati e servizi
 
+**Elenco dei canali italiani di iptv-org** (`src/DoveLoFanno.Core/Sources/iptv-org-it.json`, copia del 23/11/2026 di nome, nomi alternativi, categorie e stato dei canali con paese IT): dal database https://github.com/iptv-org/database, rilasciato nel pubblico dominio (The Unlicense). Serve solo a riconoscere il tipo dei canali nel filtro della guida.
+
 Dati e servizi esterni (TMDB, voti IMDb, guide XMLTV, playlist M3U) sono scelti e configurati dall'utente; le loro condizioni sono descritte nel documento di progetto, sezione "Licenze dei dati".

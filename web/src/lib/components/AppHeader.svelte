@@ -76,6 +76,10 @@
   }
   .icon:hover { color: var(--text); background: var(--card); }
   .icon[aria-current='page'] { color: var(--text); background: var(--raised); }
+  /* la lente a colori invertiti, come i pulsanti accesi (23/11/2026, Antonio: «più visibile») */
+  .icon.search { color: var(--bg); background: var(--text); border-radius: 999px; }
+  .icon.search:hover { color: var(--bg); background: var(--text-2); }
+  .icon.search[aria-current='page'] { color: var(--bg); background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--blue); }
   /* profilo senza riquadro (Antonio, 20/11/2026): avatar, nome e freccia; sfondo solo al passaggio */
   .profile {
     display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px 4px 4px;

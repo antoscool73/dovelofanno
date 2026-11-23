@@ -145,6 +145,7 @@ export const api = {
   refreshSource: (id: number) => call<ImportResult>('POST', `/sources/${id}/refresh`),
   checkSource: (id: number) => call<void>('POST', `/sources/${id}/check`),
   channels: () => call<Channel[]>('GET', '/channels'),
+  setChannelsGuide: (ids: number[], show: 'auto' | 'show' | 'hide') => call<{ changed: number }>('PUT', '/channels/guide', { ids, show }),
   streams: (channelId: number) => call<Stream[]>('GET', `/channels/${channelId}/streams`),
   allStreams: () => call<Stream[]>('GET', '/streams'),
 

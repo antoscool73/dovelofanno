@@ -395,7 +395,7 @@
 
         <div class="field">
           <span id="lbl-generi">Generi</span>
-          <details class="multi" aria-labelledby="lbl-generi">
+          <details class="multi" data-dropdown aria-labelledby="lbl-generi">
             <summary>{genreNames.length === 0 ? 'Tutti' : genreNames.join(', ')}</summary>
             <div class="mlist">
               {#each options?.genres ?? [] as g (g.id)}

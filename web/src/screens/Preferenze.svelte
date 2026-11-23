@@ -14,18 +14,21 @@
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
   import { day, time } from '../lib/format';
+  import PreferenzeCanali from './PreferenzeCanali.svelte';
 
-  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'notifiche';
+  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'canali' | 'notifiche';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'serata', label: 'La mia lista' },
     { id: 'avvisi', label: 'I miei avvisi' },
     { id: 'abbonamenti', label: 'I miei abbonamenti' },
+    // canali nella guida (23/11/2026: spostati da Impostazioni, «non è un'impostazione», Antonio)
+    { id: 'canali', label: 'Canali nella guida' },
     { id: 'notifiche', label: 'Notifiche' },
   ];
   // senza scheda nell'indirizzo (o con #proposte, quello di prima) si apre «La mia serata»
   // #registrazione (la scheda di prima) porta a Impostazioni › Registrazioni
   if (location.hash === '#registrazione') router.go('/impostazioni#registrazioni');
-  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
+  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'canali', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
   $effect(() => { history.replaceState(null, '', '#' + tab); });
 
   const prof = $derived(session.profile);
@@ -185,6 +188,9 @@
           <ServicePicker known={family.known} selected={mySubs.own} disabled={busy} ontoggle={toggleSub} />
         {/if}
       {/if}
+
+    {:else if tab === 'canali'}
+      <PreferenzeCanali />
 
     {:else if tab === 'notifiche'}
       <h2>Notifiche</h2>

@@ -8,6 +8,7 @@
 
   let data = $state<NotificationList | null>(null);
   let open = $state(false);
+  let bell = $state<HTMLDivElement | null>(null);
   let lastId = 0;
 
   async function load() {
@@ -55,9 +56,11 @@
   const icons: Record<string, string> = { recording: '●', alert: '🔔', proposals: '★', system: 'i' };
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') open = false; }} />
+<!-- si chiude con Esc o con un clic fuori dalla campanella e dal suo riquadro -->
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') open = false; }}
+  onpointerdown={(e) => { if (open && bell && !bell.contains(e.target as Node)) open = false; }} />
 
-<div class="bell">
+<div class="bell" bind:this={bell}>
   <button type="button" class="btn" aria-expanded={open} aria-label={data && data.unread > 0 ? `Notifiche, ${data.unread} da leggere` : 'Notifiche'} onclick={toggle}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
     {#if data && data.unread > 0}<span class="count">{data.unread > 9 ? '9+' : data.unread}</span>{/if}

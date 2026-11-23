@@ -7,7 +7,8 @@
   import { api, ApiError, type Channel, type Recording, type Stream } from '../lib/api/client';
   import { at, byChannelOrder, dateInput, timeInput } from '../lib/format';
 
-  let { onclose, ondone, edit = null }: { onclose: () => void; ondone: (warnings: string[]) => void; edit?: Recording | null } = $props();
+  // `channel`: canale già scelto (dalla riga di un canale senza guida, 23/11/2026)
+  let { onclose, ondone, edit = null, channel = null }: { onclose: () => void; ondone: (warnings: string[]) => void; edit?: Recording | null; channel?: number | null } = $props();
 
   let channels = $state<Channel[]>([]);
   let loadError = $state('');
@@ -17,7 +18,7 @@
   const e0 = untrack(() => edit);
   const start0 = e0 ? new Date(e0.start) : new Date(now.getTime() + 60_000);
   const stop0 = e0 ? new Date(e0.stop) : new Date(start0.getTime() + 60 * 60_000);
-  let channelId = $state<number | null>(e0?.channelId ?? null);
+  let channelId = $state<number | null>(e0?.channelId ?? untrack(() => channel) ?? null);
   let title = $state(e0?.title ?? '');
   let date = $state(dateInput(start0));
   let from = $state(timeInput(start0));

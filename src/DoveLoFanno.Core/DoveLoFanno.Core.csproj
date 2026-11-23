@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Migrations\*.sql" />
+    <EmbeddedResource Include="Sources\iptv-org-it.json" />
   </ItemGroup>
 </Project>

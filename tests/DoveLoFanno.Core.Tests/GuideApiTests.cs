@@ -96,5 +96,17 @@ public sealed class GuideApiTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await http.PutAsJsonAsync("/api/v1/recordings/999999", edit)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await http.DeleteAsync($"/api/v1/recordings/{recId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await http.PutAsJsonAsync($"/api/v1/recordings/{recId}", edit)).StatusCode);   // annullata: non si modifica
+
+        // filtro «Canali» (23/11/2026): regione della famiglia e scelta a mano per canale
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync("/api/v1/settings/general", new { region = "Atlantide" })).StatusCode);
+        var gen = await (await http.PutAsJsonAsync("/api/v1/settings/general", new { region = "Lombardia" })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Lombardia", gen.GetProperty("region").GetString());
+        Assert.Equal(20, gen.GetProperty("regions").GetArrayLength());
+        long chId = film.GetProperty("channelId").GetInt64();
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync("/api/v1/channels/guide", new { ids = new[] { chId }, show = "forse" })).StatusCode);
+        var changed = await (await http.PutAsJsonAsync("/api/v1/channels/guide", new { ids = new[] { chId, 999999L }, show = "hide" })).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, changed.GetProperty("changed").GetInt32());
+        var chs = await http.GetFromJsonAsync<JsonElement>("/api/v1/channels");
+        Assert.False(chs.EnumerateArray().Single(c => c.GetProperty("id").GetInt64() == chId).GetProperty("guideShow").GetBoolean());
     }
 }

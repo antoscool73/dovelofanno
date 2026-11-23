@@ -8,8 +8,12 @@ public sealed record SourceRow(long Id, string Name, string Url, string XmltvUrl
 
 /// <param name="Number">Numero del digitale terrestre (LCN nazionale), null se il canale non ne ha uno: solo un'etichetta.</param>
 /// <param name="Order">Posto del canale negli elenchi (0 = primo): l'ordine della playlist, come in RegistraTV.</param>
+/// <param name="Region">regione dal nome, "" se non si capisce (<see cref="ChannelInfo"/>, 23/11/2026)</param>
+/// <param name="Kind">tipo del canale: radio, news, sports, kids, music, religious, shop, movies, culture, entertainment, general, ""</param>
+/// <param name="Closed">chiuso secondo il database iptv-org</param>
+/// <param name="GuideShow">scelta a mano per la guida: null = automatica (filtro «Canali»), true = sempre, false = mai</param>
 public sealed record ChannelRow(long Id, string Key, string Name, string Logo, string Group, bool Excluded, int Streams, int StreamsOk,
-    int? Number = null, int Order = 0);
+    int? Number = null, int Order = 0, string Region = "", string Kind = "", bool Closed = false, bool? GuideShow = null);
 
 public sealed record StreamRow(long Id, long ChannelId, long SourceId, string Url, string Kind, string State, int Priority, int? Width, int? Height, string VideoCodec, string AudioCodec, string UserAgent, DateTimeOffset? LastCheckedAt);
 
@@ -96,6 +100,14 @@ public sealed class SourceStore(string dbPath)
     static string SameName(string name) => Titles.ChannelKey(name);
 
     /// <summary>
+    /// Numero nazionale del digitale terrestre come terza prova che due canali sono lo stesso (23/11/2026): una seconda
+    /// playlist aveva «Cielo TV» (tvg-id cielo) accanto a «Cielo» (tvg-id cielotv) e «27 Twentyseven» accanto a «Twenty
+    /// Seven», che non si univano e restavano senza guida. "" se il canale non ha un numero nazionale.
+    /// </summary>
+    static string SameNumber(string key, string name) =>
+        DoveLoFanno.Sources.ChannelNumbers.For(key, name) is int n ? "#" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+
+    /// <summary>
     /// Unisce i canali che sono lo stesso canale: stessa chiave normalizzata (anche uno per tvg-id e uno per nome) oppure
     /// stesso nome normalizzato (due playlist con tvg-id diversi, "20" e "Mediaset20.it", per «20 Mediaset»). Resta il
     /// più vecchio, che prende flussi e registrazioni degli altri. Restituisce quanti canali ha tolto.
@@ -113,14 +125,15 @@ public sealed class SourceStore(string dbPath)
     {
         var all = Db.Query(c, "SELECT id, key, guide_channel_id, name FROM channels ORDER BY id",
             r => (Id: r.GetInt64(0), Key: r.GetString(1), Guide: Db.NLong(r, 2), Name: r.GetString(3)));
-        // gruppi: due canali stanno insieme se hanno in comune la chiave o il nome normalizzati (anche a catena)
+        // gruppi: due canali stanno insieme se hanno in comune la chiave o il nome normalizzati o il numero nazionale (anche
+        // a catena)
         var parent = all.ToDictionary(x => x.Id, x => x.Id);
         long Find(long x) { while (parent[x] != x) x = parent[x] = parent[parent[x]]; return x; }
         var firstByKey = new Dictionary<string, long>();
         foreach (var x in all)
-            foreach (string k in new[] { "k:" + SameChannel(x.Key), "n:" + SameName(x.Name) })
+            foreach (string k in new[] { "k:" + SameChannel(x.Key), "n:" + SameName(x.Name), SameNumber(x.Key, x.Name) })
             {
-                if (k is "k:" or "n:") continue;
+                if (k is "k:" or "n:" or "") continue;
                 if (firstByKey.TryGetValue(k, out long other)) { long a = Find(x.Id), b = Find(other); if (a != b) parent[Math.Max(a, b)] = Math.Min(a, b); }
                 else firstByKey[k] = x.Id;
             }
@@ -164,6 +177,7 @@ public sealed class SourceStore(string dbPath)
         {
             known.TryAdd("k:" + SameChannel(k), id);
             if (SameName(n).Length > 0) known.TryAdd("n:" + SameName(n), id);
+            if (SameNumber(k, n) is { Length: > 0 } num) known.TryAdd(num, id);
         }
         foreach (var e in playlist.Entries)
         {
@@ -171,13 +185,16 @@ public sealed class SourceStore(string dbPath)
             string key = ChannelKey(e);
             if (key is "id:" or "name:") continue;
             string byName = SameName(e.Name);
+            string byNumber = SameNumber(key, e.Name);
             long? ch = known.TryGetValue("k:" + SameChannel(key), out long found) ? found
-                : byName.Length > 0 && known.TryGetValue("n:" + byName, out found) ? found : null;
+                : byName.Length > 0 && known.TryGetValue("n:" + byName, out found) ? found
+                : byNumber.Length > 0 && known.TryGetValue(byNumber, out found) ? found : null;
             if (ch == null)
             {
                 ch = Db.Insert(c, "INSERT INTO channels (key, name, logo, group_title) VALUES ($k, $n, $l, $g)", ("$k", key), ("$n", e.Name), ("$l", e.Logo), ("$g", e.Group));
                 known["k:" + SameChannel(key)] = ch.Value;
                 if (byName.Length > 0) known.TryAdd("n:" + byName, ch.Value);
+                if (byNumber.Length > 0) known.TryAdd(byNumber, ch.Value);
             }
             string kind = e.Url.Contains(".mpd", StringComparison.OrdinalIgnoreCase) ? "dash"
                 : e.Url.Contains(".m3u8", StringComparison.OrdinalIgnoreCase) ? "hls" : "unknown";
@@ -210,6 +227,19 @@ public sealed class SourceStore(string dbPath)
     /// sequenza; un canale in più playlist prende il posto migliore. Poi i canali che nessuna playlist attiva ha più,
     /// per numero del digitale terrestre e nome.
     /// </summary>
+    static ChannelRow WithFacts(ChannelRow r)
+    {
+        var f = ChannelInfo.For(r.Key, r.Name, r.Group);
+        return r with { Region = f.Region, Kind = f.Kind, Closed = f.Closed };
+    }
+
+    /// <summary>Scelta a mano di un canale nella guida (null = automatica). False se il canale non c'è.</summary>
+    public bool SetGuideShow(long channelId, bool? show)
+    {
+        using var c = Open();
+        return Db.Exec(c, "UPDATE channels SET guide_show = $v WHERE id = $id", ("$v", show is bool b ? (b ? 1 : 0) : null), ("$id", channelId)) == 1;
+    }
+
     public List<ChannelRow> Channels()
     {
         using var c = Open();
@@ -221,13 +251,14 @@ public sealed class SourceStore(string dbPath)
         var rows = Db.Query(c, """
             SELECT ch.id, ch.key, ch.name, ch.logo, ch.group_title, ch.excluded,
                    count(st.id), sum(CASE WHEN st.state = 'ok' THEN 1 ELSE 0 END),
-                   min(CASE WHEN so.id IS NOT NULL THEN so.priority * 1000000 + st.position END)
+                   min(CASE WHEN so.id IS NOT NULL THEN so.priority * 1000000 + st.position END), ch.guide_show
             FROM channels ch LEFT JOIN streams st ON st.channel_id = ch.id
             LEFT JOIN sources so ON so.id = st.source_id AND so.enabled = 1
             GROUP BY ch.id
             """,
-            r => (Row: new ChannelRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5) == 1, r.GetInt32(6),
-                    r.IsDBNull(7) ? 0 : r.GetInt32(7), ChannelNumbers.For(r.GetString(1), r.GetString(2))),
+            r => (Row: WithFacts(new ChannelRow(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5) == 1, r.GetInt32(6),
+                    r.IsDBNull(7) ? 0 : r.GetInt32(7), ChannelNumbers.For(r.GetString(1), r.GetString(2)),
+                    GuideShow: r.IsDBNull(9) ? null : r.GetInt64(9) == 1)),
                   Pos: r.IsDBNull(8) ? (long?)null : r.GetInt64(8)));
         rows.Sort((a, b) =>
             a.Pos != b.Pos && a.Pos != null && b.Pos != null ? a.Pos.Value.CompareTo(b.Pos.Value)

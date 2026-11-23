@@ -144,6 +144,28 @@ public class SourcesTests
         https://altra.example/tv8-alt.m3u8
         """;
 
+    // 23/11/2026: tvg-id e nome diversi in tutte e due le playlist, ma lo stesso numero del digitale terrestre (26)
+    [Fact]
+    public void Archivio_StessoNumeroStessoCanale()
+    {
+        string db = NewDb();
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var s = new SourceStore(db);
+            long a = s.AddSource("Prima", "https://example.org/a.m3u", now);
+            long b = s.AddSource("Seconda", "https://example.org/b.m3u", now);
+            s.Import(a, M3uParser.Parse("#EXTM3U\n#EXTINF:-1 tvg-id=\"cielotv\",Cielo\nhttps://a.example/cielo.m3u8\n#EXTINF:-1 tvg-id=\"mediaset27twentyseven\",Twenty Seven\nhttps://a.example/27.m3u8\n"), now);
+            s.Import(b, M3uParser.Parse("#EXTM3U\n#EXTINF:-1 tvg-id=\"Cielo.it\",Cielo TV\nhttps://b.example/cielo.m3u8\n#EXTINF:-1 tvg-id=\"27twentyseven\",27 Twentyseven\nhttps://b.example/27.m3u8\n#EXTINF:-1 tvg-id=\"Locale.it\",Rete Locale\nhttps://b.example/loc.m3u8\n"), now);
+            var ch = s.Channels();
+            Assert.Equal(3, ch.Count);
+            Assert.Equal(2, ch.Single(c => c.Name == "Cielo").Streams);
+            Assert.Equal(2, ch.Single(c => c.Name == "Twenty Seven").Streams);
+            Assert.Equal(0, s.MergeDuplicateChannels());
+        }
+        finally { Cleanup(db); }
+    }
+
     [Theory]
     [InlineData("Rai1.it", "id:rai1")]
     [InlineData("Rai.1.HD..101.it", "id:rai1")]

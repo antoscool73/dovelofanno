@@ -607,6 +607,46 @@
         }
       }
     },
+    "/api/v1/channels/guide": {
+      "put": {
+        "tags": [
+          "Canali"
+        ],
+        "summary": "Canali nella guida: auto (secondo il filtro «Canali»), show (sempre) o hide (mai), per uno o più canali",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelGuideBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelGuideResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/channels/{id}/streams": {
       "get": {
         "tags": [
@@ -3376,7 +3416,7 @@
         "tags": [
           "Impostazioni"
         ],
-        "summary": "Cambia margini, formato, limiti o segna fatto il primo avvio",
+        "summary": "Cambia margini, formato, limiti, regione della famiglia o segna fatto il primo avvio",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4316,6 +4356,37 @@
           }
         }
       },
+      "ChannelGuideBody": {
+        "required": [
+          "ids",
+          "show"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "show": {
+            "type": "string"
+          }
+        }
+      },
+      "ChannelGuideResult": {
+        "required": [
+          "changed"
+        ],
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "ChannelRow": {
         "required": [
           "id",
@@ -4367,6 +4438,24 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          },
+          "region": {
+            "type": "string",
+            "default": ""
+          },
+          "kind": {
+            "type": "string",
+            "default": ""
+          },
+          "closed": {
+            "type": "boolean",
+            "default": false
+          },
+          "guideShow": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -4520,7 +4609,9 @@
           "minFreeGb",
           "setupDone",
           "recordingsDir",
-          "freeGb"
+          "freeGb",
+          "region",
+          "regions"
         ],
         "type": "object",
         "properties": {
@@ -4555,6 +4646,15 @@
               "number"
             ],
             "format": "double"
+          },
+          "region": {
+            "type": "string"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4607,6 +4707,12 @@
             "type": [
               "null",
               "boolean"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

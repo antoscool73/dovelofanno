@@ -680,6 +680,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/channels/guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Canali nella guida: auto (secondo il filtro «Canali»), show (sempre) o hide (mai), per uno o più canali */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChannelGuideBody"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChannelGuideResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/channels/{id}/streams": {
         parameters: {
             query?: never;
@@ -3602,7 +3651,7 @@ export interface paths {
                 };
             };
         };
-        /** Cambia margini, formato, limiti o segna fatto il primo avvio */
+        /** Cambia margini, formato, limiti, regione della famiglia o segna fatto il primo avvio */
         put: {
             parameters: {
                 query?: never;
@@ -4577,6 +4626,14 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        ChannelGuideBody: {
+            ids: number[];
+            show: string;
+        };
+        ChannelGuideResult: {
+            /** Format: int32 */
+            changed: number;
+        };
         ChannelRow: {
             /** Format: int64 */
             id: number;
@@ -4596,6 +4653,13 @@ export interface components {
              * @default 0
              */
             order: number;
+            /** @default  */
+            region: string;
+            /** @default  */
+            kind: string;
+            /** @default false */
+            closed: boolean;
+            guideShow?: null | boolean;
         };
         ConversionRow: {
             /** Format: int64 */
@@ -4646,6 +4710,8 @@ export interface components {
             recordingsDir: string;
             /** Format: double */
             freeGb: null | number;
+            region: string;
+            regions: string[];
         };
         GeneralSettingsPatch: {
             /** Format: int32 */
@@ -4658,6 +4724,7 @@ export interface components {
             /** Format: int32 */
             minFreeGb: null | number;
             setupDone: null | boolean;
+            region?: null | string;
         };
         GenreCount: {
             group: string;

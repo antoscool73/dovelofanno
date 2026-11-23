@@ -8,8 +8,11 @@ public sealed record ReadBody(long UpTo);
 public sealed record ServicesBody(IReadOnlyList<string> Services);
 public sealed record FamilySubscriptions(IReadOnlyList<string> Services, IReadOnlyList<string> Known);
 public sealed record ProfileSubscriptionsBody(bool Inherits, IReadOnlyList<string>? Services);
-public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb);
-public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone);
+/// <param name="Region">regione della famiglia per il filtro «Canali» della guida (23/11/2026), "" se non scelta</param>
+/// <param name="Regions">le regioni tra cui scegliere</param>
+public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb,
+    string Region, IReadOnlyList<string> Regions);
+public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone, string? Region = null);
 public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo);
 /// <summary>
 /// Sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026, richiesta di Antonio): continua, registrazioni,
@@ -193,6 +196,8 @@ public static class PreferencesApi
             if (b.Format is not (null or "mp4" or "mp3")) return Results.BadRequest(new ApiError("formato: mp4 o mp3"));
             if (b.MaxParallel is < 0 or > 20) return Results.BadRequest(new ApiError("registrazioni contemporanee: da 0 (nessun limite) a 20"));
             if (b.MinFreeGb is < 0 or > 10000) return Results.BadRequest(new ApiError("spazio minimo non valido"));
+            if (b.Region is { Length: > 0 } rg && !DoveLoFanno.Sources.ChannelInfo.RegionNames.Contains(rg)) return Results.BadRequest(new ApiError("regione sconosciuta"));
+            if (b.Region is string region) ctx.Settings.Set("Region", region);
             if (b.BeforeMin is int bm) ctx.Settings.Set("BeforeMin", bm.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.AfterMin is int am) ctx.Settings.Set("AfterMin", am.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.Format is string f) ctx.Settings.Set("Format", f);
@@ -201,7 +206,7 @@ public static class PreferencesApi
             if (b.SetupDone is bool sd) ctx.Settings.Set("SetupDone", sd ? "1" : "0");
             return Results.Ok(General(ctx));
         })
-            .WithSummary("Cambia margini, formato, limiti o segna fatto il primo avvio")
+            .WithSummary("Cambia margini, formato, limiti, regione della famiglia o segna fatto il primo avvio")
             .Produces<GeneralSettings>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         set.MapGet("/notifications", (ServerContext ctx) => NotificationInfo(ctx))
@@ -251,7 +256,8 @@ public static class PreferencesApi
         try { free = Math.Round(new DriveInfo(Path.GetPathRoot(ctx.RecordingsDir)!).AvailableFreeSpace / 1e9, 1); }
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
         return new GeneralSettings(ctx.Settings.GetInt("BeforeMin"), ctx.Settings.GetInt("AfterMin"), ctx.Settings.Get("Format"),
-            ctx.Settings.GetInt("MaxParallel"), ctx.Settings.GetInt("MinFreeGB"), ctx.Settings.Get("SetupDone") == "1", ctx.RecordingsDir, free);
+            ctx.Settings.GetInt("MaxParallel"), ctx.Settings.GetInt("MinFreeGB"), ctx.Settings.Get("SetupDone") == "1", ctx.RecordingsDir, free,
+            ctx.Settings.Get("Region"), DoveLoFanno.Sources.ChannelInfo.RegionNames);
     }
 
     static NotificationSettings NotificationInfo(ServerContext ctx) =>

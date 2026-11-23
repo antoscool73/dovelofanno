@@ -13,6 +13,10 @@ public sealed record NewGuideSource(string Url);
 public sealed record RatingSettings(bool HasTmdbKey, string KeyHint, bool ImdbEnabled, string Status, string Error, int FilmsSearched, int FilmsFound);
 public sealed record RatingSettingsPatch(string? TmdbKey, bool? ClearTmdbKey, bool? ImdbEnabled);
 public sealed record ScheduledRecording(long Id, IReadOnlyList<string> Warnings);
+
+/// <summary>Canali da mostrare o nascondere nella guida: Show = auto, show o hide.</summary>
+public sealed record ChannelGuideBody(IReadOnlyList<long> Ids, string Show);
+public sealed record ChannelGuideResult(int Changed);
 public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartRow> Parts);
 public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
 public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin);
@@ -115,6 +119,16 @@ public static class Api
         // ---------------------------------------------------------------- canali e flussi
         var ch = api.MapGroup("/channels").WithTags("Canali");
         ch.MapGet("", (ServerContext ctx) => ctx.Sources.Channels()).WithSummary("Canali con il numero di flussi e di flussi funzionanti");
+        // aggiunta del 23/11/2026: scelta a mano dei canali nella guida (Preferenze › Canali nella guida), uno o tanti insieme
+        ch.MapPut("/guide", IResult (ChannelGuideBody b, ServerContext ctx) =>
+        {
+            if (b.Show is not ("auto" or "show" or "hide")) return Results.BadRequest(new ApiError("show: auto, show o hide"));
+            bool? v = b.Show == "auto" ? null : b.Show == "show";
+            int n = b.Ids.Count(id => ctx.Sources.SetGuideShow(id, v));
+            return Results.Ok(new ChannelGuideResult(n));
+        })
+            .WithSummary("Canali nella guida: auto (secondo il filtro «Canali»), show (sempre) o hide (mai), per uno o più canali")
+            .Produces<ChannelGuideResult>().Produces<ApiError>(StatusCodes.Status400BadRequest);
         ch.MapGet("/{id:long}/streams", (long id, ServerContext ctx) => ctx.Sources.Streams(channelId: id)).WithSummary("Flussi di un canale con l'esito dell'ultimo controllo");
         // aggiunta della wave 5: per la pagina Sorgenti (conteggi e canali con problemi) senza una richiesta per canale
         api.MapGet("/streams", (long? sourceId, ServerContext ctx) => ctx.Sources.Streams(sourceId: sourceId))
@@ -322,7 +336,8 @@ public static class Api
             return Results.Ok(ctx.Guide.Query(new GuideQuery(from, to)
             {
                 ChannelId = channelId, Text = text, Group = group, Sub = sub, MinRating = minRating ?? 0,
-                OnlyRecordable = onlyRecordable == true, Max = Math.Clamp(max ?? 2000, 1, 5000),
+                // fino a 20000 (23/11/2026): con 150 canali un giorno intero supera i 5000 programmi e la sera spariva
+                OnlyRecordable = onlyRecordable == true, Max = Math.Clamp(max ?? 2000, 1, 20000),
             }));
         })
             .WithSummary("Programmi che si sovrappongono a [from, to): filtri per canale, testo (anche regia e attori), gruppo, sottogenere, voto minimo, solo canali registrabili")
