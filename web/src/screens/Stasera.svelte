@@ -6,6 +6,8 @@
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
+  import SeenButton from '../lib/components/SeenButton.svelte';
+  import { seenState } from '../lib/seen.svelte';
   import ProgrammaDialog from './ProgrammaDialog.svelte';
   import Section from '../lib/components/Section.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
@@ -147,7 +149,10 @@
       .map((i) => i.evening)
       .filter((n): n is GuideProgramme => !!n && new Date(n.start) < to)
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    return mine[0] ?? tonightFilms.find((p) => p.rating != null && recordable(p)) ?? tonightFilms[0] ?? null;
+    // con «Nascondi visti» il titolo in evidenza non è uno già visto
+    const ok = (p: GuideProgramme) => !seenState.hidden(p.workId);
+    const films = tonightFilms.filter(ok);
+    return mine.filter(ok)[0] ?? films.find((p) => p.rating != null && recordable(p)) ?? films[0] ?? null;
   });
   const heroFromList = $derived(!!hero && tonightList.some((i) => i.workId === hero.workId));
 
@@ -174,7 +179,7 @@
     if (how === 'series') { await load(); return; }
     busy = p.id;
     try {
-      await api.scheduleRecording({ channelId: p.channelId, title: recordingTitle(p), start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });
+      await api.scheduleRecording({ channelId: p.channelId, title: recordingTitle(p), start: p.start, stop: p.stop, ...how, programmeId: p.id });
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Registrazione non programmata';
@@ -183,12 +188,6 @@
     }
   }
 
-  async function seen(i: TonightItem) {
-    const prof = session.profile;
-    if (!prof) return;
-    try { await api.watched(prof.id, i.workId); await load(); }
-    catch (e) { error = e instanceof ApiError ? e.message : 'Non segnato'; }
-  }
   async function drop(i: TonightItem) {
     const prof = session.profile;
     if (!prof) return;
@@ -269,7 +268,9 @@
   type Card = {
     key: string; poster: string; title: string; rating: number | null; scheduled: boolean; avail: Avail;
     lines: string[]; note?: string; accent?: string; warn?: string; dim?: boolean; open: () => void; rated?: boolean;
-    rec?: GuideProgramme | null; seen?: () => void; drop?: () => void; dropLabel?: string;
+    rec?: GuideProgramme | null; drop?: () => void; dropLabel?: string;
+    // «Visto» (23/11/2026): l'opera della locandina; onSeen ricarica dove il visto cambia l'elenco (la mia lista)
+    workId?: number | null; onSeen?: () => void;
   };
   // canale e, per serie e programmi, il numero e il titolo della puntata (Antonio, 20/11/2026: va sempre esplicitato)
   const channelOf = (p: GuideProgramme) => [p.channelName || p.guideChannelName, episodeOf(p)].filter(Boolean).join(' · ');
@@ -309,7 +310,7 @@
       : [canSee ? channelOf(p) : paidChannel(p), slot(p), meta];
     const card: Card = {
       key: `p${p.id}`, poster: p.poster || p.icon, title: p.title, rating: p.rating ?? null, scheduled: p.scheduled, avail, rated: RATED_GROUPS.includes(p.group),
-      lines, open: () => (open = p),
+      lines, open: () => (open = p), workId: p.workId,
     };
     // passaggio su un canale che non vedo ma il titolo l'ho in casa o in streaming: il tocco apre la scheda (con Guarda)
     if (unseenTv && (avail.home || avail.mine.length > 0) && p.workId != null) card.open = () => router.go(`/opera/${p.workId}`);
@@ -336,7 +337,9 @@
       lines,
       open: () => (tv ? (open = tv) : router.go(`/opera/${i.workId}`)),
       // si registra anche un passaggio di giorno (il prossimo)
-      rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, seen: () => seen(i), drop: () => drop(i), dropLabel: 'Togli dalla mia lista',
+      rec: recordable(tv ?? i.next) ? (tv ?? i.next) : null, drop: () => drop(i), dropLabel: 'Togli dalla mia lista',
+      // segnato come visto esce dalla mia lista (lo fa il server): si rilegge
+      workId: i.workId, onSeen: () => { load(); },
     };
   }
 
@@ -354,7 +357,7 @@
     return {
       key: h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`, poster: h.poster, title: h.title, rating: h.rating ?? null,
       rated: RATED_KINDS.includes(h.kind), scheduled: false, avail, lines, open: () => openHit(h),
-      drop: h.workId != null ? () => noMore(r, h) : undefined, dropLabel: 'Non proporre più',
+      drop: h.workId != null ? () => noMore(r, h) : undefined, dropLabel: 'Non proporre più', workId: h.workId,
     };
   }
   // titolo di una lista a mano
@@ -368,7 +371,7 @@
     return {
       key: `e${e.workId}`, poster: e.poster || e.next?.poster || e.next?.icon || '', title: e.title, rating: e.rating ?? null,
       rated: RATED_KINDS.includes(e.kind), scheduled: !!e.next?.scheduled, avail, lines, open: () => router.go(`/opera/${e.workId}`),
-      rec: e.next && recordable(e.next) ? e.next : null,
+      rec: e.next && recordable(e.next) ? e.next : null, workId: e.workId,
     };
   }
 
@@ -408,6 +411,14 @@
       <AvailLegend />
       <!-- apri o chiudi tutte le sezioni della pagina (Antonio, 20/11/2026) -->
       <div class="allbtns">
+        <!-- «Nascondi visti» (23/11/2026, Antonio): toglie da tutte le righe i titoli segnati come visti -->
+        {#if session.profile}
+          <label class="switch seenswitch">
+            <input type="checkbox" role="switch" checked={seenState.hide} onchange={(e) => seenState.setHide(e.currentTarget.checked)} />
+            <span class="track" aria-hidden="true"></span>
+            Nascondi visti
+          </label>
+        {/if}
         <button type="button" class="allbtn" onclick={() => sectionsCommand.all(false)} title="Apri tutte le sezioni">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" /></svg>Apri tutte</button>
         <button type="button" class="allbtn" onclick={() => sectionsCommand.all(true)} title="Chiudi tutte le sezioni">
@@ -504,7 +515,7 @@
 
     {#snippet row(list: Card[], all: { filter?: Partial<SearchQuery>; href?: string; label: string; hint: string } | null = null)}
       <ul class="cards" use:dragScroll>
-        {#each list as c (c.key)}
+        {#each list.filter((c) => !seenState.hidden(c.workId)) as c (c.key)}
           <li class:dim={c.dim}>
             <button type="button" class="card" onclick={c.open}>
               <span class="poster">
@@ -519,7 +530,7 @@
               {#if c.accent}<span class="line accent small">{c.accent}</span>{/if}
               {#if c.warn}<span class="line warn small">{c.warn}</span>{/if}
             </button>
-            {#if c.rec || c.seen || c.drop}
+            {#if c.rec || c.workId != null || c.drop}
               <div class="c-acts">
                 {#if c.rec}
                   {@const r = c.rec}
@@ -528,7 +539,7 @@
                     <span class="dot" aria-hidden="true"></span>{r.scheduled ? 'Programmato' : 'Registra'}
                   </button>
                 {/if}
-                {#if c.seen}<button type="button" class="mini" onclick={c.seen} aria-label="Visto: {c.title}" title="Visto">✓</button>{/if}
+                <SeenButton workId={c.workId} title={c.title} onchange={c.onSeen} />
                 {#if c.drop}<button type="button" class="mini ghost" onclick={c.drop} aria-label="{c.dropLabel}: {c.title}" title={c.dropLabel}>✕</button>{/if}
               </div>
             {/if}
@@ -590,7 +601,8 @@
 
 <style>
   .toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
-  .allbtns { display: flex; gap: 4px; }
+  .allbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .seenswitch { margin-right: 10px; }
   .allbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
   .allbtn:hover { color: var(--text); background: var(--card); }
   .edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-s); color: var(--muted); }

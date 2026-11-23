@@ -824,7 +824,58 @@ export interface paths {
                 };
             };
         };
-        put?: never;
+        /** Modifica una registrazione non ancora partita (canale, titolo, orari, margini, formato); risponde con gli avvisi */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewRecording"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduledRecording"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
         post?: never;
         /** Annulla una registrazione non ancora partita */
         delete: {
@@ -1293,7 +1344,29 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Le opere viste dal profilo (codici), per segnarle e nasconderle negli elenchi */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": number[];
+                    };
+                };
+            };
+        };
         put?: never;
         /** Segna un'opera come vista dal profilo e la toglie dalla mia serata */
         post: {
@@ -3715,6 +3788,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anteprima di «tutta la serie» da un programma, senza programmare niente: puntate in guida e registrabili; con il numero di puntata, quelle prima di questa già registrate, recuperabili in guida e perse */
+        get: {
+            parameters: {
+                query: {
+                    programmeId: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SeriesPreview"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{id}/check": {
         parameters: {
             query?: never;
@@ -5210,6 +5328,23 @@ export interface components {
             status: string;
             /** Format: int64 */
             recordingId: null | number;
+        };
+        SeriesPreview: {
+            title: string;
+            ruleActive: boolean;
+            /** Format: int32 */
+            episodes: number;
+            /** Format: int32 */
+            recordable: number;
+            episode: string;
+            /** Format: int32 */
+            before: number;
+            /** Format: int32 */
+            recorded: number;
+            /** Format: int32 */
+            recoverable: number;
+            /** Format: int32 */
+            lost: number;
         };
         SeriesRule: {
             /** Format: int64 */

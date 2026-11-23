@@ -4,6 +4,7 @@
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
+  import SeenButton from '../lib/components/SeenButton.svelte';
   import StableLabel from '../lib/components/StableLabel.svelte';
   import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type GuideProgramme } from '../lib/api/client';
@@ -70,7 +71,7 @@
     error = '';
     try {
       const title = recordingTitle(p);
-      const r = await api.scheduleRecording({ channelId: p.channelId, title, start: p.start, stop: p.stop, beforeMin: null, afterMin: null, format: null, programmeId: p.id });
+      const r = await api.scheduleRecording({ channelId: p.channelId, title, start: p.start, stop: p.stop, ...how, programmeId: p.id });
       scheduled = true;
       warnings = r.warnings;
       onchange();
@@ -106,7 +107,7 @@
     otherBusy = x.id;
     error = '';
     try {
-      const r = await api.scheduleRecording({ channelId: x.channelId, title: recordingTitle(x), start: x.start, stop: x.stop, beforeMin: null, afterMin: null, format: null, programmeId: x.id });
+      const r = await api.scheduleRecording({ channelId: x.channelId, title: recordingTitle(x), start: x.start, stop: x.stop, ...how, programmeId: x.id });
       x.scheduled = true;
       warnings = r.warnings;
       onchange();
@@ -172,6 +173,8 @@
       {#if p.workId != null}
         <Button variant="soft" onclick={() => goTo(`/opera/${p.workId}#avvisami`)}>Avvisami</Button>
       {/if}
+      <!-- «Visto» (23/11/2026): segnato come visto esce anche dalla mia lista -->
+      <SeenButton workId={p.workId} title={p.title} label onchange={(v) => { if (v && inTonight) inTonight = false; onchange(); }} />
       {#if inTonight !== null}
         <Button variant={inTonight ? "primary" : "soft"} pressed={inTonight} onclick={toggleTonight}><StableLabel text={inTonight ? 'Nella mia lista' : 'Aggiungi alla mia lista'} variants={['Nella mia lista', 'Aggiungi alla mia lista']} /></Button>
       {/if}

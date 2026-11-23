@@ -19,6 +19,7 @@ export type ScheduledRecording = S['ScheduledRecording'];
 export type SeriesRule = S['SeriesRule'];
 export type SeriesCheck = S['SeriesCheck'];
 export type SeriesEpisode = S['SeriesEpisode'];
+export type SeriesPreview = S['SeriesPreview'];
 export type ConversionRow = S['ConversionRow'];
 export type HomeSections = S['HomeSections'];
 export type ImportResult = S['ImportResult'];
@@ -133,6 +134,7 @@ export const api = {
   removeTonight: (profileId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/tonight/${workId}`),
   setStars: (profileId: number, workId: number, stars: number | null) => call<void>('PUT', `/profiles/${profileId}/works/${workId}/stars`, { stars }),
   work: (id: number, profileId?: number) => call<WorkDetail>('GET', `/works/${id}` + (profileId ? `?profileId=${profileId}` : '')),
+  watchedIds: (profileId: number) => call<number[]>('GET', `/profiles/${profileId}/watched`),
   watched: (profileId: number, workId: number) => call<void>('POST', `/profiles/${profileId}/watched`, { workId }),
   unwatched: (profileId: number, workId: number) => call<void>('DELETE', `/profiles/${profileId}/watched/${workId}`),
 
@@ -268,6 +270,7 @@ export const api = {
   recordings: () => call<Recording[]>('GET', '/recordings'),
   recording: (id: number) => call<RecordingDetail>('GET', `/recordings/${id}`),
   scheduleRecording: (r: NewRecording) => call<ScheduledRecording>('POST', '/recordings', r),
+  updateRecording: (id: number, r: NewRecording) => call<ScheduledRecording>('PUT', `/recordings/${id}`, r),
   stopRecording: (id: number) => call<void>('POST', `/recordings/${id}/stop`),
   cancelRecording: (id: number) => call<void>('DELETE', `/recordings/${id}`),
 
@@ -276,6 +279,7 @@ export const api = {
   recordSeries: (b: { programmeId?: number | null; workId?: number | null; profileId?: number | null }) =>
     call<SeriesCheck>('POST', '/series', { programmeId: null, workId: null, profileId: null, ...b }),
   checkSeries: (id: number) => call<SeriesCheck>('POST', `/series/${id}/check`),
+  seriesPreview: (programmeId: number) => call<SeriesPreview>('GET', `/series/preview?programmeId=${programmeId}`),
   stopSeries: (id: number) => call<void>('DELETE', `/series/${id}`),
 
   // sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026)

@@ -39,6 +39,12 @@ public static class SeriesApi
                 "risponde con le puntate trovate e i numeri di episodio che mancano")
             .Produces<SeriesCheck>().Produces<ApiError>(StatusCodes.Status400BadRequest).Produces(StatusCodes.Status404NotFound);
 
+        g.MapGet("/preview", IResult (long programmeId, ServerContext ctx) =>
+            ctx.Series.Preview(programmeId, ctx.Clock.GetUtcNow()) is { } pv ? Results.Ok(pv) : Results.NotFound())
+            .WithSummary("Anteprima di «tutta la serie» da un programma, senza programmare niente: puntate in guida e " +
+                "registrabili; con il numero di puntata, quelle prima di questa già registrate, recuperabili in guida e perse")
+            .Produces<SeriesPreview>().Produces(StatusCodes.Status404NotFound);
+
         g.MapPost("/{id:long}/check", IResult (long id, ServerContext ctx) =>
             ctx.Series.Check(id, ctx.Clock.GetUtcNow(), Defaults(ctx)) is { } check ? Results.Ok(check) : Results.NotFound())
             .WithSummary("Ricontrolla la guida per una serie e programma le puntate nuove")

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { openConvert } from '../lib/convert.svelte';
+  import { canConvert, openConvert } from '../lib/convert.svelte';
   import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
@@ -34,6 +34,8 @@
   let error = $state('');
   let filter = $state<Filter>('tutte');
   let adding = $state(false);
+  // la registrazione in modifica (matita): stesso modulo di «Nuova registrazione», già compilato
+  let editing = $state<Recording | null>(null);
   let notice = $state<{ text: string; warnings: string[] } | null>(null);
   let now = $state(new Date());
   let busyId = $state<number | null>(null);
@@ -117,8 +119,9 @@
   }
 
   function done(warnings: string[]) {
+    notice = { text: editing ? 'Registrazione modificata.' : 'Registrazione programmata.', warnings };
     adding = false;
-    notice = { text: 'Registrazione programmata.', warnings };
+    editing = null;
     load();
   }
 </script>
@@ -183,7 +186,15 @@
               <div class="line"><span class="title">{r.title}</span><Badge tone="blue">In programma</Badge></div>
               <div class="meta">{meta(r)}</div>
             </div>
-            <div class="acts"><Button size="s" disabled={busyId === r.id} onclick={() => cancel(r)}>Annulla</Button></div>
+            <!-- matita e cestino al posto delle scritte (Antonio, 23/11/2026); il cestino chiede conferma -->
+            <div class="acts">
+              <button type="button" class="ico" disabled={busyId === r.id} onclick={() => { editing = r; notice = null; }} aria-label="Modifica «{r.title}»" title="Modifica">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+              </button>
+              <button type="button" class="ico del" disabled={busyId === r.id} onclick={() => cancel(r)} aria-label="Annulla «{r.title}»" title="Annulla la registrazione">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+              </button>
+            </div>
           </li>
         {/each}
       </ul>
@@ -205,7 +216,7 @@
               <div class="meta">{meta(r)}</div>
               {#if note(r)}<div class="note">{note(r)}</div>{/if}
             </div>
-            {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state)}
+            {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file)}
               <div class="acts"><Button size="s" variant="secondary" onclick={() => openConvert({ recordingId: r.id, name: fileName(r.file) })}>Converti...</Button></div>
             {/if}
           </li>
@@ -219,9 +230,18 @@
 
 {#if adding}
   <NuovaRegistrazione onclose={() => (adding = false)} ondone={done} />
+{:else if editing}
+  {#key editing.id}<NuovaRegistrazione edit={editing} onclose={() => (editing = null)} ondone={done} />{/key}
 {/if}
 
 <style>
+  .ico {
+    display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-s);
+    border: 1px solid var(--line-btn); background: none; color: var(--text-2); cursor: pointer;
+  }
+  .ico:hover { color: var(--text); background: var(--raised); }
+  .ico.del:hover { color: var(--rec-text); border-color: var(--rec); }
+  .ico:disabled { opacity: 0.5; cursor: progress; }
   .page { padding: 28px var(--gutter) 64px; max-width: 1240px; display: flex; flex-direction: column; gap: 18px; }
   .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   h1 { font-size: 32px; }

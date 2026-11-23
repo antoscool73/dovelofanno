@@ -38,6 +38,10 @@ public static class ConversionApi
             }
             if (source == null) return Results.BadRequest(new ApiError("serve la registrazione o il file della libreria"));
             if (source.Length == 0 || !File.Exists(source)) return Results.BadRequest(new ApiError("il file non c'è (registrazione non riuscita o file spostato)"));
+            // 23/11/2026 (Antonio): convertire nello stesso formato non serve, e un MP3 è solo audio: non diventa un video
+            string ext = Path.GetExtension(source).TrimStart('.').ToLowerInvariant();
+            if (ext == b.Format) return Results.BadRequest(new ApiError($"è già un file {b.Format.ToUpperInvariant()}"));
+            if (ext == "mp3") return Results.BadRequest(new ApiError("un MP3 è solo audio: non si converte in video"));
             long id = ctx.Conversions.Add(b.ProfileId, source, title!, b.Format, ctx.Clock.GetUtcNow());
             host.Wake();
             return Results.Created($"/api/v1/conversions/{id}", ctx.Conversions.Get(id));

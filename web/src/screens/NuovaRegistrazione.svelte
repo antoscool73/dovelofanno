@@ -1,22 +1,38 @@
 <script lang="ts">
-  // Registrazione a mano: canale, titolo, giorno e orari, come i campi di RegistraTV. Margini e cartella sono
-  // quelli predefiniti del server; il flusso si sceglie al momento di registrare.
+  // Registrazione a mano («libera»: canale, titolo, giorno e orari, come i campi di RegistraTV) e, dal 23/11/2026, modifica
+  // di una registrazione non ancora partita (la matita in Registrazioni): stessi campi, già compilati. Minuti prima e
+  // dopo partono dai predefiniti (Impostazioni › Registrazioni); il flusso si sceglie al momento di registrare.
+  import { untrack } from 'svelte';
   import Button from '../lib/components/Button.svelte';
-  import { api, ApiError, type Channel, type Stream } from '../lib/api/client';
+  import { api, ApiError, type Channel, type Recording, type Stream } from '../lib/api/client';
   import { at, byChannelOrder, dateInput, timeInput } from '../lib/format';
 
-  let { onclose, ondone }: { onclose: () => void; ondone: (warnings: string[]) => void } = $props();
+  let { onclose, ondone, edit = null }: { onclose: () => void; ondone: (warnings: string[]) => void; edit?: Recording | null } = $props();
 
   let channels = $state<Channel[]>([]);
   let loadError = $state('');
   const now = new Date();
-  const start0 = new Date(now.getTime() + 60_000);
-  let channelId = $state<number | null>(null);
-  let title = $state('');
+  // da modificare: i suoi orari del programma (senza margini); nuova: da tra un minuto per un'ora
+  // letta una volta: il modulo si ricrea per ogni registrazione da modificare ({#key} in Registrazioni)
+  const e0 = untrack(() => edit);
+  const start0 = e0 ? new Date(e0.start) : new Date(now.getTime() + 60_000);
+  const stop0 = e0 ? new Date(e0.stop) : new Date(start0.getTime() + 60 * 60_000);
+  let channelId = $state<number | null>(e0?.channelId ?? null);
+  let title = $state(e0?.title ?? '');
   let date = $state(dateInput(start0));
   let from = $state(timeInput(start0));
-  let to = $state(timeInput(new Date(start0.getTime() + 60 * 60_000)));
-  let format = $state<'mp4' | 'mp3'>('mp4');
+  let to = $state(timeInput(stop0));
+  let format = $state<'mp4' | 'mp3'>(e0?.format === 'mp3' ? 'mp3' : 'mp4');
+  let before = $state(e0 ? String(e0.beforeMin) : '');
+  let after = $state(e0 ? String(e0.afterMin) : '');
+  if (!e0) {
+    api.generalSettings().then((g) => {
+      if (before === '') before = String(g.beforeMin);
+      if (after === '') after = String(g.afterMin);
+      format = g.format === 'mp3' ? 'mp3' : 'mp4';
+    }).catch(() => { before ||= '2'; after ||= '10'; });
+  }
+  const minutesOk = (s: string) => /^\d{1,3}$/.test(s.trim()) && Number(s) <= 120;
   let error = $state('');
   let busy = $state(false);
 
@@ -60,16 +76,18 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     if (channelId === null) return;
+    if (!minutesOk(before) || !minutesOk(after)) { error = 'Minuti prima e dopo: da 0 a 120.'; return; }
     const start = at(date, from);
     let stop = at(date, to);
     if (stop <= start) stop = new Date(stop.getTime() + 86_400_000); // finisce dopo mezzanotte
     busy = true;
     error = '';
     try {
-      const r = await api.scheduleRecording({ channelId, title, start: start.toISOString(), stop: stop.toISOString(), beforeMin: null, afterMin: null, format });
+      const body = { channelId, title, start: start.toISOString(), stop: stop.toISOString(), beforeMin: Number(before), afterMin: Number(after), format };
+      const r = e0 ? await api.updateRecording(e0.id, body) : await api.scheduleRecording(body);
       ondone(r.warnings);
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Registrazione non programmata';
+      error = err instanceof ApiError ? err.message : e0 ? 'Registrazione non modificata' : 'Registrazione non programmata';
     } finally {
       busy = false;
     }
@@ -78,7 +96,7 @@
 
 <dialog use:dialog aria-labelledby="nr-title">
   <form onsubmit={submit}>
-    <h2 id="nr-title">Nuova registrazione</h2>
+    <h2 id="nr-title">{e0 ? 'Modifica la registrazione' : 'Nuova registrazione'}</h2>
     {#if loadError}
       <p class="error" role="alert">{loadError}</p>
     {:else if channels.length === 0}
@@ -97,17 +115,21 @@
         <label class="field">Dalle<input type="time" bind:value={from} required /></label>
         <label class="field">Alle<input type="time" bind:value={to} required /></label>
       </div>
+      <div class="row">
+        <label class="field">Minuti prima<input inputmode="numeric" maxlength="3" bind:value={before} required /></label>
+        <label class="field">Minuti dopo<input inputmode="numeric" maxlength="3" bind:value={after} required /></label>
+      </div>
       <fieldset>
         <legend>Formato</legend>
         <label class="radio"><input type="radio" bind:group={format} value="mp4" /> Video (MP4)</label>
         <label class="radio"><input type="radio" bind:group={format} value="mp3" /> Solo audio (MP3)</label>
       </fieldset>
-      <p class="hint">Con i margini predefiniti del server (Impostazioni › Limiti).</p>
+      <p class="hint">{e0 ? 'Si può cambiare finché la registrazione non parte (2 minuti prima dell’inizio, margini compresi).' : 'Minuti prima e dopo partono dalla registrazione predefinita (Impostazioni › Registrazioni).'}</p>
     {/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <div class="actions">
       <Button variant="ghost" onclick={onclose}>Annulla</Button>
-      <Button variant="primary" type="submit" disabled={busy || channelId === null || title.trim() === ''}>Programma</Button>
+      <Button variant="primary" type="submit" disabled={busy || channelId === null || title.trim() === ''}>{e0 ? 'Salva' : 'Programma'}</Button>
     </div>
   </form>
 </dialog>

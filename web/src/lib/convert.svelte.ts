@@ -6,6 +6,19 @@ import { session } from './session.svelte';
 
 export type ConvertTarget = { recordingId?: number; libraryItemId?: number; name: string };
 
+/**
+ * Formati in cui ha senso convertire un file (23/11/2026, Antonio: «che senso ha convertire da mp4 a mp4?»): mai nel suo
+ * stesso formato, e un MP3 è solo audio, quindi non ha niente da convertire. Un MP4 va solo in MP3; TS, MKV e gli altri
+ * in tutti e due.
+ */
+export function formatsFor(name: string): ('mp4' | 'mp3')[] {
+  const ext = /\.([a-z0-9]+)$/i.exec(name)?.[1]?.toLowerCase() ?? '';
+  if (ext === 'mp3') return [];
+  return (['mp4', 'mp3'] as const).filter((f) => f !== ext);
+}
+/** Il pulsante «Converti...» compare solo se c'è un formato in cui convertire. */
+export const canConvert = (name: string) => formatsFor(name).length > 0;
+
 class ConvertState {
   target = $state<ConvertTarget | null>(null);
   format = $state<'mp4' | 'mp3'>('mp4');
@@ -15,8 +28,7 @@ class ConvertState {
 
   open(t: ConvertTarget): void {
     this.target = t;
-    // come RegistraTV: un file già MP4 si converte di solito in MP3
-    this.format = /\.mp4$/i.test(t.name) ? 'mp3' : 'mp4';
+    this.format = formatsFor(t.name)[0] ?? 'mp4';
     this.error = '';
     this.done = '';
   }

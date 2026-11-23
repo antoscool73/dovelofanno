@@ -1,5 +1,6 @@
 <script lang="ts" module>
   import { EMPTY_QUERY, type SearchQuery } from '../lib/api/client';
+  import SeenButton from '../lib/components/SeenButton.svelte';
   // i filtri restano tornando indietro dalla Scheda (per la durata della pagina)
   let last: SearchQuery = { ...EMPTY_QUERY };
 
@@ -365,7 +366,11 @@
   </header>
 
   <div class="cols">
-    <form class="filters" aria-label="Filtri" onsubmit={(e) => { e.preventDefault(); if (canSearch) search(); }}>
+    <!-- Invio in un campo di testo cerca (23/11/2026, Antonio): con tanti campi e nessun pulsante di invio nel form il
+         browser non fa l'invio implicito; il pulsante invisibile qui sotto (non display:none, che alcuni browser
+         ignorano) lo riattiva. Il «Cerca» visibile sta nella barra in alto, fuori dal form -->
+    <form class="filters" aria-label="Filtri" onsubmit={(e) => { e.preventDefault(); if (canSearch && !loading) search(); }}>
+      <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">Cerca</button>
       <label class="field">Titolo, regista o attore
         <span class="box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
@@ -483,6 +488,8 @@
               </div>
             </div>
             <div class="act">
+              <!-- «Visto» (23/11/2026): solo per le opere già note al server (un titolo solo di TMDB si segna dalla scheda) -->
+              <SeenButton workId={h.workId} title={h.title} />
               {#if a.home}
                 <Button size="s" variant="primary" onclick={() => open(h)} disabled={opening != null}>▶ Guarda</Button>
               {:else if a.mine.length > 0}
@@ -581,7 +588,7 @@
   .top { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
   .top > :not(.title) { flex: 0 0 auto; }
   .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: none; padding: 0; color: var(--text); font-family: var(--font-display); font-size: 17px; font-weight: 700; text-align: left; cursor: pointer; }
-  .act { display: flex; align-items: center; }
+  .act { display: flex; align-items: center; gap: 8px; }
   .rate { font-size: 13px; font-weight: 700; background: var(--raised); border-radius: 6px; padding: 2px 7px; }
   .rate.na { color: var(--muted); font-weight: 600; }
   .meta { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

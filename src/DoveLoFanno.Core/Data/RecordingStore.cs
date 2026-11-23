@@ -110,6 +110,24 @@ public sealed class RecordingStore(string dbPath)
         Db.Exec(c, "UPDATE recordings SET state = $s WHERE id = $id", ("$s", state), ("$id", id));
     }
 
+    /// <summary>
+    /// Modifica una registrazione non ancora partita (23/11/2026, richiesta di Antonio: la matita in Registrazioni): canale,
+    /// titolo, orari, margini e formato. false se nel frattempo è partita, finita o annullata (lo scheduler la porta a
+    /// «recording» quando la prende, quindi la condizione sullo stato basta a non toccarne una in corso).
+    /// </summary>
+    public bool Update(long id, long channelId, string title, DateTimeOffset start, DateTimeOffset stop, int beforeMin, int afterMin, string format)
+    {
+        if (stop <= start) throw new ArgumentException("la fine deve essere dopo l'inizio");
+        if (format is not ("mp4" or "mp3")) throw new ArgumentException("formato non valido: " + format);
+        using var c = Open();
+        return Db.Exec(c, """
+            UPDATE recordings SET channel_id = $c, title = $t, start = $s, stop = $e, before_min = $b, after_min = $a, format = $f
+            WHERE id = $id AND state = 'scheduled'
+            """,
+            ("$c", channelId), ("$t", title), ("$s", Db.Unix(start)), ("$e", Db.Unix(stop)), ("$b", beforeMin), ("$a", afterMin),
+            ("$f", format), ("$id", id)) == 1;
+    }
+
     /// <summary>Annulla una registrazione non ancora partita; false se è già partita o finita.</summary>
     public bool Cancel(long id)
     {

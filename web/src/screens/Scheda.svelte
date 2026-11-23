@@ -1,6 +1,7 @@
 <script lang="ts">
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
-  import { openConvert } from '../lib/convert.svelte';
+  import { canConvert, openConvert } from '../lib/convert.svelte';
+  import { seenState } from '../lib/seen.svelte';
   import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
@@ -91,7 +92,7 @@
     busy = a.id;
     notice = '';
     try {
-      const r = await api.scheduleRecording({ channelId: a.channelId, title: recordingTitle({ ...a, title: w?.title ?? a.title }), start: a.start, stop: a.stop, beforeMin: null, afterMin: null, format: null, programmeId: a.id });
+      const r = await api.scheduleRecording({ channelId: a.channelId, title: recordingTitle({ ...a, title: w?.title ?? a.title }), start: a.start, stop: a.stop, ...how, programmeId: a.id });
       notice = ['Registrazione programmata.', ...r.warnings.map((x) => `Attenzione: ${x}.`)].join(' ');
       await load();
     } catch (e) {
@@ -130,6 +131,7 @@
       if (was) await api.unwatched(prof.id, w.id);
       else await api.watched(prof.id, w.id);
       w = await api.work(w.id, prof.id);
+      seenState.set(w.id, w.watched);       // le locandine e le righe degli altri elenchi lo vedono subito
       notice = was ? 'Segnato come non visto.' : `Segnato come visto${w.files.length > 0 ? ', anche i file in casa' : ''}. Se ti va, dagli le stelle qui sopra.`;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Non segnato';
@@ -299,7 +301,7 @@
                 <Button size="s" variant={f.playable ? 'primary' : 'secondary'} href="/guarda/{f.itemId}" onclick={navigate}>{f.playable ? (f.positionS > 0 && !f.watched ? '▶ Riprendi' : '▶ Guarda') : 'Prepara e guarda'}</Button>
                 {#if session.profile && !session.profile.isChild}
                   <Button size="s" variant="ghost" onclick={() => (rematch = f.itemId)}>Abbina di nuovo…</Button>
-                  <Button size="s" variant="ghost" onclick={() => openConvert({ libraryItemId: f.itemId, name: f.name })}>Converti...</Button>
+                  {#if canConvert(f.name)}<Button size="s" variant="ghost" onclick={() => openConvert({ libraryItemId: f.itemId, name: f.name })}>Converti...</Button>{/if}
                 {/if}
               </li>
             {/each}
@@ -311,7 +313,7 @@
             {#each w.inHouse as f (f.recordingId)}
               <li><span class="r-main"><strong>{fileName(f.file)}</strong><span class="muted small">Registrato {day(f.start).toLowerCase()} da {f.channelName}{f.lostMinutes ? ` · mancano ${minutes(f.lostMinutes)}` : ''}</span></span>
                 {#if f.state === 'incomplete'}<Badge tone="orange">Incompleta</Badge>{:else if f.state === 'stopped'}<Badge tone="neutral">Fermata</Badge>{:else}<Badge tone="green">In casa</Badge>{/if}
-                <Button size="s" variant="ghost" onclick={() => openConvert({ recordingId: f.recordingId, name: fileName(f.file) })}>Converti...</Button></li>
+                {#if canConvert(f.file)}<Button size="s" variant="ghost" onclick={() => openConvert({ recordingId: f.recordingId, name: fileName(f.file) })}>Converti...</Button>{/if}</li>
             {/each}
           </ul>
           <p class="muted small">La registrazione entra nella libreria tra poco: poi la guardi da qui.</p>

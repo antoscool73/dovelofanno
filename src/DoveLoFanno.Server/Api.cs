@@ -155,6 +155,29 @@ public static class Api
             .WithSummary("Programma una registrazione (margini e formato predefiniti se mancano); risponde con gli avvisi")
             .Produces<ScheduledRecording>(StatusCodes.Status201Created).Produces<ApiError>(StatusCodes.Status400BadRequest);
 
+        // aggiunta del 23/11/2026: la matita di Registrazioni (stessi campi di «Nuova registrazione», margini compresi)
+        rec.MapPut("/{id:long}", IResult (long id, NewRecording body, ServerContext ctx) =>
+        {
+            if (ctx.Recordings.Get(id) is not { } old) return Results.NotFound();
+            if (old.State != "scheduled") return Results.Conflict(new ApiError("si modificano solo le registrazioni non ancora partite"));
+            if (string.IsNullOrWhiteSpace(body.Title)) return Results.BadRequest(new ApiError("titolo mancante"));
+            if (body.Stop <= body.Start) return Results.BadRequest(new ApiError("la fine deve essere dopo l'inizio"));
+            if (!ctx.Sources.Channels().Any(c => c.Id == body.ChannelId)) return Results.BadRequest(new ApiError("canale sconosciuto"));
+            int before = body.BeforeMin ?? old.BeforeMin;
+            int after = body.AfterMin ?? old.AfterMin;
+            string format = body.Format ?? old.Format;
+            if (before < 0 || after < 0) return Results.BadRequest(new ApiError("margini negativi"));
+            if (format is not ("mp4" or "mp3")) return Results.BadRequest(new ApiError("formato: mp4 o mp3"));
+            if (body.Stop.AddMinutes(after) <= ctx.Clock.GetUtcNow()) return Results.BadRequest(new ApiError("l'orario di fine è già passato"));
+            var warnings = Warnings(ctx, body.Start.AddMinutes(-before), body.Stop.AddMinutes(after), id);
+            return ctx.Recordings.Update(id, body.ChannelId, body.Title.Trim(), body.Start, body.Stop, before, after, format)
+                ? Results.Ok(new ScheduledRecording(id, warnings))
+                : Results.Conflict(new ApiError("la registrazione è appena partita: non si modifica più"));
+        })
+            .WithSummary("Modifica una registrazione non ancora partita (canale, titolo, orari, margini, formato); risponde con gli avvisi")
+            .Produces<ScheduledRecording>().Produces(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
+
         rec.MapPost("/{id:long}/stop", IResult (long id, ServerContext ctx) =>
             ctx.Recordings.Get(id) is null ? Results.NotFound()
             : ctx.Scheduler.Stop(id) ? Results.Accepted() : Results.Conflict(new ApiError("la registrazione non è in corso né in programma")))
@@ -227,6 +250,11 @@ public static class Api
             ctx.Tonight.Remove(id, workId) == TonightResult.Ok ? Results.NoContent() : Results.NotFound())
             .WithSummary("Toglie un'opera dalla mia serata")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+
+        // aggiunta del 23/11/2026: il pulsante «Visto» ovunque compaia un'opera e «Nascondi visti» della pagina principale
+        prof.MapGet("/{id:long}/watched", (long id, ServerContext ctx) => ctx.Preferences.WatchedWorkIds(id).Order().ToList())
+            .WithSummary("Le opere viste dal profilo (codici), per segnarle e nasconderle negli elenchi")
+            .Produces<List<long>>();
 
         prof.MapPost("/{id:long}/watched", IResult (long id, WorkRef body, ServerContext ctx) =>
             ctx.Tonight.Watched(id, body.WorkId, ctx.Clock.GetUtcNow()) switch
@@ -374,11 +402,11 @@ public static class Api
     }
 
     /// <summary>Avvisi prima di programmare (da Get-ScheduleWarnings): troppe registrazioni sovrapposte, poco spazio.</summary>
-    public static List<string> Warnings(ServerContext ctx, DateTimeOffset from, DateTimeOffset to)
+    public static List<string> Warnings(ServerContext ctx, DateTimeOffset from, DateTimeOffset to, long? exceptId = null)
     {
         var w = new List<string>();
         int max = ctx.Settings.GetInt("MaxParallel");
-        int overlap = ctx.Recordings.Overlapping(from, to) + 1;
+        int overlap = ctx.Recordings.Overlapping(from, to, exceptId) + 1;
         if (max > 0 && overlap > max) w.Add($"{overlap} registrazioni contemporanee, il limite è {max}");
         try
         {

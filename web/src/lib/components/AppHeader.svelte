@@ -27,15 +27,16 @@
 
 <header use:measure>
   <a href="/" class="home" onclick={navigate}><Logo size={26} /></a>
-  <!-- la lente tra il logo e «La mia serata», senza riquadro (Antonio, 20/11/2026): cerca qualunque film o serie -->
-  <a href="/cerca" onclick={navigate} class="icon search" aria-label="Cerca un film o una serie" title="Cerca" aria-current={router.route === 'cerca' ? 'page' : undefined}>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
-  </a>
   <nav aria-label="Principale">
     {#each items as it (it.route)}
       <a href={it.path} onclick={navigate} aria-current={router.route === it.route ? 'page' : undefined}>{it.label}</a>
     {/each}
   </nav>
+  <!-- la lente dopo «Preferenze», senza riquadro (Antonio, 23/11/2026; prima era tra il logo e le voci): cerca qualunque
+       film o serie. Sul telefono le voci vanno su una riga a sé e la lente resta in alto accanto al logo -->
+  <a href="/cerca" onclick={navigate} class="icon search" aria-label="Cerca un film o una serie" title="Cerca" aria-current={router.route === 'cerca' ? 'page' : undefined}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+  </a>
   <div class="spacer"></div>
   <!-- Impostazioni: un piccolo ingranaggio al posto della scritta (Antonio, 20/11/2026) -->
   <a href="/impostazioni" onclick={navigate} class="icon settings" aria-label="Impostazioni" title="Impostazioni" aria-current={router.route === 'impostazioni' ? 'page' : undefined}>

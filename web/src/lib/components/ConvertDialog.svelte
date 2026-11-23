@@ -1,7 +1,7 @@
 <script lang="ts">
   // «Converti...» (lib/convert.svelte.ts): formato MP4 o MP3, poi in coda sul server.
   import Button from './Button.svelte';
-  import { convertState as c } from '../convert.svelte';
+  import { convertState as c, formatsFor } from '../convert.svelte';
   import { router } from '../router.svelte';
 
   function dialog(node: HTMLDialogElement) {
@@ -21,13 +21,22 @@
           <button type="button" class="ghost" onclick={() => { c.close(); router.go('/impostazioni#registrazioni'); }}>Vedi le conversioni</button>
           <Button variant="primary" onclick={() => c.close()}>Chiudi</Button>
         </div>
+      {:else if formatsFor(c.target.name).length === 0}
+        <p>È già un MP3, cioè solo audio: non c'è niente in cui convertirlo.</p>
+        <div class="actions"><Button variant="primary" onclick={() => c.close()}>Chiudi</Button></div>
       {:else}
+        <!-- solo i formati diversi da quello del file (23/11/2026): un MP4 si converte solo in MP3 -->
+        {@const fmts = formatsFor(c.target.name)}
         <fieldset>
           <legend class="sr-only">Formato</legend>
-          <label class="opt"><input type="radio" name="cv-format" value="mp4" bind:group={c.format} />
-            <span><strong>Video (MP4)</strong><br /><span class="muted">Si legge ovunque (TV, telefono, Jellyfin). Prima senza ricodificare; se non basta, ricodifica l'audio o tutto.</span></span></label>
-          <label class="opt"><input type="radio" name="cv-format" value="mp3" bind:group={c.format} />
-            <span><strong>Solo audio (MP3)</strong><br /><span class="muted">La prima traccia audio, ~190 kbit/s: per musica e programmi da ascoltare.</span></span></label>
+          {#if fmts.includes('mp4')}
+            <label class="opt"><input type="radio" name="cv-format" value="mp4" bind:group={c.format} />
+              <span><strong>Video (MP4)</strong><br /><span class="muted">Si legge ovunque (TV, telefono, Jellyfin). Prima senza ricodificare; se non basta, ricodifica l'audio o tutto.</span></span></label>
+          {/if}
+          {#if fmts.includes('mp3')}
+            <label class="opt"><input type="radio" name="cv-format" value="mp3" bind:group={c.format} />
+              <span><strong>Solo audio (MP3)</strong><br /><span class="muted">La prima traccia audio, ~190 kbit/s: per musica e programmi da ascoltare.{fmts.length === 1 ? ' È già un MP4: si può solo estrarne l’audio.' : ''}</span></span></label>
+          {/if}
         </fieldset>
         <p class="muted small">Il file nuovo va accanto all'originale, che resta (dal NAS in sola lettura va in «Convertiti», nella cartella delle registrazioni). Si fa sul server, una conversione alla volta.</p>
         {#if c.error}<p class="err" role="alert">{c.error}</p>{/if}

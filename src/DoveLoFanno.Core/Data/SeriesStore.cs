@@ -20,6 +20,16 @@ public sealed record SeriesEpisode(GuideProgramme Programme, string EpisodeKey, 
 /// <summary>Esito di un controllo: le puntate in guida, quelle programmate adesso e i numeri di episodio che mancano.</summary>
 public sealed record SeriesCheck(SeriesRule Rule, IReadOnlyList<SeriesEpisode> Episodes, int NewlyScheduled, IReadOnlyList<string> Missing);
 
+/// <summary>
+/// Anteprima per la finestra di Registra (23/11/2026, richiesta di Antonio): cosa succede scegliendo «tutta la serie»,
+/// senza programmare niente. Episodes = puntate diverse in guida (le repliche contano una volta), Recordable = quelle
+/// con almeno un passaggio su un canale delle playlist. Se il programma scelto ha il numero («S2 E5»), Before = le
+/// puntate della stessa stagione prima di questa (1..4), divise in Recorded (già registrate), Recoverable (non
+/// registrate ma con un passaggio registrabile in guida: «tutta la serie» le prende) e Lost. Senza numero sono 0.
+/// </summary>
+public sealed record SeriesPreview(string Title, bool RuleActive, int Episodes, int Recordable, string Episode,
+    int Before, int Recorded, int Recoverable, int Lost);
+
 /// <summary>Impostazioni con cui programmare le puntate: margini, formato, limite di registrazioni contemporanee (0 = nessuno).</summary>
 public sealed record SeriesDefaults(int BeforeMin, int AfterMin, string Format, int MaxParallel);
 
@@ -87,6 +97,71 @@ public sealed partial class SeriesStore(string dbPath, GuideStore guide, Recordi
 
     [GeneratedRegex(@"^\s*S\s*(\d+)\s*E\s*(\d+)", RegexOptions.IgnoreCase)]
     private static partial Regex EpisodeRe();
+
+    // il numero dentro un titolo di registrazione («Walker - S1 E3 - Titolo») o una chiave di puntata («e:s1e3»)
+    [GeneratedRegex(@"(?<![a-z0-9])S\s*(\d+)\s*E\s*(\d+)", RegexOptions.IgnoreCase)]
+    private static partial Regex EpisodeAnywhereRe();
+
+    static (int S, int N)? EpisodeNumber(string text, bool anywhere = false)
+    {
+        var m = anywhere ? EpisodeAnywhereRe().Match(text) : EpisodeRe().Match(text);
+        if (!m.Success) return null;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return (int.Parse(m.Groups[1].Value, inv), int.Parse(m.Groups[2].Value, inv));
+    }
+
+    /// <summary>
+    /// Conta le puntate prima di quella scelta (stessa stagione, da 1 a N-1): registrate, recuperabili (con un passaggio
+    /// registrabile in guida) e perse. Pura, per i test.
+    /// </summary>
+    public static (int Before, int Recorded, int Recoverable, int Lost) CountBefore((int S, int N)? chosen,
+        IReadOnlySet<(int S, int N)> recorded, IReadOnlySet<(int S, int N)> recordableInGuide)
+    {
+        if (chosen is not var (s, n) || n <= 1) return (0, 0, 0, 0);
+        int rec = 0, recov = 0, lost = 0;
+        for (int k = 1; k < n; k++)
+        {
+            if (recorded.Contains((s, k))) rec++;
+            else if (recordableInGuide.Contains((s, k))) recov++;
+            else lost++;
+        }
+        return (n - 1, rec, recov, lost);
+    }
+
+    /// <summary>Anteprima di «tutta la serie» a partire da un programma della guida. null se non c'è o è un film.</summary>
+    public SeriesPreview? Preview(long programmeId, DateTimeOffset now)
+    {
+        if (guide.Programme(programmeId) is not { WorkId: long workId } chosen) return null;
+        List<long> works;
+        bool ruleActive;
+        var recorded = new HashSet<(int S, int N)>();
+        using (var c = Open())
+        {
+            var w = Db.Query(c, "SELECT title_key, kind FROM works WHERE id = $w", r => (Key: r.GetString(0), Kind: r.GetString(1)), ("$w", workId))
+                .FirstOrDefault();
+            if (w.Key == null || w.Key.Length == 0 || !Kinds.Contains(w.Kind)) return null;
+            works = Db.Query(c, "SELECT id FROM works WHERE title_key = $k AND kind IN ('series', 'episode', 'programme', 'documentary')",
+                r => r.GetInt64(0), ("$k", w.Key));
+            ruleActive = Db.ScalarLong(c, "SELECT id FROM series_rules WHERE title_key = $k AND active = 1", ("$k", w.Key)) != null;
+            // registrate davvero (anche a mano, puntata per puntata): il numero sta nella chiave o nel titolo
+            var done = Db.Query(c, $"""
+                SELECT r.episode_key, r.title FROM recordings r
+                WHERE r.state IN ('completed', 'incomplete')
+                  AND (r.work_id IN ({string.Join(",", works)}) OR r.series_rule_id IN (SELECT id FROM series_rules WHERE title_key = $k))
+                """, r => (Key: r.GetString(0), Title: r.GetString(1)), ("$k", w.Key));
+            foreach (var (key, title) in done)
+                if ((EpisodeNumber(key, true) ?? EpisodeNumber(title, true)) is { } num) recorded.Add(num);
+        }
+        var upcoming = WorkAirings.Upcoming(guide, works, now).Values.SelectMany(x => x).DistinctBy(p => p.Id).ToList();
+        if (upcoming.All(p => p.Id != chosen.Id)) upcoming.Add(chosen);
+        var keys = upcoming.GroupBy(EpisodeKey).ToList();
+        var recordableNums = upcoming.Where(p => p.ChannelId != null && p.Start > now)
+            .Select(p => EpisodeNumber(p.Episode)).Where(x => x != null).Select(x => x!.Value).ToHashSet();
+        var chosenNum = EpisodeNumber(chosen.Episode);
+        var (before, rec, recov, lost) = CountBefore(chosenNum, recorded, recordableNums);
+        return new SeriesPreview(chosen.Title, ruleActive, keys.Count, keys.Count(g => g.Any(p => p.ChannelId != null)),
+            chosenNum is var (s, n) ? $"S{s} E{n}" : "", before, rec, recov, lost);
+    }
 
     /// <summary>Crea la regola per il titolo dell'opera (o ritrova quella attiva). null se l'opera non c'è o è un film.</summary>
     public long? Create(long? profileId, long workId, DateTimeOffset now)

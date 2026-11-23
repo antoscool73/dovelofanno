@@ -117,7 +117,9 @@ public sealed class DynamicListsTests(ITestOutputHelper output) : IDisposable
 
         // già visto: sparisce con «Nascondi quelli già visti»; «Non proporre più»: sparisce dalla lista e dalla ricerca con i
         // soli filtri, ma cercato per nome c'è ancora, segnato
+        Assert.Empty((await http.GetFromJsonAsync<List<long>>(P + "/watched", Json))!);
         await http.PostAsJsonAsync(P + "/watched", new WorkRef(western));
+        Assert.Equal([western], (await http.GetFromJsonAsync<List<long>>(P + "/watched", Json))!);   // per il pulsante «Visto» (23/11/2026)
         Assert.Equal(["Seven"], await Titles($"{P}/lists/{list.Id}/results"));
         await http.PostAsJsonAsync(P + "/ignored", new WorkRef(thriller));
         Assert.Empty(await Titles($"{P}/lists/{list.Id}/results"));

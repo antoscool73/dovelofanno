@@ -735,6 +735,68 @@
           }
         }
       },
+      "put": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Modifica una registrazione non ancora partita (canale, titolo, orari, margini, formato); risponde con gli avvisi",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRecording"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledRecording"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Registrazioni"
@@ -1144,6 +1206,39 @@
       }
     },
     "/api/v1/profiles/{id}/watched": {
+      "get": {
+        "tags": [
+          "Profili"
+        ],
+        "summary": "Le opere viste dal profilo (codici), per segnarle e nasconderle negli elenchi",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Profili"
@@ -3428,6 +3523,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/series/preview": {
+      "get": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Anteprima di «tutta la serie» da un programma, senza programmare niente: puntate in guida e registrabili; con il numero di puntata, quelle prima di questa già registrate, recuperabili in guida e perse",
+        "parameters": [
+          {
+            "name": "programmeId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesPreview"
                 }
               }
             }
@@ -6938,6 +7067,55 @@
               "integer"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "SeriesPreview": {
+        "required": [
+          "title",
+          "ruleActive",
+          "episodes",
+          "recordable",
+          "episode",
+          "before",
+          "recorded",
+          "recoverable",
+          "lost"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "ruleActive": {
+            "type": "boolean"
+          },
+          "episodes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recordable": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "episode": {
+            "type": "string"
+          },
+          "before": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recorded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "recoverable": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lost": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

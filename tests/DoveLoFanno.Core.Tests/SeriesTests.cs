@@ -124,6 +124,32 @@ public sealed class SeriesTests : IDisposable
         Assert.Equal(Now.AddMinutes(60), a.Visible!.Start);
     }
 
+    // 23/11/2026: la finestra di Registra dice quante puntate prima di questa sono registrate, recuperabili o perse
+    [Fact]
+    public void Anteprima_PuntatePrimaDiQuesta()
+    {
+        var (series, guide, recs) = Setup(string.Join("\n",
+            Ep("Rai2.it", 60, "S2 E5"),
+            Ep("Rai2.it", 2000, "S2 E6"),
+            Ep("Italia1.it", 3000, "S2 E2"),           // replica registrabile: recuperabile
+            Ep("Rai4.it", 4000, "S2 E3"),              // canale non nelle playlist: persa
+            Ep("Italia1.it", 5000, "S2 E2")));         // stessa puntata: conta una volta
+        var progs = guide.Query(new GuideQuery(Now, Now.AddDays(5)));
+        var e5 = progs.First(p => p.Episode == "S2 E5");
+        long rai2 = new SourceStore(Db).Channels().Single(x => x.Name == "Rai 2").Id;
+        long old = recs.Schedule(rai2, "Walker - S2 E1", Now.AddDays(-7), Now.AddDays(-7).AddMinutes(45), 0, 0, "mp4", Now.AddDays(-8), e5.WorkId);
+        recs.SetState(old, "completed");
+
+        var pv = series.Preview(e5.Id, Now)!;
+        Assert.Equal(("S2 E5", 4, 1, 1, 2), (pv.Episode, pv.Before, pv.Recorded, pv.Recoverable, pv.Lost));   // E1 registrata, E2 in guida, E3-E4 perse
+        Assert.Equal((4, 3), (pv.Episodes, pv.Recordable));                                                   // E5, E6, E2, E3 (Rai 4 no)
+        Assert.False(pv.RuleActive);
+        Assert.DoesNotContain(recs.List(), r => r.State == "scheduled");                                          // l'anteprima non programma
+        series.Create(null, e5.WorkId!.Value, Now);
+        Assert.True(series.Preview(e5.Id, Now)!.RuleActive);
+        Assert.Equal((0, 0, 0, 0), SeriesStore.CountBefore(null, new HashSet<(int, int)>(), new HashSet<(int, int)>()));
+    }
+
     [Fact]
     public void PuntateMancanti_SoloBuchiPiccoli()
     {

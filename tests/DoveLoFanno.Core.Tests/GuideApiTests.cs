@@ -83,5 +83,18 @@ public sealed class GuideApiTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(list[0].GetProperty("workId").ValueKind == JsonValueKind.Number);
 
         Assert.Equal(HttpStatusCode.BadRequest, (await http.PostAsJsonAsync("/api/v1/recordings", rec with { ProgrammeId = 999999 })).StatusCode);
+
+        // la matita (23/11/2026): si cambiano titolo, orari, margini e formato di una registrazione non partita
+        long recId = list[0].GetProperty("id").GetInt64();
+        var edit = rec with { Title = "Il Padrino (versione lunga)", Stop = rec.Stop.AddMinutes(20), BeforeMin = 5, AfterMin = 15, Format = "mp3", ProgrammeId = null };
+        Assert.Equal(HttpStatusCode.OK, (await http.PutAsJsonAsync($"/api/v1/recordings/{recId}", edit)).StatusCode);
+        var edited = (await http.GetFromJsonAsync<JsonElement>($"/api/v1/recordings/{recId}")).GetProperty("recording");
+        Assert.Equal(("Il Padrino (versione lunga)", 5, 15, "mp3"), (edited.GetProperty("title").GetString(), edited.GetProperty("beforeMin").GetInt32(),
+            edited.GetProperty("afterMin").GetInt32(), edited.GetProperty("format").GetString()));
+        Assert.Equal(rec.Stop.AddMinutes(20), edited.GetProperty("stop").GetDateTimeOffset());
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.PutAsJsonAsync($"/api/v1/recordings/{recId}", edit with { Stop = edit.Start })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await http.PutAsJsonAsync("/api/v1/recordings/999999", edit)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await http.DeleteAsync($"/api/v1/recordings/{recId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await http.PutAsJsonAsync($"/api/v1/recordings/{recId}", edit)).StatusCode);   // annullata: non si modifica
     }
 }
