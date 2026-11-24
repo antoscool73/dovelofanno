@@ -5265,6 +5265,7 @@ export interface components {
             episode: null | number;
             /** Format: int64 */
             sizeBytes: number;
+            poster: string;
         };
         LibraryStatus: {
             scanning: boolean;

@@ -327,17 +327,8 @@
 
     {#if cont.length > 0 && !text}
       <Section key="lib-continua" title="Continua a guardare">
-        <ul class="row-scroll" use:dragScroll>
-          {#each cont as c (c.id)}
-            <li>
-              <a class="cont" href="/guarda/{c.id}" onclick={navigate}>
-                <span class="ctitle">{c.title}</span>
-                {#if c.subtitle}<span class="muted small">{c.subtitle}</span>{/if}
-                <span class="muted small">Mancano {minutes((c.durationS - c.positionS) / 60)}</span>
-                <span class="prog" aria-hidden="true"><span style="width: {pct(c.positionS, c.durationS)}%"></span></span>
-              </a>
-            </li>
-          {/each}
+        <ul class="row" use:dragScroll>
+          {#each cont as c (c.id)}<li>{@render contCard(c)}</li>{/each}
         </ul>
       </Section>
     {/if}
@@ -422,6 +413,22 @@
   </article>
 {/snippet}
 
+<!-- un file iniziato (24/11/2026): la locandina dell'opera o della serie con la barra di quanto è visto; riprende -->
+{#snippet contCard(c: LibraryItem)}
+  <article class="card">
+    <a class="poster" href="/guarda/{c.id}" onclick={navigate} aria-label="Riprendi {c.title}">
+      <PosterImg src={c.poster ?? ''} title={c.title} />
+      <span class="prog over wide" role="img" aria-label="Visto al {pct(c.positionS, c.durationS)}%"><span style="width: {pct(c.positionS, c.durationS)}%"></span></span>
+    </a>
+    <div class="cbody">
+      <a class="ctitle one" href="/guarda/{c.id}" onclick={navigate} title={c.title}>{c.title}</a>
+      <div class="muted small one" title={c.subtitle}>{c.subtitle || ' '}</div>
+      <div class="muted small one">Mancano {minutes(Math.max(0, c.durationS - c.positionS) / 60)}</div>
+      <div class="cacts"><a class="play" href="/guarda/{c.id}" onclick={navigate} aria-label="Riprendi {c.title}">▶ Riprendi</a></div>
+    </div>
+  </article>
+{/snippet}
+
 <!-- un titolo di una lista a mano: stessa scheda, con dove si vede (in casa, in TV, negli abbonamenti) -->
 {#snippet listCard(it: ListEntry)}
   {@const av = listAvail(it)}
@@ -476,13 +483,12 @@
   /* file di locandine che scorre, come le righe di La mia lista */
   .row { list-style: none; margin: 0; padding: 0 0 8px; display: grid; align-items: start; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
   .row li { scroll-snap-align: start; min-width: 0; }
-  .row-scroll { list-style: none; margin: 0; padding: 0 0 6px; display: flex; gap: 14px; overflow-x: auto; }
   :global(.row.dragging), :global(.row-scroll.dragging) { cursor: grabbing; scroll-snap-type: none; user-select: none; }
-  .cont { width: 260px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--text); background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px; }
   .ctitle { font-weight: 600; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
   .prog { display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); overflow: hidden; margin-top: 6px; }
   .prog span { display: block; height: 100%; background: var(--blue); }
   .prog.over { position: absolute; left: 8px; right: 38px; bottom: 15px; margin: 0; }  /* a destra c'è l'icona "in casa" */
+  .prog.over.wide { right: 8px; }
   .panel { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; }
   .phead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
   .phead h2 { font-size: 24px; }

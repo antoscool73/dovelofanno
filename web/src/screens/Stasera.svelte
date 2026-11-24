@@ -344,6 +344,8 @@
     rec?: GuideProgramme | null; drop?: () => void; dropLabel?: string;
     // «Visto» (23/11/2026): l'opera della locandina; onSeen ricarica dove il visto cambia l'elenco (la mia lista)
     workId?: number | null; onSeen?: () => void;
+    // Continua a guardare: quanto è già visto, in % (barra in fondo alla locandina)
+    progress?: number;
   };
   // canale e, per serie e programmi, il numero e il titolo della puntata (Antonio, 20/11/2026: va sempre esplicitato)
   const channelOf = (p: GuideProgramme) => [p.channelName || p.guideChannelName, episodeOf(p)].filter(Boolean).join(' · ');
@@ -429,6 +431,17 @@
       key: h.workId != null ? `w${h.workId}` : `t${h.tmdbKind}${h.tmdbId}`, poster: h.poster, title: h.title, rating: h.rating ?? null,
       rated: RATED_KINDS.includes(h.kind), scheduled: false, avail, lines, open: () => openHit(h),
       drop: h.workId != null ? () => noMore(r, h) : undefined, dropLabel: 'Non proporre più', workId: h.workId,
+    };
+  }
+  // un file iniziato: locandina dell'opera (o della serie) con la barra di quanto è visto; il clic riprende (24/11/2026)
+  function continueCard(it: LibraryItem): Card {
+    const left = Math.max(0, it.durationS - it.positionS);
+    return {
+      key: `c${it.id}`, poster: it.poster ?? '', title: it.title, rating: null, scheduled: false,
+      avail: { tv: '', home: false, mine: [], pay: [] },
+      lines: [it.subtitle, left > 0 ? `Mancano ${minutes(left / 60)}` : ''], accent: '▶ Riprendi',
+      progress: Math.min(100, (100 * it.positionS) / Math.max(1, it.durationS)),
+      open: () => router.go(`/guarda/${it.id}`),
     };
   }
   // titolo di una lista a mano
@@ -579,18 +592,7 @@
     {#if continuing.length > 0 && shown('continua')}
       <Section key="continua" title="Continua a guardare">
         {#snippet aside()}<a href="/libreria" onclick={navigate}>Libreria</a>{/snippet}
-        <ul class="tonight">
-          {#each continuing.slice(0, 6) as it (it.id)}
-            <li>
-              <div class="t-main">
-                <span class="t-title">{it.title}</span>
-                {#if it.subtitle}<div class="muted small">{it.subtitle}</div>{/if}
-                <div class="bar" aria-label="Visto al {Math.round((100 * it.positionS) / Math.max(1, it.durationS))}%"><span style:width="{Math.min(100, (100 * it.positionS) / Math.max(1, it.durationS))}%"></span></div>
-              </div>
-              <div class="t-acts"><Button size="s" variant="primary" onclick={() => router.go(`/guarda/${it.id}`)}>▶ Riprendi</Button></div>
-            </li>
-          {/each}
-        </ul>
+        {@render row(continuing.slice(0, 12).map(continueCard))}
       </Section>
     {/if}
 
@@ -641,6 +643,7 @@
                 {#if c.rating != null}<span class="stars">★ {vote(c.rating)}</span>{:else if c.rated}<span class="stars na" title="Voto non ancora disponibile">★ N/A</span>{/if}
                 {#if c.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
                 <AvailBadges a={c.avail} />
+                {#if c.progress != null}<span class="pbar" role="img" aria-label="Visto al {Math.round(c.progress)}%"><span style:width="{c.progress}%"></span></span>{/if}
               </span>
               <span class="c-title" title={c.title}>{c.title}</span>
               {#each c.lines.filter(Boolean) as l, k (k)}<span class="line muted small">{l}</span>{/each}
@@ -772,14 +775,10 @@
   .sections { display: flex; flex-direction: column; gap: 32px; padding-top: 28px; padding-bottom: 56px; }
   .mylists { display: flex; flex-direction: column; gap: 32px; }
   .mylists:empty { display: none; }
-  .tonight { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
-  .tonight li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px; }
-  .t-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 200px; }
-  .t-title { border: 0; background: none; padding: 0; color: var(--text); font-size: 17px; font-weight: 600; text-align: left; cursor: pointer; }
-  .t-acts { display: flex; flex-wrap: wrap; gap: 8px; }
   .warn { color: var(--orange-text); }
-  .bar { height: 4px; border-radius: 2px; background: var(--raised); overflow: hidden; margin-top: 6px; }
-  .bar span { display: block; height: 100%; background: var(--blue); }
+  /* come in Libreria: barra sottile sopra il fondo della locandina */
+  .pbar { position: absolute; left: 8px; right: 8px; bottom: 10px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+  .pbar span { display: block; height: 100%; background: var(--blue); }
   .recs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .recs li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
   .rec-live { border-color: #3a2a2e; }
@@ -833,5 +832,5 @@
   .mini .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec-dot); }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 20px; }
   .empty p { margin: 0 0 6px; }
-  @media (max-width: 720px) { .hero { min-height: 300px; } .tonight { grid-template-columns: 1fr; } .cards { grid-auto-columns: 140px; } }
+  @media (max-width: 720px) { .hero { min-height: 300px; } .cards { grid-auto-columns: 140px; } }
 </style>

@@ -29,7 +29,7 @@ public sealed record LibraryItemDetail(
     long Id, long? WorkId, string Title, string Subtitle, string FileName, string Origin, int DurationS, int? Width, int? Height,
     string VideoCodec, string AudioCodec, bool Playable, string CopyState, int PositionS, bool Watched,
     IReadOnlyList<TrackInfo> AudioTracks, IReadOnlyList<SubtitleTrack> Subtitles, long? NextItemId, string MatchState,
-    string TitleGuess, int YearGuess, int? Season, int? Episode, long SizeBytes);
+    string TitleGuess, int YearGuess, int? Season, int? Episode, long SizeBytes, string Poster);
 
 /// <summary>Numeri della libreria per le Impostazioni.</summary>
 public sealed record LibraryCounts(int Files, int Matched, int Unmatched, int Missing, int CopiesWaiting, int CopiesFailed);
@@ -600,7 +600,7 @@ public sealed class LibraryStore(string dbPath)
             SELECT li.id, li.work_id, li.path, li.origin, coalesce(li.duration_s, 0), li.width, li.height, li.video_codec, li.audio_codec,
                    li.copy_state, coalesce(ws.position_s, 0), coalesce(ws.watched, 0), li.audio_tracks, li.subtitle_tracks, li.match_state,
                    li.title_guess, li.year_guess, li.season, li.episode, coalesce(li.size_bytes, 0),
-                   w.title, w.year, w.kind, p.title, w.parent_id, r.start, ch.name
+                   w.title, w.year, w.kind, p.title, w.parent_id, r.start, ch.name, coalesce(nullif(p.poster, ''), w.poster, '')
             FROM library_items li LEFT JOIN works w ON w.id = li.work_id LEFT JOIN works p ON p.id = w.parent_id
             LEFT JOIN watch_states ws ON ws.profile_id = $p AND ws.item_id = li.id
             LEFT JOIN recordings r ON r.id = li.recording_id LEFT JOIN channels ch ON ch.id = r.channel_id
@@ -614,6 +614,7 @@ public sealed class LibraryStore(string dbPath)
                 Season = Db.NInt(x, 17), Episode = Db.NInt(x, 18), Size = x.GetInt64(19),
                 WTitle = x.IsDBNull(20) ? "" : x.GetString(20), WYear = x.IsDBNull(21) ? 0 : x.GetInt32(21), WKind = x.IsDBNull(22) ? "" : x.GetString(22),
                 Series = x.IsDBNull(23) ? "" : x.GetString(23), Parent = Db.NLong(x, 24), RecStart = Db.NTime(x, 25), Channel = x.IsDBNull(26) ? "" : x.GetString(26),
+                Poster = x.GetString(27),
             },
             ("$id", itemId), ("$p", profileId)).FirstOrDefault();
         if (r == null) return null;
@@ -649,7 +650,8 @@ public sealed class LibraryStore(string dbPath)
         }
         var audio = r.Audio.Select(t => t with { Title = TrackLabel(t, "Audio " + (t.Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)) }).ToList();
         return new LibraryItemDetail(r.Id, r.Work, title, string.Join(" · ", sub), Path.GetFileName(r.Path), r.Origin, r.Dur, r.W, r.H, r.V, r.A,
-            r.Copy is "" or "done", r.Copy, r.Pos, r.Watched, audio, subs, next, r.Match, r.Guess, r.Year, r.Season, r.Episode, r.Size);
+            r.Copy is "" or "done", r.Copy, r.Pos, r.Watched, audio, subs, next, r.Match, r.Guess, r.Year, r.Season, r.Episode, r.Size,
+            WorkStore.ImageUrl(r.Poster, "w342"));
     }
 
     /// <summary>Il titolo dell'episodio, vuoto se è solo quello fatto da serie, stagione e numero ("Don Matteo 1x02").</summary>

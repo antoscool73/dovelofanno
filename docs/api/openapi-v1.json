@@ -5670,7 +5670,8 @@
           "yearGuess",
           "season",
           "episode",
-          "sizeBytes"
+          "sizeBytes",
+          "poster"
         ],
         "type": "object",
         "properties": {
@@ -5780,6 +5781,9 @@
           "sizeBytes": {
             "type": "integer",
             "format": "int64"
+          },
+          "poster": {
+            "type": "string"
           }
         }
       },
