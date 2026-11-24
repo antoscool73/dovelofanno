@@ -4174,6 +4174,148 @@
           }
         }
       }
+    },
+    "/api/v1/auth/status": {
+      "get": {
+        "tags": [
+          "Accesso"
+        ],
+        "summary": "Se il server ha una password, se questo dispositivo ha fatto l'accesso e se è nella rete di casa",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Accesso"
+        ],
+        "summary": "Accesso con la password del server: imposta il cookie del dispositivo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Accesso"
+        ],
+        "summary": "Esce da questo dispositivo",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password": {
+      "put": {
+        "tags": [
+          "Accesso"
+        ],
+        "summary": "Imposta o cambia la password del server; gli altri dispositivi devono rifare l'accesso",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/remove": {
+      "post": {
+        "tags": [
+          "Accesso"
+        ],
+        "summary": "Toglie la password (solo dalla rete di casa): il server torna a rispondere solo alla rete di casa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4336,6 +4478,30 @@
         "properties": {
           "error": {
             "type": "string"
+          }
+        }
+      },
+      "AuthStatus": {
+        "required": [
+          "passwordSet",
+          "loggedIn",
+          "homeNetwork",
+          "minLength"
+        ],
+        "type": "object",
+        "properties": {
+          "passwordSet": {
+            "type": "boolean"
+          },
+          "loggedIn": {
+            "type": "boolean"
+          },
+          "homeNetwork": {
+            "type": "boolean"
+          },
+          "minLength": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -4659,6 +4825,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "termsAccepted": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -4718,6 +4889,13 @@
               "null",
               "string"
             ]
+          },
+          "termsAccepted": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -5805,6 +5983,20 @@
           }
         }
       },
+      "LoginBody": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "LostRange": {
         "required": [
           "from",
@@ -6305,6 +6497,27 @@
           },
           "exitReason": {
             "type": "string"
+          }
+        }
+      },
+      "PasswordBody": {
+        "required": [
+          "current",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8010,6 +8223,9 @@
     },
     {
       "name": "Impostazioni"
+    },
+    {
+      "name": "Accesso"
     }
   ]
 }

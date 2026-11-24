@@ -61,6 +61,18 @@ corso"); non impedisce la sospensione da coperchio o tasto.
 non è firmato. Finché i rilasci non sono firmati (vedi [CODE_SIGNING.md](../CODE_SIGNING.md)), su quel PC si usa
 Docker su un'altra macchina. Senza Smart App Control, al primo avvio può comparire l'avviso di SmartScreen.
 
+## Password del server
+
+- Senza password il server risponde solo alla rete di casa (indirizzi privati: 192.168.x.x, 10.x.x.x, 172.16-31.x.x,
+  IPv6 locali) e rifiuta le richieste che arrivano da un proxy o da un tunnel.
+- Con la password (Impostazioni › Accesso, almeno 8 caratteri) ogni dispositivo la inserisce una volta e resta dentro
+  finché non esce, non cambia la password o non lo usa per 180 giorni. Serve per raggiungere il server da fuori casa
+  (VPN, proxy inverso, tunnel). Cambiandola, tutti gli altri dispositivi devono rifare l'accesso.
+- Password dimenticata: creare un file vuoto `reset-password` nella cartella dati (Docker: `data/reset-password`;
+  Windows: `C:\ProgramData\DoveLoFanno\reset-password`) e riavviare il server (Docker: `docker compose restart`;
+  Windows: `Restart-Service DoveLoFanno` da PowerShell come amministratore). All'avvio la password viene tolta e il
+  file cancellato; poi se ne imposta una nuova dalla rete di casa.
+
 ## Backup
 
 - Ogni notte alle 3 il server copia il database in `data/backup/dlf-AAAAMMGG-HHMMSS.db` e tiene le ultime 7 copie;

@@ -16,6 +16,9 @@
   import Libreria from './screens/Libreria.svelte';
   import Player from './screens/Player.svelte';
   import Cerca from './screens/Cerca.svelte';
+  import Accesso from './screens/Accesso.svelte';
+  import Avvertenze from './screens/Avvertenze.svelte';
+  import { TERMS_VERSION } from './lib/terms';
   import Intro from './lib/components/Intro.svelte';
   import { introDue } from './lib/intro';
   // intro col jingle all'ingresso nell'app (dopo la scelta del profilo), una volta per scheda
@@ -29,15 +32,25 @@
   let error = $state('');
   // primo avvio: dopo il primo profilo, la procedura guidata (una volta sola per server)
   let setupDone = $state(true);
+  // avvertenze accettate su questo server (24/11/2026)
+  let termsOk = $state(true);
+
+  // password del server (24/11/2026): senza accesso valido si mostra solo la schermata della password
+  let needLogin = $state(false);
+  if (typeof window !== 'undefined') window.addEventListener('dlf-auth', () => (needLogin = true));
 
   async function load() {
     error = '';
     try {
+      const auth = await api.authStatus();
+      needLogin = auth.passwordSet && !auth.loggedIn;
+      if (needLogin) return;
       const [list, general, sources] = await Promise.all([api.profiles(), api.generalSettings(), api.sources()]);
       profiles = list;
       // un server già configurato prima di questa versione non rivede il primo avvio
       if (!general.setupDone && sources.length > 0) api.updateGeneralSettings({ setupDone: true }).catch(() => {});
       setupDone = general.setupDone || sources.length > 0;
+      termsOk = (general.termsAccepted ?? 0) >= TERMS_VERSION;
       // il profilo ricordato su questo dispositivo, se c'è ancora
       const stored = profiles.find((p) => p.id === session.storedId);
       if (stored && !session.profile) session.profile = stored;
@@ -63,13 +76,17 @@
   const showProfiles = $derived(router.route === 'profili' || !session.profile);
 </script>
 
-{#if loading}
+{#if needLogin}
+  <Accesso ondone={() => { needLogin = false; loading = true; load(); }} />
+{:else if loading}
   <p class="center" role="status">Un momento…</p>
 {:else if error}
   <div class="center" role="alert">
     <p>{error}</p>
     <Button variant="primary" onclick={load}>Riprova</Button>
   </div>
+{:else if !termsOk}
+  <Avvertenze ondone={() => (termsOk = true)} />
 {:else if showProfiles}
   <Profili {profiles} onchange={load} />
 {:else if !setupDone && !session.profile?.isChild}

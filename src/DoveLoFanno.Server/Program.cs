@@ -45,8 +45,11 @@ builder.Services.AddOpenApi("v1", o => o.AddDocumentTransformer((doc, _, _) =>
 builder.Host.UseWindowsService(o => o.ServiceName = "DoveLoFanno");
 
 var app = builder.Build();
+// password del server o, senza password, solo rete di casa (24/11/2026)
+app.UseServerAuth();
 app.MapOpenApi("/api/{documentName}/openapi.json");
 Api.Map(app);
+ServerAuth.Map(app.MapGroup("/api/v1"));
 // interfaccia web (wwwroot, prodotta da web/ con npm run build); gli indirizzi dell'app che non sono file
 // tornano a index.html, quelli dell'API sconosciuti restano 404. index.html si ricontrolla sempre (dopo un
 // aggiornamento il browser prende subito l'interfaccia nuova); i file in assets/ hanno l'hash nel nome e restano in cache.

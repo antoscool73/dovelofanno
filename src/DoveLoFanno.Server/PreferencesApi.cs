@@ -11,8 +11,8 @@ public sealed record ProfileSubscriptionsBody(bool Inherits, IReadOnlyList<strin
 /// <param name="Region">regione della famiglia per il filtro «Canali» della guida (23/11/2026), "" se non scelta</param>
 /// <param name="Regions">le regioni tra cui scegliere</param>
 public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb,
-    string Region, IReadOnlyList<string> Regions);
-public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone, string? Region = null);
+    string Region, IReadOnlyList<string> Regions, int TermsAccepted = 0);
+public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone, string? Region = null, int? TermsAccepted = null);
 /// <summary>TelegramBot = nome utente del bot collegato (senza @), vuoto se non si è potuto leggere; TelegramQueued = messaggi
 /// in coda per il silenzio o Telegram irraggiungibile (24/11/2026).</summary>
 public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo, string TelegramBot = "", int TelegramQueued = 0);
@@ -206,6 +206,8 @@ public static class PreferencesApi
             if (b.MaxParallel is int mp) ctx.Settings.Set("MaxParallel", mp.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.MinFreeGb is int mf) ctx.Settings.Set("MinFreeGB", mf.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.SetupDone is bool sd) ctx.Settings.Set("SetupDone", sd ? "1" : "0");
+            // versione delle avvertenze accettate al primo avvio (24/11/2026)
+            if (b.TermsAccepted is int ta and > 0) ctx.Settings.Set("TermsAccepted", ta.ToString(System.Globalization.CultureInfo.InvariantCulture));
             return Results.Ok(General(ctx));
         })
             .WithSummary("Cambia margini, formato, limiti, regione della famiglia o segna fatto il primo avvio")
@@ -271,7 +273,7 @@ public static class PreferencesApi
         catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException) { }
         return new GeneralSettings(ctx.Settings.GetInt("BeforeMin"), ctx.Settings.GetInt("AfterMin"), ctx.Settings.Get("Format"),
             ctx.Settings.GetInt("MaxParallel"), ctx.Settings.GetInt("MinFreeGB"), ctx.Settings.Get("SetupDone") == "1", ctx.RecordingsDir, free,
-            ctx.Settings.Get("Region"), DoveLoFanno.Sources.ChannelInfo.RegionNames);
+            ctx.Settings.Get("Region"), DoveLoFanno.Sources.ChannelInfo.RegionNames, ctx.Settings.GetInt("TermsAccepted"));
     }
 
     static NotificationSettings NotificationInfo(ServerContext ctx) =>

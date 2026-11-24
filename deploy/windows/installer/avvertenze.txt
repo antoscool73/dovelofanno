@@ -1,0 +1,18 @@
+﻿DoveLoFanno - Avvertenze
+
+Prima di installare, leggi e accetta queste avvertenze. Le stesse compaiono al primo avvio dell'app.
+
+1. Software libero, senza garanzie
+DoveLoFanno è software libero (GPL-3.0 o successive), fornito così com'è: nessuna garanzia che registri sempre tutto o che funzioni senza errori.
+
+2. Nessun contenuto incluso
+DoveLoFanno non fornisce canali, playlist, guide TV nè film: usa solo quello che aggiungi tu. Aggiungi soltanto flussi che hai il diritto di vedere.
+
+3. Registrazioni per uso privato
+Le registrazioni servono a te e alla tua famiglia (copia privata). Non si vendono, non si pubblicano e non si condividono fuori casa.
+
+4. Dati di altri servizi
+Voti, locandine e trame arrivano da TMDB con la tua chiave personale, secondo le condizioni di TMDB; i voti IMDb, se attivi, vengono dal file pubblico di IMDb per uso personale e non commerciale. DoveLoFanno non è affiliato a TMDB, IMDb, JustWatch nè alle emittenti.
+
+5. Il server è tuo
+Sei tu a gestirlo: tienilo aggiornato e, se lo raggiungi da fuori casa, proteggilo con una password (Impostazioni > Accesso).

@@ -88,6 +88,7 @@ export function toSaved(f: SearchQuery): SavedQuery {
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
 export type NotificationSettings = S['NotificationSettings'];
+export type AuthStatus = S['AuthStatus'];
 export type NotificationSettingsPatch = S['NotificationSettingsPatch'];
 export type GenreCount = S['GenreCount'];
 export type LibrarySection = 'all' | 'films' | 'series' | 'documentaries' | 'programmes' | 'recordings' | 'unmatched' | 'watched';
@@ -114,6 +115,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   if (res.status === 204 || res.status === 202) return undefined as T;
   const text = await res.text();
   const data: unknown = text ? JSON.parse(text) : undefined;
+  // password del server (24/11/2026): senza accesso l'app mostra la schermata della password
+  if (res.status === 401 && !path.startsWith('/auth/') && typeof window !== 'undefined') window.dispatchEvent(new Event('dlf-auth'));
   if (!res.ok) {
     const msg = typeof data === 'object' && data !== null && 'error' in data ? String((data as { error: unknown }).error) : `errore ${res.status}`;
     throw new ApiError(res.status, msg);
@@ -123,6 +126,13 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const api = {
   health: () => call<Health>('GET', '/health'),
+
+  // accesso al server (24/11/2026)
+  authStatus: () => call<AuthStatus>('GET', '/auth/status'),
+  login: (password: string) => call<void>('POST', '/auth/login', { password }),
+  logout: () => call<void>('POST', '/auth/logout'),
+  setPassword: (current: string | null, password: string) => call<void>('PUT', '/auth/password', { current, password }),
+  removePassword: (password: string) => call<void>('POST', '/auth/password/remove', { password }),
 
   profiles: () => call<Profile[]>('GET', '/profiles'),
   createProfile: (p: NewProfile) => call<Profile>('POST', '/profiles', p),

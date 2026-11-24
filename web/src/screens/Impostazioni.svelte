@@ -8,10 +8,11 @@
   import LimitiNotifiche from './LimitiNotifiche.svelte';
   import ImpostazioniRegistrazioni from './ImpostazioniRegistrazioni.svelte';
   import Aggiornamenti from './Aggiornamenti.svelte';
+  import ImpostazioniAccesso from './ImpostazioniAccesso.svelte';
   import { api, ApiError, type BackupInfo, type Channel, type Source, type Stream } from '../lib/api/client';
   import { day, time } from '../lib/format';
 
-  type Tab = 'sorgenti' | 'registrazioni' | 'cartelle' | 'profili' | 'voti' | 'notifiche' | 'backup' | 'aggiornamenti';
+  type Tab = 'sorgenti' | 'registrazioni' | 'cartelle' | 'profili' | 'voti' | 'notifiche' | 'accesso' | 'backup' | 'aggiornamenti';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'sorgenti', label: 'Sorgenti' },
     // margini, formato, limiti, cartella e serie (20/11/2026: prima tra Preferenze e la scheda Limiti)
@@ -20,6 +21,8 @@
     { id: 'profili', label: 'Profili e abbonamenti' },
     { id: 'voti', label: 'Voti dei film' },
     { id: 'notifiche', label: 'Notifiche' },
+    // password del server (24/11/2026)
+    { id: 'accesso', label: 'Accesso' },
     { id: 'backup', label: 'Backup' },
     { id: 'aggiornamenti', label: 'Aggiornamenti' },
   ];
@@ -281,6 +284,8 @@
       <ImpostazioniRegistrazioni />
     {:else if tab === 'notifiche'}
       <LimitiNotifiche section={tab} />
+    {:else if tab === 'accesso'}
+      <ImpostazioniAccesso />
     {/if}
   </div>
 </div>
