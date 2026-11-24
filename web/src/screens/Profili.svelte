@@ -2,6 +2,7 @@
   import Logo from '../lib/components/Logo.svelte';
   import Avatar from '../lib/components/Avatar.svelte';
   import Button from '../lib/components/Button.svelte';
+  import IconPicker from '../lib/components/IconPicker.svelte';
   import { api, ApiError, type Profile } from '../lib/api/client';
   import { session } from '../lib/session.svelte';
   import { router } from '../lib/router.svelte';
@@ -17,7 +18,19 @@
   let name = $state('');
   let child = $state(false);
   let color = $state(colors[0]!);
+  let icon = $state('');
   let newPin = $state('');
+  // «Modifica» dal menu del profilo (24/11/2026): /profili#modifica mostra i profili con la matita; un clic apre la
+  // modifica di nome, colore, icona e tipo. PIN e abbonamenti restano in Impostazioni › Profili.
+  let editing = $state<Profile | null>(null);
+  const managing = $derived((router.nav, router.path === '/profili' && window.location.hash === '#modifica'));
+  // dal menu del profilo, un profilo con PIN arriva qui come /profili#pin=ID: si chiede subito il PIN
+  $effect(() => {
+    void router.nav;
+    const m = /^#pin=(\d+)$/.exec(window.location.hash);
+    const p = m ? profiles.find((x) => x.id === Number(m[1])) : undefined;
+    if (p) choose(p);
+  });
   let formError = $state('');
   let busy = $state(false);
 
@@ -32,6 +45,35 @@
     session.enter(p);
     router.go('/');
   }
+
+  function startEdit(p: Profile) {
+    editing = p;
+    name = p.name;
+    child = p.isChild;
+    color = p.avatar;
+    icon = p.icon ?? '';
+    formError = '';
+  }
+
+  async function saveEdit(e: SubmitEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    busy = true;
+    formError = '';
+    try {
+      const p = await api.updateProfile(editing.id, { name, isChild: child, avatar: color, icon, pin: null, clearPin: null });
+      if (session.profile?.id === p.id) session.profile = p;
+      await onchange();
+      editing = null;
+    } catch (err) {
+      formError = err instanceof ApiError ? err.message : 'Profilo non salvato';
+    } finally {
+      busy = false;
+    }
+  }
+
+  // «Fatto»: si torna a «Chi guarda?»
+  const doneManaging = () => router.go('/profili', true);
 
   function choose(p: Profile) {
     if (!p.hasPin) { enter(p); return; }
@@ -60,6 +102,7 @@
     name = '';
     child = false;
     color = colors[profiles.length % colors.length]!;
+    icon = '';
     newPin = '';
     formError = '';
   }
@@ -69,7 +112,7 @@
     busy = true;
     formError = '';
     try {
-      const p = await api.createProfile({ name, isChild: first ? false : child, avatar: color, pin: !child && newPin ? newPin : null });
+      const p = await api.createProfile({ name, isChild: first ? false : child, avatar: color, icon, pin: !child && newPin ? newPin : null });
       await onchange();
       adding = false;
       if (first) enter(p);
@@ -84,9 +127,9 @@
 <main>
   <Logo size={44} />
 
-  {#if first || adding}
-    <form class="panel" onsubmit={add}>
-      <h1>{first ? 'Benvenuto. Come ti chiami?' : 'Nuovo profilo'}</h1>
+  {#if first || adding || editing}
+    <form class="panel" onsubmit={editing ? saveEdit : add}>
+      <h1>{editing ? 'Modifica profilo' : first ? 'Benvenuto. Come ti chiami?' : 'Nuovo profilo'}</h1>
       {#if first}<p class="lead">Sarà il primo profilo, da adulto. Gli altri della famiglia li aggiungi dopo.</p>{/if}
       <label class="field">Nome<input bind:value={name} maxlength="40" required autocomplete="off" use:focusOnMount /></label>
       {#if !first}
@@ -103,36 +146,50 @@
           {/each}
         </div>
       </fieldset>
-      {#if !child}
+      <IconPicker bind:value={icon} {color} {name} />
+      {#if editing}
+        <p class="hint">PIN e abbonamenti si cambiano in Impostazioni › Profili e abbonamenti.</p>
+      {:else if !child}
         <label class="field">PIN (facoltativo, da 4 a 8 cifre)<input bind:value={newPin} inputmode="numeric" pattern="[0-9]{'{'}4,8{'}'}" maxlength="8" autocomplete="off" /></label>
       {/if}
       {#if formError}<p class="error" role="alert">{formError}</p>{/if}
       <div class="actions">
-        {#if !first}<Button variant="ghost" onclick={() => (adding = false)}>Annulla</Button>{/if}
-        <Button variant="primary" size="l" type="submit" disabled={busy || name.trim().length === 0}>{first ? 'Inizia' : 'Crea profilo'}</Button>
+        {#if !first}<Button variant="ghost" onclick={() => { adding = false; editing = null; }}>Annulla</Button>{/if}
+        <Button variant="primary" size="l" type="submit" disabled={busy || name.trim().length === 0}>{editing ? 'Salva' : first ? 'Inizia' : 'Crea profilo'}</Button>
       </div>
     </form>
   {:else if pinFor}
     <form class="panel narrow" onsubmit={unlock}>
-      <Avatar name={pinFor.name} color={pinFor.avatar} size={72} />
+      <Avatar name={pinFor.name} color={pinFor.avatar} icon={pinFor.icon} size={72} />
       <h1>{pinFor.name}</h1>
       <label class="field">PIN<input bind:value={pin} type="password" inputmode="numeric" maxlength="8" autocomplete="off" required use:focusOnMount /></label>
       {#if pinError}<p class="error" role="alert">{pinError}</p>{/if}
       <div class="actions">
-        <Button variant="ghost" onclick={() => (pinFor = null)}>Indietro</Button>
+        <Button variant="ghost" onclick={() => { pinFor = null; if (window.location.hash) router.go('/profili', true); }}>Indietro</Button>
         <Button variant="primary" size="l" type="submit" disabled={busy || pin.length < 4}>Entra</Button>
       </div>
     </form>
   {:else}
-    <h1 class="who">Chi guarda?</h1>
+    <h1 class="who">{managing ? 'Modifica i profili' : 'Chi guarda?'}</h1>
     <ul class="grid">
       {#each profiles as p (p.id)}
         <li>
-          <button type="button" class="tile" onclick={() => choose(p)} aria-label="{p.name}{p.hasPin ? ', con PIN' : ''}">
-            <Avatar name={p.name} color={p.avatar} size={120} />
-            <span class="tname">{p.name}</span>
-            <span class="tmeta">{p.isChild ? 'Bambino' : 'Adulto'}{p.hasPin ? ' · con PIN' : ''}</span>
-          </button>
+          {#if managing}
+            <button type="button" class="tile" onclick={() => startEdit(p)} aria-label="Modifica {p.name}">
+              <span class="edit-wrap">
+                <Avatar name={p.name} color={p.avatar} icon={p.icon} size={120} />
+                <span class="pen" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></span>
+              </span>
+              <span class="tname">{p.name}</span>
+              <span class="tmeta">{p.isChild ? 'Bambino' : 'Adulto'}{p.hasPin ? ' · con PIN' : ''}</span>
+            </button>
+          {:else}
+            <button type="button" class="tile" onclick={() => choose(p)} aria-label="{p.name}{p.hasPin ? ', con PIN' : ''}">
+              <Avatar name={p.name} color={p.avatar} icon={p.icon} size={120} />
+              <span class="tname">{p.name}</span>
+              <span class="tmeta">{p.isChild ? 'Bambino' : 'Adulto'}{p.hasPin ? ' · con PIN' : ''}</span>
+            </button>
+          {/if}
         </li>
       {/each}
       <li>
@@ -142,7 +199,14 @@
         </button>
       </li>
     </ul>
-    <p class="note">Il profilo scelto resta in alto a destra in ogni schermata; un clic lo cambia.</p>
+    {#if managing}
+      <Button variant="primary" size="l" onclick={doneManaging}>Fatto</Button>
+    {:else}
+      <p class="note">Il profilo scelto resta in alto a destra in ogni schermata; un clic lo cambia.</p>
+      <Button variant="secondary" onclick={() => router.go('/profili#modifica')}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>Modifica i profili
+      </Button>
+    {/if}
   {/if}
 </main>
 
@@ -163,8 +227,14 @@
     display: flex; align-items: center; justify-content: center; font-size: 48px; color: var(--muted);
   }
   .note { color: var(--muted); font-size: 14px; text-align: center; }
+  .hint { margin: 0; color: var(--muted); font-size: 13px; }
+  .edit-wrap { position: relative; display: inline-flex; }
+  .pen {
+    position: absolute; inset: 0; border-radius: 30px; display: flex; align-items: center; justify-content: center;
+    background: rgba(13, 16, 21, 0.72); color: var(--text);
+  }
   .panel {
-    width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 18px;
+    width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 18px;
     background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 28px;
   }
   .panel.narrow { max-width: 380px; align-items: center; }

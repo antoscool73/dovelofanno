@@ -12,7 +12,7 @@ export type ChannelFilter = { scopes: Scope[]; onlyWorking: boolean; noShop: boo
 
 export const SCOPES: { id: Scope; label: string; hint: string }[] = [
   { id: 'nazionali', label: 'Nazionali', hint: 'con il numero del digitale terrestre' },
-  { id: 'regione', label: 'Della mia regione', hint: 'riconosciute dal nome (città, provincia, regione)' },
+  { id: 'regione', label: 'Delle mie regioni', hint: 'riconosciute dal nome (città, provincia, regione)' },
   { id: 'altreRegioni', label: 'Di altre regioni', hint: 'locali di cui si capisce la regione' },
   { id: 'altri', label: 'Altri canali', hint: 'locali senza regione nel nome, canali online, esteri' },
   { id: 'radio', label: 'Radio', hint: 'radio con il video' },
@@ -25,17 +25,23 @@ export const KIND_LABEL: Record<string, string> = {
   shop: 'Televendite', movies: 'Film e serie', culture: 'Cultura', entertainment: 'Intrattenimento', general: 'Generalista',
 };
 
+/** Regioni della famiglia: il server le tiene separate da virgole (24/11/2026: si possono sceglierne più d'una). */
+export function regionList(region: string): string[] {
+  return region.split(',').map((r) => r.trim()).filter(Boolean);
+}
+
 export function scopeOf(c: Channel, region: string): Scope {
   if (c.kind === 'radio') return 'radio';
   if (c.number != null) return 'nazionali';
-  if (c.region) return region && c.region === region ? 'regione' : 'altreRegioni';
+  if (c.region) return regionList(region).includes(c.region) ? 'regione' : 'altreRegioni';
   return 'altri';
 }
 
 /** Il canale passa il filtro (senza la scelta a mano). */
 export function passes(c: Channel, f: ChannelFilter, region: string): boolean {
   if (f.onlyWorking && c.streamsOk === 0) return false;
-  if (f.noShop && (c.kind === 'shop' || c.kind === 'religious' || c.closed)) return false;
+  // «chiuso» secondo iptv-org conta solo se nessun flusso funziona: un canale che si vede non è chiuso
+  if (f.noShop && (c.kind === 'shop' || c.kind === 'religious' || (c.closed && c.streamsOk === 0))) return false;
   if (!region) return true;
   return f.scopes.includes(scopeOf(c, region));
 }

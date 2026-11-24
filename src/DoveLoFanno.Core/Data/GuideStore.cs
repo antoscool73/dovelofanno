@@ -127,7 +127,7 @@ public sealed class GuideStore(string dbPath)
             """, "$s", "$x", "$n");
         using var upWork = Prepare(c, tx, """
             INSERT INTO works (kind, work_key, title, title_key, year, updated_at) VALUES ($k, $w, $t, $tk, $y, $u)
-            ON CONFLICT (work_key) DO UPDATE SET updated_at = $u RETURNING id
+            ON CONFLICT (work_key) DO UPDATE SET updated_at = $u RETURNING coalesce(merged_into, id)
             """, "$k", "$w", "$t", "$tk", "$y", "$u");
         using var insProg = Prepare(c, tx, """
             INSERT OR IGNORE INTO programmes (guide_channel_id, start, stop, title, subtitle, description, categories, group_name, sub_genre,

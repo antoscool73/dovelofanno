@@ -3,7 +3,7 @@
 
 import { entryKey, newEntryState, restoreHere, saveHere } from './scrollMemory';
 
-export type Route = 'stasera' | 'cerca' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'preferenze' | 'impostazioni' | 'non-trovata';
+export type Route = 'stasera' | 'cerca' | 'opera' | 'profili' | 'guida' | 'libreria' | 'guarda' | 'registrazioni' | 'avvisi' | 'preferenze' | 'impostazioni' | 'non-trovata';
 
 const paths: Record<string, Route> = {
   '/': 'stasera',
@@ -12,6 +12,7 @@ const paths: Record<string, Route> = {
   '/guida': 'guida',
   '/libreria': 'libreria',
   '/registrazioni': 'registrazioni',
+  '/avvisi': 'avvisi',
   '/preferenze': 'preferenze',
   '/impostazioni': 'impostazioni',
   '/cerca': 'cerca',
@@ -23,6 +24,12 @@ export function routeOf(pathname: string): Route {
   if (/^\/guarda\/\d+$/.test(p)) return 'guarda';
   if (/^\/libreria\/[a-z-]+(\/\d+)?$/.test(p)) return 'libreria';
   return paths[p] ?? 'non-trovata';
+}
+
+/** Indirizzi di prima che portano altrove: I miei avvisi era /preferenze#avvisi fino al 24/11/2026. */
+function moved(url: URL): URL {
+  if (url.pathname.replace(/\/+$/, '') === '/preferenze' && url.hash === '#avvisi') return new URL('/avvisi', url.origin);
+  return url;
 }
 
 class Router {
@@ -42,13 +49,18 @@ class Router {
   constructor() {
     // la posizione la rimette scrollMemory (anche le file di locandine), non il browser
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    const here = moved(new URL(window.location.href));
+    if (here.pathname !== window.location.pathname) {
+      history.replaceState(history.state, '', here.pathname + here.hash);
+      this.path = here.pathname;
+    }
     entryKey();
     window.addEventListener('popstate', () => { this.path = window.location.pathname; this.nav++; restoreHere(); });
   }
 
   /** Va a un indirizzo dell'app; un'ancora (/opera/12#avvisami) resta nell'indirizzo ma non nel percorso. */
   go(path: string, replace = false): void {
-    const url = new URL(path, window.location.origin);
+    const url = moved(new URL(path, window.location.origin));
     if (url.pathname === this.path && url.hash === window.location.hash) return;
     if (replace) history.replaceState(history.state, '', url.pathname + url.hash);
     else { saveHere(); history.pushState(newEntryState(), '', url.pathname + url.hash); }

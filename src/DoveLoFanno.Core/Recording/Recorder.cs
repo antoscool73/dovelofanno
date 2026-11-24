@@ -7,9 +7,11 @@ namespace DoveLoFanno.Recording;
 /// <summary>Cosa registrare: orari già comprensivi dei margini.</summary>
 public sealed record RecordingJob(
     long Id, string Title, string Channel, DateTimeOffset Start, DateTimeOffset End, string Format,
-    string OutDir, string BaseName, string LogDir, MediaInfo? Info = null)
+    string OutDir, string BaseName, string LogDir, MediaInfo? Info = null, Func<DateTimeOffset>? EndNow = null)
 {
     public bool AudioOnly => Format == "mp3";
+    /// <summary>Fine in questo momento: si può spostare mentre registra (<see cref="EndNow"/>), altrimenti <see cref="End"/>.</summary>
+    public DateTimeOffset CurrentEnd => EndNow?.Invoke() ?? End;
 }
 
 /// <summary>Parametri del registratore: quelli di RegistraTV, modificabili nei test.</summary>
@@ -98,7 +100,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
         awake.Hold();
         try
         {
-            run.Log($"Registrazione di {job.Channel}: dalle {Fmt(job.Start)} alle {Fmt(job.End)}");
+            run.Log($"Registrazione di {job.Channel}: dalle {Fmt(job.Start)} alle {Fmt(job.CurrentEnd)}");
             if (job.AudioOnly) run.Log("Solo audio: alla fine diventa un MP3");
             obs.Recording();
 
@@ -118,7 +120,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 run.Log($"Registrazione ripresa: {parts.Count} {(parts.Count == 1 ? "spezzone già registrato" : "spezzoni già registrati")}");
                 if ((Now - from).TotalSeconds > 60)
                 {
-                    var b = Min(Now, job.End);
+                    var b = Min(Now, job.CurrentEnd);
                     run.AddLost(from, b);
                     run.Log($"Interruzione (server fermato o PC spento) dalle {Fmt(from)} alle {Fmt(b)}: persi {Minutes((b - from).TotalSeconds)}");
                 }
@@ -126,7 +128,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
             // partenza in ritardo (PC spento o in sospensione): la parte mancante è persa
             else if (!stopped && late.TotalSeconds > 60)
             {
-                var b = Min(Now, job.End);
+                var b = Min(Now, job.CurrentEnd);
                 run.AddLost(job.Start, b);
                 run.Log($"Registrazione partita in ritardo (PC spento o in sospensione?): persi {Minutes((b - job.Start).TotalSeconds)}");
             }
@@ -135,9 +137,18 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
             string basePath = Path.Combine(job.OutDir, job.BaseName);
             // alla ripresa i registri di ffmpeg continuano dopo quelli già scritti (_ffmpeg_01.log poteva essere ancora aperto)
             int failures = 0, streamFailures = 0, ci = 0, attempt = usedNo;
+            var knownEnd = job.CurrentEnd;
+            void EndChanged()
+            {
+                var e = job.CurrentEnd;
+                if (e == knownEnd) return;
+                run.Log($"Orario di fine cambiato: ora alle {Fmt(e)} (prima alle {Fmt(knownEnd)})");
+                knownEnd = e;
+            }
             while (!stopped)
             {
-                int remaining = (int)Math.Ceiling((job.End - Now).TotalSeconds);
+                EndChanged();
+                int remaining = (int)Math.Ceiling((job.CurrentEnd - Now).TotalSeconds);
                 if (remaining < 5) break;
                 attempt++;
                 var cand = candidates[ci];
@@ -173,7 +184,8 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                             run.Log($"Il file non cresce da {opt.Stall.TotalSeconds:0} s: riavvio ffmpeg");
                             reason = "stall"; p.Kill(); break;
                         }
-                        if (Now >= job.End)
+                        EndChanged();
+                        if (Now >= job.CurrentEnd)
                         {
                             run.Log("Orario di fine raggiunto: chiudo ffmpeg");
                             reason = "end"; p.Kill(); break;
@@ -207,9 +219,9 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                     streamFailures = 0;
                     wait = TimeSpan.FromSeconds(2);
                     run.Log($"Spezzone {no} chiuso: {finalSize / 1048576.0:0.0} MB");
-                    if (!stopped && Now < job.End.AddSeconds(-5)) run.Log("Il flusso si è interrotto prima della fine: riprendo la registrazione");
+                    if (!stopped && Now < job.CurrentEnd.AddSeconds(-5)) run.Log("Il flusso si è interrotto prima della fine: riprendo la registrazione");
                 }
-                if (!stopped && Now < job.End.AddSeconds(-5) && !await run.Sleep(wait, stop)) stopped = true;
+                if (!stopped && Now < job.CurrentEnd.AddSeconds(-5) && !await run.Sleep(wait, stop)) stopped = true;
             }
 
             if (parts.Count == 0)
@@ -355,7 +367,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
             if (prev is not DateTimeOffset p || now - p < r.opt.SleepGap) return false;
             Log($"Il PC è stato in sospensione dalle {Fmt(p)} alle {Fmt(now)}");
             var a = Max(p, job.Start);
-            var b = Min(now, job.End);
+            var b = Min(now, job.CurrentEnd);
             if (b > a)
             {
                 AddLost(a, b);

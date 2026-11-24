@@ -193,7 +193,7 @@ export const api = {
   updateFolder: (id: number, p: { kind?: string | null; enabled?: boolean | null }) => call<LibraryFolder>('PATCH', `/library/folders/${id}`, { kind: p.kind ?? null, enabled: p.enabled ?? null }),
   deleteFolder: (id: number) => call<void>('DELETE', `/library/folders/${id}`),
   libraryItem: (id: number, profileId?: number) => call<LibraryItem>('GET', `/library/items/${id}` + (profileId ? `?profileId=${profileId}` : '')),
-  prepareItem: (id: number) => call<void>('POST', `/library/items/${id}/prepare`),
+  prepareItem: (id: number, profileId?: number) => call<void>('POST', `/library/items/${id}/prepare` + (profileId ? `?profileId=${profileId}` : '')),
   matchItem: (id: number, body: MatchBody) => call<LibraryItem>('PUT', `/library/items/${id}/match`, body),
   removeItem: (id: number, deleteFile: boolean) => call<void>('DELETE', `/library/items/${id}?deleteFile=${deleteFile}`),
   searchMatch: (q: string, kind: 'movie' | 'tv', year?: number) => {
@@ -283,6 +283,8 @@ export const api = {
   scheduleRecording: (r: NewRecording) => call<ScheduledRecording>('POST', '/recordings', r),
   updateRecording: (id: number, r: NewRecording) => call<ScheduledRecording>('PUT', `/recordings/${id}`, r),
   stopRecording: (id: number) => call<void>('POST', `/recordings/${id}/stop`),
+  // fine effettiva (margine compreso) di una registrazione in corso o in programma (24/11/2026)
+  changeRecordingEnd: (id: number, recordTo: string) => call<ScheduledRecording>('PUT', `/recordings/${id}/end`, { recordTo }),
   cancelRecording: (id: number) => call<void>('DELETE', `/recordings/${id}`),
 
   // «Registra la serie» (20/11/2026)

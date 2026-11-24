@@ -167,6 +167,23 @@ public sealed class RecorderFallbackTests(ITestOutputHelper output) : RecorderTe
 
 public sealed class RecorderResumeTests(ITestOutputHelper output) : RecorderTestBase(output)
 {
+    // 24/11/2026: la fine di una registrazione già partita si sposta (allungare un programma che sfora)
+    [Fact]
+    public async Task FineSpostataMentreRegistra()
+    {
+        if (!Ready()) return;
+        var job = Job(8);
+        var end = job.End;
+        job = job with { EndNow = () => end };
+        var later = Task.Run(async () => { await Task.Delay(3000); end = end.AddSeconds(10); });
+        var o = await NewRecorder().RunAsync(job, [Cand(1, "/relinker")]);
+        await later;
+        Dump(o);
+        Assert.Equal("completed", o.State);
+        Assert.Contains("Orario di fine cambiato", File.ReadAllText(o.Log));
+        Assert.InRange((await HlsSimulator.ProbeFileAsync(tools!, o.Output)).Duration, 13, 45);
+    }
+
     // 19/11/2026: «Le relazioni pericolose» interrotta da un riavvio del server ripartiva da _part01.ts (sovrascritto) e
     // lasciava fuori dall'unione lo spezzone interrotto
     [Fact]

@@ -290,8 +290,7 @@ public static class SearchApi
         if (text.Length >= 2)
         {
             var (titles, people) = await tmdb.SearchAllAsync(text, ct);
-            string k = Titles.TitleKey(text);
-            var person = people.Where(p => Titles.TitleKey(p.Name) == k).MaxBy(p => p.Popularity);
+            var person = TmdbClient.PersonFor(text, people);
             if (person != null)
                 foreach (var (h, directed) in (await tmdb.PersonCreditsAsync(person.Id, ct)).OrderByDescending(x => x.Directed).ThenByDescending(x => x.Hit.Popularity))
                     Add(h, (directed ? "Regia di " : "Con ") + person.Name);

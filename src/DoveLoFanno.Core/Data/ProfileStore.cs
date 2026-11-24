@@ -3,10 +3,11 @@ using Microsoft.Data.Sqlite;
 
 namespace DoveLoFanno.Data;
 
-public sealed record ProfileRow(long Id, string Name, bool IsChild, string Avatar, bool HasPin, bool InheritsSubscriptions);
+/// <param name="Icon">nome di un'icona dell'interfaccia (vuoto = l'iniziale del nome)</param>
+public sealed record ProfileRow(long Id, string Name, bool IsChild, string Avatar, bool HasPin, bool InheritsSubscriptions, string Icon = "");
 
 /// <summary>Esito di una modifica ai profili.</summary>
-public enum ProfileResult { Ok, NotFound, NameTaken, InvalidName, InvalidPin, LastAdult }
+public enum ProfileResult { Ok, NotFound, NameTaken, InvalidName, InvalidPin, LastAdult, InvalidIcon }
 
 /// <summary>
 /// Profili della famiglia. Niente password nella prima versione (la rete di casa è il confine): un PIN facoltativo
@@ -23,14 +24,19 @@ public sealed class ProfileStore(string dbPath)
     public List<ProfileRow> List()
     {
         using var c = Open();
-        return Db.Query(c, "SELECT id, name, is_child, avatar, pin_hash IS NOT NULL, inherits_subscriptions FROM profiles ORDER BY is_child, id",
-            r => new ProfileRow(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1, r.GetString(3), r.GetInt64(4) == 1, r.GetInt64(5) == 1));
+        return Db.Query(c, "SELECT id, name, is_child, avatar, pin_hash IS NOT NULL, inherits_subscriptions, icon FROM profiles ORDER BY is_child, id",
+            r => new ProfileRow(r.GetInt64(0), r.GetString(1), r.GetInt64(2) == 1, r.GetString(3), r.GetInt64(4) == 1, r.GetInt64(5) == 1, r.GetString(6)));
     }
 
     public ProfileRow? Get(long id) => List().FirstOrDefault(p => p.Id == id);
 
-    public (ProfileResult Result, long Id) Create(string name, bool isChild, string? avatar, string? pin, DateTimeOffset now)
+    /// <summary>Nome di icona accettato: minuscole, cifre e trattini, al massimo 24 caratteri (vuoto = nessuna icona).</summary>
+    public static bool ValidIcon(string icon) => icon.Length <= 24 && icon.All(ch => ch is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+
+    public (ProfileResult Result, long Id) Create(string name, bool isChild, string? avatar, string? pin, DateTimeOffset now, string? icon = null)
     {
+        icon = (icon ?? "").Trim();
+        if (!ValidIcon(icon)) return (ProfileResult.InvalidIcon, 0);
         name = (name ?? "").Trim();
         if (name.Length is 0 or > 40) return (ProfileResult.InvalidName, 0);
         if (pin != null && (isChild || !ValidPin(pin))) return (ProfileResult.InvalidPin, 0);
@@ -39,16 +45,18 @@ public sealed class ProfileStore(string dbPath)
         using var tx = c.BeginTransaction();
         int count = (int)(Db.ScalarLong(c, "SELECT count(*) FROM profiles") ?? 0);
         string color = string.IsNullOrWhiteSpace(avatar) ? Palette[count % Palette.Length] : avatar.Trim();
-        long id = Db.Insert(c, "INSERT INTO profiles (name, is_child, avatar, pin_hash, created_at) VALUES ($n, $c, $a, $p, $t)",
-            ("$n", name), ("$c", isChild ? 1 : 0), ("$a", color), ("$p", pin == null ? null : Hash(pin)), ("$t", Db.Unix(now)));
+        long id = Db.Insert(c, "INSERT INTO profiles (name, is_child, avatar, pin_hash, created_at, icon) VALUES ($n, $c, $a, $p, $t, $i)",
+            ("$n", name), ("$c", isChild ? 1 : 0), ("$a", color), ("$p", pin == null ? null : Hash(pin)), ("$t", Db.Unix(now)), ("$i", icon));
         Db.Exec(c, "INSERT INTO lists (profile_id, name, is_tonight, created_at) VALUES ($p, $n, 1, $t)",
             ("$p", id), ("$n", TonightList), ("$t", Db.Unix(now)));
         tx.Commit();
         return (ProfileResult.Ok, id);
     }
 
-    public ProfileResult Update(long id, string? name, bool? isChild, string? avatar, string? pin, bool clearPin)
+    public ProfileResult Update(long id, string? name, bool? isChild, string? avatar, string? pin, bool clearPin, string? icon = null)
     {
+        icon = icon?.Trim();
+        if (icon != null && !ValidIcon(icon)) return ProfileResult.InvalidIcon;
         using var c = Open();
         var cur = Db.Query(c, "SELECT is_child, pin_hash IS NOT NULL FROM profiles WHERE id = $id", r => (Child: r.GetInt64(0) == 1, Pin: r.GetInt64(1) == 1), ("$id", id));
         if (cur.Count == 0) return ProfileResult.NotFound;
@@ -64,6 +72,7 @@ public sealed class ProfileStore(string dbPath)
         using var tx = c.BeginTransaction();
         if (name != null) Db.Exec(c, "UPDATE profiles SET name = $v WHERE id = $id", ("$v", name), ("$id", id));
         if (avatar != null) Db.Exec(c, "UPDATE profiles SET avatar = $v WHERE id = $id", ("$v", avatar.Trim()), ("$id", id));
+        if (icon != null) Db.Exec(c, "UPDATE profiles SET icon = $v WHERE id = $id", ("$v", icon), ("$id", id));
         if (isChild != null) Db.Exec(c, "UPDATE profiles SET is_child = $v WHERE id = $id", ("$v", child ? 1 : 0), ("$id", id));
         // un profilo bambino non ha PIN
         if (clearPin || child) Db.Exec(c, "UPDATE profiles SET pin_hash = NULL WHERE id = $id", ("$id", id));

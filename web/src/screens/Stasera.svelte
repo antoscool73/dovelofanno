@@ -41,6 +41,12 @@
   let busy = $state<number | null>(null);
   let now = $state(new Date());
 
+  // passaggi in TV in home: solo quelli non ancora iniziati o iniziati da non più di 15 minuti (Antonio, 24/11/2026)
+  const LATE_MIN = 15;
+  function fresh(p: GuideProgramme, at: Date) {
+    return new Date(p.start).getTime() >= at.getTime() - LATE_MIN * 60_000 && new Date(p.stop) > at;
+  }
+
   // "stasera": da adesso alle 2 di notte; dalle 2 alle 6 vale la sera dopo
   function eveningWindow(d: Date) {
     const base = d.getHours() < 2 ? new Date(d.getTime() - 86_400_000) : d;
@@ -70,9 +76,10 @@
       tonightList = list;
       recordings = recs;
       // stasera: film che iniziano dalle 20 alle 2; quelli già in onda contano solo se è già sera
+      // e se sono iniziati da non più di 15 minuti (Antonio, 24/11/2026)
       const evening = now.getHours() >= 20 || now.getHours() < 2;
       const isEvening = (d: Date) => d.getHours() >= 20 || d.getHours() < 2;
-      tonightFilms = (films.filter((p) => (new Date(p.start) < now ? evening : isEvening(new Date(p.start)))))
+      tonightFilms = (films.filter((p) => (new Date(p.start) < now ? evening && fresh(p, now) : isEvening(new Date(p.start)))))
         .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || a.start.localeCompare(b.start));
       weekFilms = dedupe(week).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 60);
     } catch (e) {
@@ -147,10 +154,11 @@
     const { to } = eveningWindow(now);
     const mine = tonightList
       .map((i) => i.evening)
-      .filter((n): n is GuideProgramme => !!n && new Date(n.start) < to)
+      .filter((n): n is GuideProgramme => !!n && new Date(n.start) < to && fresh(n, now))
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     // con «Nascondi visti» il titolo in evidenza non è uno già visto
-    const ok = (p: GuideProgramme) => !seenState.hidden(p.workId);
+    // e non è già nella top, che sta sopra
+    const ok = (p: GuideProgramme) => !seenState.hidden(p.workId) && !(p.workId != null && topIds.has(p.workId));
     const films = tonightFilms.filter(ok);
     return mine.filter(ok)[0] ?? films.find((p) => p.rating != null && recordable(p)) ?? films[0] ?? null;
   });
@@ -237,17 +245,13 @@
   );
   const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
 
-  // Banner solo dalle 20:00 alle 21:30 (punto 6 del 23/11, Antonio): è l'ora in cui si sceglie il film. Fuori da quella
-  // fascia, al suo posto, «Il top per la serata»: tre titoli in TV e tre per ogni mio abbonamento (24/11/2026). Criteri:
-  // - TV: film di stasera che il profilo vede (in chiaro o nei suoi abbonamenti), non iniziati da più di 20 minuti;
+  // «Il top per la serata» sempre in cima e il banner del film di stasera sotto: la pagina non cambia con l'orario
+  // (Antonio, 24/11/2026; sostituisce «banner solo dalle 20:00 alle 21:30»). Tre titoli in TV e tre per ogni mio abbonamento. Criteri:
+  // - TV: film di stasera che il profilo vede (in chiaro o nei suoi abbonamenti), non iniziati da più di 15 minuti;
   // - un abbonamento: film della guida nel suo catalogo streaming;
   // con «Nascondi visti» acceso i visti escono (al loro posto entrano i successivi), altrimenti restano con la spunta
   // (Antonio, 24/11/2026); prima quelli della mia lista, poi per voto; un titolo
   // sta in una colonna sola (prima la TV, poi gli abbonamenti nell'ordine di rilievo) e non compare nelle altre righe della pagina.
-  const heroTime = $derived.by(() => {
-    const m = now.getHours() * 60 + now.getMinutes();
-    return m >= 20 * 60 && m < 21 * 60 + 30;
-  });
   const listIds = $derived(new Set(tonightList.map((i) => i.workId)));
   const inList = (p: GuideProgramme) => p.workId != null && listIds.has(p.workId);
   const byTop = (a: GuideProgramme, b: GuideProgramme) =>
@@ -266,10 +270,9 @@
       }
       return out;
     };
-    const late = now.getTime() - 20 * 60_000;
     const cols: TopCol[] = [{
       key: 'tv', service: null, title: now.getHours() >= 21 || now.getHours() < 2 ? 'Ancora stasera in TV' : 'Stasera in TV',
-      list: pick(tonightFilms.filter((p) => inMySubscriptions(p, mySubs) && new Date(p.start).getTime() >= late && new Date(p.stop) > now)),
+      list: pick(tonightFilms.filter((p) => inMySubscriptions(p, mySubs) && fresh(p, now))),
     }];
     for (const svc of platforms.sort(mySubs)) {
       const list = pick(guideFilms.filter((p) => streamingFor(p, [svc]).length > 0));
@@ -304,7 +307,7 @@
   const fill = <T extends { workId?: number | null }>(l: T[]) =>
     l.filter((x) => !seenState.hidden(x.workId) && !(x.workId != null && topIds.has(x.workId))).slice(0, ROW);
   // opere della top: fuori dalle altre righe della pagina (solo quando la top si vede)
-  const topIds = $derived(new Set(heroTime ? [] : topCols.flatMap((c) => c.list.map((p) => p.workId)).filter((x): x is number => x != null)));
+  const topIds = $derived(new Set(topCols.flatMap((c) => c.list.map((p) => p.workId)).filter((x): x is number => x != null)));
 
   // la mia serata: si vede stasera un titolo che passa in TV di sera (dalle 20, entro le 2), che è in casa o che è in
   // streaming nei miei abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo. Un passaggio
@@ -448,12 +451,33 @@
 {#if loading}
   <p class="pad muted" role="status">Un momento…</p>
 {:else}
+  <!-- legenda e comandi della pagina: in cima e ferma sotto l'intestazione mentre si scorre (Antonio, 24/11/2026) -->
+  <!-- comandi a sinistra, legenda dei simboli a destra (Antonio, 24/11/2026) -->
+  <div class="pad toprow">
+    <!-- apri o chiudi tutte le sezioni della pagina (Antonio, 20/11/2026) -->
+    <div class="allbtns">
+      <!-- «Nascondi visti» (23/11/2026, Antonio): toglie da tutte le righe i titoli segnati come visti -->
+      {#if session.profile}
+        <label class="switch seenswitch">
+          <input type="checkbox" role="switch" checked={seenState.hide} onchange={(e) => seenState.setHide(e.currentTarget.checked)} />
+          <span class="track" aria-hidden="true"></span>
+          Nascondi visti
+        </label>
+      {/if}
+      <button type="button" class="allbtn" onclick={() => sectionsCommand.all(false)} title="Apri tutte le sezioni">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" /></svg>Apri tutte</button>
+      <button type="button" class="allbtn" onclick={() => sectionsCommand.all(true)} title="Chiudi tutte le sezioni">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20l5-5 5 5" /><path d="M7 4l5 5 5-5" /></svg>Chiudi tutte</button>
+    </div>
+    <AvailLegend />
+  </div>
+
   {#if error}<p class="pad error" role="alert">{error}</p>{/if}
 
-  {#if !heroTime && topCols.some((c) => c.list.length > 0)}
-    <!-- fuori dalle 20:00–21:30: «Il top per la serata» al posto del banner (24/11/2026) -->
-    <section class="tops" aria-labelledby="tops-h">
-      <h2 id="tops-h">Il top per la serata</h2>
+  {#if topCols.some((c) => c.list.length > 0)}
+    <!-- «Il top per la serata» sempre in cima, il banner sotto (24/11/2026); si chiude come le altre sezioni -->
+    <div class="tops">
+    <Section key="top-serata" title="Il top per la serata">
       <div class="topsrow">
       {#if !topsAtStart}
         <button type="button" class="arrow left" aria-label="Colonne precedenti" onclick={() => topsBy(-1)}>
@@ -492,8 +516,10 @@
         {/each}
       </div>
       </div>
-    </section>
-  {:else if hero && heroTime}
+    </Section>
+    </div>
+  {/if}
+  {#if hero}
     <section class="hero">
       {#if hero.icon}<img class="backdrop" src={hero.icon} alt="" referrerpolicy="no-referrer" />{/if}
       <div class="hero-word" aria-hidden="true">{hero.title}</div>
@@ -517,26 +543,7 @@
     </section>
   {/if}
 
-  <div class="pad sections">
-    <div class="toprow">
-      <AvailLegend />
-      <!-- apri o chiudi tutte le sezioni della pagina (Antonio, 20/11/2026) -->
-      <div class="allbtns">
-        <!-- «Nascondi visti» (23/11/2026, Antonio): toglie da tutte le righe i titoli segnati come visti -->
-        {#if session.profile}
-          <label class="switch seenswitch">
-            <input type="checkbox" role="switch" checked={seenState.hide} onchange={(e) => seenState.setHide(e.currentTarget.checked)} />
-            <span class="track" aria-hidden="true"></span>
-            Nascondi visti
-          </label>
-        {/if}
-        <button type="button" class="allbtn" onclick={() => sectionsCommand.all(false)} title="Apri tutte le sezioni">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 15l5 5 5-5" /><path d="M7 9l5-5 5 5" /></svg>Apri tutte</button>
-        <button type="button" class="allbtn" onclick={() => sectionsCommand.all(true)} title="Chiudi tutte le sezioni">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20l5-5 5 5" /><path d="M7 4l5 5 5-5" /></svg>Chiudi tutte</button>
-      </div>
-    </div>
-    <!-- La mia lista (20/11/2026, Antonio): «Da vedere stasera» = i titoli della lista che si vedono stasera (in TV di sera,
+  <div class="pad sections">    <!-- La mia lista (20/11/2026, Antonio): «Da vedere stasera» = i titoli della lista che si vedono stasera (in TV di sera,
          in casa, on demand nei miei abbonamenti); «I miei titoli» = gli altri, non in programma stasera né on demand -->
     <Section key="serata" title="Da vedere stasera">
       {#snippet aside()}{tonightList.length === 0 ? '' : `${tonightAvailable.length} ${tonightAvailable.length === 1 ? 'titolo' : 'titoli'} della tua lista`}{/snippet}
@@ -635,7 +642,7 @@
                 {#if c.scheduled}<span class="recdot" aria-label="in programma"></span>{/if}
                 <AvailBadges a={c.avail} />
               </span>
-              <span class="c-title">{c.title}</span>
+              <span class="c-title" title={c.title}>{c.title}</span>
               {#each c.lines.filter(Boolean) as l, k (k)}<span class="line muted small">{l}</span>{/each}
               {#if c.note}<span class="note small" title={c.note}>{c.note}</span>{/if}
               {#if c.accent}<span class="line accent small">{c.accent}</span>{/if}
@@ -708,10 +715,12 @@
 
 
 <style>
-  .toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+  /* 1px sotto il bordo dell'intestazione (che sta sopra): nessuna fessura nemmeno con misure frazionarie */
+  .toprow { position: sticky; top: calc(var(--header-h, 53px) - 1px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--line); }
+  .pad.toprow { padding: 10px var(--gutter); }
   .allbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-  .seenswitch { margin-right: 10px; }
-  .allbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .seenswitch { margin-right: 10px; }  .allbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
   .allbtn:hover { color: var(--text); background: var(--card); }
   .edit { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-s); color: var(--muted); }
   .edit:hover { color: var(--text); background: var(--card); }
@@ -719,8 +728,7 @@
   .muted { color: var(--muted); margin: 0; }
   .small { font-size: 13px; }
   .error { color: var(--rec-text); }
-  .tops { padding: 24px var(--gutter) 8px; background: linear-gradient(180deg, #172033, transparent); display: flex; flex-direction: column; gap: 14px; }
-  .tops h2 { font-size: 26px; margin: 0; }
+  .tops { padding: 24px var(--gutter) 8px; background: linear-gradient(180deg, #172033, transparent); }
   .topsrow { position: relative; }
   .arrow { position: absolute; top: calc(50% - 26px); z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-btn);
     background: rgba(13, 16, 21, 0.85); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
@@ -776,8 +784,10 @@
   .recs li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
   .rec-live { border-color: #3a2a2e; }
   .r-title { font-weight: 600; }
-  .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; align-items: start; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
-  .cards li { scroll-snap-align: start; }
+  /* schede della stessa fila alte uguali, pulsanti in fondo alla stessa altezza (24/11/2026, Antonio: niente layout ballerini) */
+  .cards { list-style: none; margin: 0; padding: 0 0 8px; display: grid; align-items: stretch; grid-auto-flow: column; grid-auto-columns: 180px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; }
+  .cards li { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; }
+  .cards li > .c-acts { margin-top: auto; padding-top: 8px; }
   :global(.cards.dragging), :global(.row-scroll.dragging) { cursor: grabbing; scroll-snap-type: none; user-select: none; }
   .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
   .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }

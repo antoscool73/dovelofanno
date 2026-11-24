@@ -34,7 +34,15 @@ public sealed class LibraryHost(ServerContext ctx, ILogger<LibraryHost> log) : B
         scanWake.Release();
     }
 
-    public void CopyQueued() => copyWake.Release();
+    // chi ha chiesto la copia, per avvisarlo quando è pronta (24/11/2026, Antonio: «dove sta adesso?»). Solo in memoria:
+    // dopo un riavvio del server una copia ripresa avvisa tutti i profili.
+    readonly System.Collections.Concurrent.ConcurrentDictionary<long, long?> copyFor = new();
+
+    public void CopyQueued(long itemId, long? profileId)
+    {
+        copyFor[itemId] = profileId;
+        copyWake.Release();
+    }
 
     protected override Task ExecuteAsync(CancellationToken ct)
     {
@@ -119,16 +127,20 @@ public sealed class LibraryHost(ServerContext ctx, ILogger<LibraryHost> log) : B
                 try { code = await ctx.Tools.RunFfmpegAsync(MediaProbe.CopyArgs(path, tmp, probe, how), Path.Combine(ctx.LogDir, $"copia-{id}.log"), ct); }
                 catch (OperationCanceledException) { TryDelete(tmp); ctx.Library.SetCopy(id, "queued"); return; }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception) { code = -1; log.LogWarning("Copia non riuscita: {Error}", ex.Message); }
+                copyFor.TryRemove(id, out long? who);
+                string title = ctx.Library.Item(id, null) is { } it ? (it.Subtitle.Length > 0 ? $"{it.Title} · {it.Subtitle}" : it.Title) : Path.GetFileNameWithoutExtension(path);
                 if (code == 0 && File.Exists(tmp))
                 {
                     File.Move(tmp, done, true);
                     ctx.Library.SetCopy(id, "done", done);
+                    ctx.Notifications.Add(who, "library", $"Pronto da guardare: «{title}»", "Preparato per il browser: si apre nel player", $"/guarda/{id}", ctx.Clock.GetUtcNow());
                 }
                 else
                 {
                     TryDelete(tmp);
                     ctx.Library.SetCopy(id, "failed");
                     log.LogWarning("Copia per il browser di {File} non riuscita (ffmpeg {Code})", path, code);
+                    ctx.Notifications.Add(who, "library", $"Non preparato: «{title}»", "Il file non si legge o la copia non è riuscita", $"/guarda/{id}", ctx.Clock.GetUtcNow());
                 }
                 CopyStatus = "";
             }

@@ -126,7 +126,9 @@ public static class MediaProbe
             if (k != ita) a.AddRange(["-map", $"0:a:{k.ToString(CultureInfo.InvariantCulture)}"]);
         if (how == Playback.Full) a.AddRange(["-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p"]);
         else a.AddRange(["-c:v", "copy"]);
-        if (how is Playback.Audio or Playback.Full) a.AddRange(["-c:a", "aac", "-b:a", "192k"]);
+        // audio ricodificato in stereo (24/11/2026): da un AC3 5.1(side) l'AAC di ffmpeg scriveva 6 canali con disposizione
+        // «unknown» e il browser restava muto (Interstellar). Lo stereo si sente ovunque: PC, telefono, TV.
+        if (how is Playback.Audio or Playback.Full) a.AddRange(["-c:a", "aac", "-ac", "2", "-b:a", "192k"]);
         else a.AddRange(["-c:a", "copy"]);
         a.AddRange(["-sn", "-dn", "-threads", "2", "-movflags", "+faststart", "-f", "mp4", output]);
         return a;

@@ -53,7 +53,7 @@
     if (hash) setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' }), 300);
   }
 
-  const icons: Record<string, string> = { recording: '●', alert: '🔔', proposals: '★', system: 'i' };
+  const icons: Record<string, string> = { recording: '●', alert: '🔔', proposals: '★', system: 'i', library: '▶' };
 </script>
 
 <!-- si chiude con Esc o con un clic fuori dalla campanella e dal suo riquadro -->
@@ -102,6 +102,7 @@
   .ic { flex: 0 0 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; background: var(--raised); }
   .ic.recording { color: var(--rec); }
   .ic.proposals { color: var(--star); }
+  .ic.library { color: var(--green-text); }
   .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .t { font-weight: 600; font-size: 14px; }
   .d { font-size: 13px; color: var(--text-2); }

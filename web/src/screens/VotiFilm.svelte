@@ -15,7 +15,7 @@
   }
   load();
 
-  async function save(patch: { tmdbKey?: string; clearTmdbKey?: boolean; imdbEnabled?: boolean }, ok: string) {
+  async function save(patch: { tmdbKey?: string; clearTmdbKey?: boolean; imdbEnabled?: boolean }, ok = '') {
     busy = true;
     error = '';
     message = '';
@@ -60,7 +60,7 @@
 
   <div class="card">
     <label class="toggle">
-      <input type="checkbox" checked={s.imdbEnabled} disabled={busy} onchange={(e) => save({ imdbEnabled: (e.currentTarget as HTMLInputElement).checked }, 'Preferenza salvata.')} />
+      <input type="checkbox" checked={s.imdbEnabled} disabled={busy} onchange={(e) => save({ imdbEnabled: (e.currentTarget as HTMLInputElement).checked })} />
       <span>
         <strong>Usa i voti IMDb</strong>
         <span class="muted small">Dal file ufficiale di IMDb, scaricato una volta a settimana. La sua licenza vale solo per uso personale e non commerciale: attivalo solo per il server di casa. Spento, si mostra il voto TMDB.</span>

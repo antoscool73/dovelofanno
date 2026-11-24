@@ -8,7 +8,7 @@ public sealed record ReadBody(long UpTo);
 public sealed record ServicesBody(IReadOnlyList<string> Services);
 public sealed record FamilySubscriptions(IReadOnlyList<string> Services, IReadOnlyList<string> Known);
 public sealed record ProfileSubscriptionsBody(bool Inherits, IReadOnlyList<string>? Services);
-/// <param name="Region">regione della famiglia per il filtro «Canali» della guida (23/11/2026), "" se non scelta</param>
+/// <param name="Region">regioni della famiglia per il filtro «Canali» della guida, separate da virgole (23-24/11/2026), "" se nessuna</param>
 /// <param name="Regions">le regioni tra cui scegliere</param>
 public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb,
     string Region, IReadOnlyList<string> Regions, int TermsAccepted = 0);
@@ -198,8 +198,12 @@ public static class PreferencesApi
             if (b.Format is not (null or "mp4" or "mp3")) return Results.BadRequest(new ApiError("formato: mp4 o mp3"));
             if (b.MaxParallel is < 0 or > 20) return Results.BadRequest(new ApiError("registrazioni contemporanee: da 0 (nessun limite) a 20"));
             if (b.MinFreeGb is < 0 or > 10000) return Results.BadRequest(new ApiError("spazio minimo non valido"));
-            if (b.Region is { Length: > 0 } rg && !DoveLoFanno.Sources.ChannelInfo.RegionNames.Contains(rg)) return Results.BadRequest(new ApiError("regione sconosciuta"));
-            if (b.Region is string region) ctx.Settings.Set("Region", region);
+            // più regioni (24/11/2026, Antonio): elenco separato da virgole, vuoto = nessuna; una sola resta valida come prima
+            string[] regs = (b.Region ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (regs.FirstOrDefault(r => !DoveLoFanno.Sources.ChannelInfo.RegionNames.Contains(r)) is string bad)
+                return Results.BadRequest(new ApiError($"regione sconosciuta: {bad}"));
+            if (b.Region != null)
+                ctx.Settings.Set("Region", string.Join(",", DoveLoFanno.Sources.ChannelInfo.RegionNames.Where(regs.Contains)));
             if (b.BeforeMin is int bm) ctx.Settings.Set("BeforeMin", bm.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.AfterMin is int am) ctx.Settings.Set("AfterMin", am.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (b.Format is string f) ctx.Settings.Set("Format", f);

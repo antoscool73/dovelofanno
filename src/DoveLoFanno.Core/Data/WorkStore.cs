@@ -17,7 +17,14 @@ public sealed record WorkDetail(
     long Id, string Kind, string Title, string OriginalTitle, int Year, double? Rating, string RatingSource, int RatingVotes,
     long? TmdbId, string ImdbId, string Overview, string Poster, string Backdrop, int? RuntimeMin, string Trailer, DateTimeOffset? DetailsAt,
     IReadOnlyList<GuideProgramme> Airings, IReadOnlyList<WorkFile> InHouse, IReadOnlyList<WorkAvailability> Availability,
-    bool InTonight, bool Watched, int? Stars, IReadOnlyList<LibraryFile> Files, IReadOnlyList<WorkListRef> Lists, long? ParentId, string ParentTitle);
+    bool InTonight, bool Watched, int? Stars, IReadOnlyList<LibraryFile> Files, IReadOnlyList<WorkListRef> Lists, long? ParentId, string ParentTitle,
+    string Directors = "", string Actors = "")
+{
+    /// <summary>Anno secondo TMDB (0 = non noto): la Scheda lo preferisce a <see cref="Year"/>, che viene dalla guida.</summary>
+    public int TmdbYear { get; init; }
+    /// <summary>Generi TMDB con il nome italiano (vuoto = la Scheda usa quello della guida).</summary>
+    public IReadOnlyList<string> Genres { get; init; } = [];
+}
 
 /// <summary>Un'opera già nota trovata dalla ricerca: prossimo passaggio in TV e se c'è in casa.</summary>
 public sealed record WorkSearchHit(long Id, string Kind, string Title, int Year, string Poster, double? Rating, string RatingSource,
@@ -51,15 +58,23 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
     public WorkDetail? Detail(long workId, long? profileId, DateTimeOffset now)
     {
         using var c = Open();
+        // un'opera unita a un'altra (vecchi collegamenti): la scheda di quella che resta
+        if (Db.ScalarLong(c, "SELECT merged_into FROM works WHERE id = $id", ("$id", workId)) is long into && into != workId)
+        {
+            c.Dispose();
+            return Detail(into, profileId, now);
+        }
         var w = Db.Query(c, """
             SELECT w.id, w.kind, w.title, w.original_title, w.year, w.rating, w.rating_source, w.rating_votes, w.tmdb_id, w.imdb_id, w.overview,
-                   w.poster, w.backdrop, w.runtime_min, w.trailer, w.details_at, w.parent_id, coalesce(p.title, '')
+                   w.poster, w.backdrop, w.runtime_min, w.trailer, w.details_at, w.parent_id, coalesce(p.title, ''),
+                   w.directors, w.actors, coalesce(w.tmdb_year, 0), w.genres
             FROM works w LEFT JOIN works p ON p.id = w.parent_id WHERE w.id = $id
             """,
             r => (Id: r.GetInt64(0), Kind: r.GetString(1), Title: r.GetString(2), Orig: r.GetString(3), Year: r.GetInt32(4),
                 Rating: r.IsDBNull(5) ? (double?)null : r.GetDouble(5), Src: r.GetString(6), Votes: r.GetInt32(7), Tmdb: Db.NLong(r, 8),
                 Imdb: r.GetString(9), Overview: r.GetString(10), Poster: r.GetString(11), Backdrop: r.GetString(12), Runtime: Db.NInt(r, 13),
-                Trailer: r.GetString(14), DetailsAt: Db.NTime(r, 15), Parent: Db.NLong(r, 16), ParentTitle: r.GetString(17)),
+                Trailer: r.GetString(14), DetailsAt: Db.NTime(r, 15), Parent: Db.NLong(r, 16), ParentTitle: r.GetString(17),
+                Directors: r.GetString(18), Actors: r.GetString(19), TmdbYear: r.GetInt32(20), Genres: r.IsDBNull(21) ? "" : r.GetString(21)),
             ("$id", workId)).FirstOrDefault();
         if (w.Id == 0) return null;
 
@@ -95,7 +110,18 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         var lists = profileId is long lp ? new ListStore(dbPath, guide).ListsOf(lp, workId) : [];
         return new WorkDetail(w.Id, w.Kind, w.Title, w.Orig, w.Year, w.Rating, w.Src, w.Votes, w.Tmdb, w.Imdb, w.Overview,
             ImageUrl(w.Poster, "w500"), ImageUrl(w.Backdrop, "w1280"), w.Runtime, w.Trailer, w.DetailsAt, airings, files, avail, inTonight, watched, stars,
-            libraryFiles, lists, w.Parent, w.ParentTitle);
+            libraryFiles, lists, w.Parent, w.ParentTitle, w.Directors, w.Actors)
+        {
+            TmdbYear = w.TmdbYear,
+            Genres = [.. GenreIdsOf(w.Genres).Select(TmdbGenres.Name).Where(n => n.Length > 0).Distinct()],
+        };
+    }
+
+    static IEnumerable<int> GenreIdsOf(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<int[]>(json) ?? []; }
+        catch (System.Text.Json.JsonException) { return []; }
     }
 
     /// <summary>
@@ -113,6 +139,13 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
     /// </summary>
     /// <param name="kind">film, series, documentary o all: il tipo si filtra già qui, perché <paramref name="max"/> taglia prima
     /// dei filtri in memoria (20/11/2026: le serie, senza voto, finivano dopo le prime 400 opere e «Serie» non trovava quasi nulla)</param>
+    /// <summary>
+    /// Condizione SQL: uno dei nomi (separati da virgola) ha una parola che comincia con il testo $t: «allen» e «woody
+    /// allen» trovano Woody Allen, «len» no.
+    /// </summary>
+    static string PersonLike(string col) =>
+        $"({col} <> '' AND (' ' || replace(replace(lower({col}), ',', ' '), '-', ' ')) LIKE '% ' || lower($t) || '%')";
+
     public List<WorkSearchHit> Find(string text, DateTimeOffset now, bool childOnly = false, int max = 400, IReadOnlyCollection<long>? ids = null, string kind = "all")
     {
         string k = Epg.Titles.TitleKey(text);
@@ -128,7 +161,10 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         string which = ids != null
             ? " AND w.id IN (SELECT value FROM json_each($ids))"
             : k.Length > 0
-                ? " AND (w.title_key LIKE '%' || $k || '%' OR (w.original_title <> '' AND lower(w.original_title) LIKE '%' || lower($t) || '%'))"
+                ? $" AND (w.title_key LIKE '%' || $k || '%' OR (w.original_title <> '' AND lower(w.original_title) LIKE '%' || lower($t) || '%')"
+                  // anche per regista o attore, da TMDB o dalla guida: «allen» trova i film di Woody Allen (24/11/2026)
+                  + $" OR {PersonLike("w.directors")} OR {PersonLike("w.actors")}"
+                  + $" OR EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND ({PersonLike("p.directors")} OR {PersonLike("p.actors")})))"
                 : $"""
                    AND w.kind <> 'programme' AND (EXISTS (SELECT 1 FROM programmes p WHERE p.work_id IN {TonightStore.SameShow("w")} AND p.stop > $now)
                      OR EXISTS (SELECT 1 FROM library_items li WHERE li.work_id = w.id AND li.missing_since IS NULL)
@@ -139,6 +175,17 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         // sola, come serie, con i passaggi di tutte le puntate (20/11/2026: «Serie, in TV» non trovava nulla); lo stesso per
         // documentari e programmi a puntate (Geo), che comparivano una volta per puntata
         string show = TonightStore.SameShow("w");
+        // con il testo: titolo uguale, poi regista, poi titolo con una parola che comincia così, poi attore, poi il resto
+        // («allen»: prima i film di Woody Allen, poi «Allenamenti», poi i film con un attore Allen, poi «Challenge»)
+        string rank = ids == null && k.Length > 0
+            ? $"""
+               CASE WHEN w.title_key = $k THEN 0
+                    WHEN {PersonLike("w.directors")} OR EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND {PersonLike("p.directors")}) THEN 1
+                    WHEN (' ' || w.title_key) LIKE '% ' || $k || '%' THEN 2
+                    WHEN {PersonLike("w.actors")} OR EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND {PersonLike("p.actors")}) THEN 3
+                    ELSE 4 END,
+              """
+            : "";
         return Db.Query(c, $"""
             SELECT w.id, CASE WHEN w.kind = 'episode' THEN 'series' ELSE w.kind END, w.title, w.year, w.poster, w.rating, w.rating_source, w.tmdb_id, coalesce(w.tmdb_kind, ''),
                    (SELECT min(p.start) FROM programmes p WHERE p.work_id IN {show} AND p.stop > $now) AS next,
@@ -151,15 +198,16 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
                    w.genres, w.overview,
                    coalesce((SELECT CASE WHEN p.sub_genre <> '' THEN p.sub_genre ELSE p.group_name END || char(31) || p.country || char(31)
                                     || p.directors || char(31) || p.actors
-                             FROM programmes p WHERE p.work_id = w.id ORDER BY p.start DESC LIMIT 1), '')
+                             FROM programmes p WHERE p.work_id = w.id ORDER BY p.start DESC LIMIT 1), ''),
+                   w.directors, w.actors
             FROM works w
-            WHERE w.parent_id IS NULL
+            WHERE w.parent_id IS NULL AND w.merged_into IS NULL
               AND (w.kind NOT IN ('episode', 'documentary', 'programme')
                    OR w.id = (SELECT min(e.id) FROM works e WHERE e.title_key = w.title_key AND e.parent_id IS NULL
                                  AND (e.kind = w.kind OR (e.kind IN ('documentary', 'programme') AND w.kind IN ('documentary', 'programme'))))
                       AND (w.kind <> 'episode' OR NOT EXISTS (SELECT 1 FROM works sr WHERE sr.title_key = w.title_key AND sr.kind = 'series' AND sr.parent_id IS NULL)))
             {which}{child}
-            ORDER BY (next IS NOT NULL OR home) DESC, (w.title_key = $k) DESC, w.rating IS NULL, w.rating DESC, w.rating_votes DESC, w.id
+            ORDER BY {rank} (next IS NOT NULL OR home) DESC, (w.title_key = $k) DESC, w.rating IS NULL, w.rating DESC, w.rating_votes DESC, w.id
             LIMIT $max
             """,
             r =>
@@ -173,7 +221,7 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
                     r.GetString(12).Split('|', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList(), r.GetString(13).Split(',', StringSplitOptions.RemoveEmptyEntries))
                 {
                     GenreIds = genres, Overview = r.GetString(15),
-                    GuideGenre = g.Length > 0 ? g[0] : "", Country = g.Length > 1 ? g[1] : "", Directors = g.Length > 2 ? g[2] : "", Actors = g.Length > 3 ? g[3] : "",
+                    GuideGenre = g.Length > 0 ? g[0] : "", Country = g.Length > 1 ? g[1] : "", Directors = g.Length > 2 && g[2].Length > 0 ? g[2] : r.GetString(17), Actors = g.Length > 3 && g[3].Length > 0 ? g[3] : r.GetString(18),
                 };
             },
             ("$k", k), ("$t", text.Trim()), ("$now", Db.Unix(now)), ("$max", max),
@@ -225,9 +273,103 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         var res = new Dictionary<(string, long), long>();
         using var c = Open();
         foreach (var (kind, id) in ids.Distinct())
-            if (Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = $k AND tmdb_id = $t AND parent_id IS NULL ORDER BY id LIMIT 1", ("$k", kind), ("$t", id)) is long w)
+            if (Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = $k AND tmdb_id = $t AND parent_id IS NULL AND merged_into IS NULL ORDER BY id LIMIT 1", ("$k", kind), ("$t", id)) is long w)
                 res[(kind, id)] = w;
         return res;
+    }
+
+    /// <summary>
+    /// Unisce le opere con lo stesso titolo TMDB (24/11/2026): la guida le duplica quando sbaglia o non dà l'anno, che fa
+    /// parte della chiave («Per qualche dollaro in più» 1966 e 2019). Resta l'opera con file in casa o registrazioni, poi
+    /// quella con l'anno di TMDB, poi con un anno, poi la più vecchia; passaggi, registrazioni, file, liste, visti, voti,
+    /// avvisi ed esclusioni passano a lei. Le altre restano come alias (merged_into) per i prossimi caricamenti della guida.
+    /// Restituisce quante opere sono state unite.
+    /// </summary>
+    public int MergeDuplicates(DateTimeOffset now)
+    {
+        using var c = Open();
+        var groups = Db.Query(c, """
+            SELECT group_concat(w.id) FROM works w
+            WHERE w.tmdb_id IS NOT NULL AND w.parent_id IS NULL AND w.merged_into IS NULL AND w.kind IN ('film', 'series', 'documentary')
+            GROUP BY coalesce(w.tmdb_kind, 'movie'), w.tmdb_id HAVING count(*) > 1
+            """, r => r.GetString(0));
+        int merged = 0;
+        foreach (string g in groups)
+        {
+            var ids = g.Split(',').Select(long.Parse).ToList();
+            using var tx = c.BeginTransaction();
+            long keeper = Db.Query(c, $"""
+                SELECT w.id FROM works w WHERE w.id IN ({string.Join(',', ids)})
+                ORDER BY EXISTS (SELECT 1 FROM library_items li WHERE li.work_id = w.id)
+                         OR EXISTS (SELECT 1 FROM recordings r WHERE r.work_id = w.id) DESC,
+                         (w.tmdb_year > 0 AND w.year = w.tmdb_year) DESC, (w.year > 0) DESC, w.id
+                LIMIT 1
+                """, r => r.GetInt64(0)).First();
+            foreach (long loser in ids.Where(i => i != keeper))
+            {
+                MergeInto(c, loser, keeper, now);
+                merged++;
+            }
+            tx.Commit();
+        }
+        return merged;
+    }
+
+    static void MergeInto(SqliteConnection c, long from, long to, DateTimeOffset now)
+    {
+        (string, object?)[] p = [("$f", from), ("$t", to), ("$now", Db.Unix(now))];
+        // stesso titolo, ma uno con le lettere accentate vere («in più» invece di «in piu'»): si tiene quello
+        var titles = Db.Query(c, "SELECT id, title, title_key FROM works WHERE id IN ($f, $t)", r => (Id: r.GetInt64(0), Title: r.GetString(1), Key: r.GetString(2)), p);
+        if (titles.Count == 2)
+        {
+            var f = titles.First(x => x.Id == from);
+            var t = titles.First(x => x.Id == to);
+            static int Accents(string s) => s.Count(ch => ch > 127 && char.IsLetter(ch));
+            if (f.Key == t.Key && Accents(f.Title) > Accents(t.Title))
+                Db.Exec(c, "UPDATE works SET title = $title WHERE id = $t", ("$title", f.Title), ("$t", to));
+        }
+        // dettagli e voto: quelli dell'opera che resta, completati con quelli dell'altra
+        Db.Exec(c, """
+            UPDATE works SET
+                overview = CASE WHEN works.overview = '' THEN f.overview ELSE works.overview END,
+                poster = CASE WHEN works.poster = '' THEN f.poster ELSE works.poster END,
+                backdrop = CASE WHEN works.backdrop = '' THEN f.backdrop ELSE works.backdrop END,
+                runtime_min = coalesce(works.runtime_min, f.runtime_min),
+                trailer = CASE WHEN works.trailer = '' THEN f.trailer ELSE works.trailer END,
+                genres = CASE WHEN works.genres = '[]' THEN f.genres ELSE works.genres END,
+                directors = CASE WHEN works.directors = '' THEN f.directors ELSE works.directors END,
+                actors = CASE WHEN works.actors = '' THEN f.actors ELSE works.actors END,
+                original_title = CASE WHEN works.original_title = '' THEN f.original_title ELSE works.original_title END,
+                imdb_id = CASE WHEN works.imdb_id = '' THEN f.imdb_id ELSE works.imdb_id END,
+                tmdb_year = coalesce(works.tmdb_year, f.tmdb_year),
+                details_at = coalesce(works.details_at, f.details_at),
+                rating = CASE WHEN works.rating IS NULL OR (works.rating_source <> 'IMDb' AND f.rating_source = 'IMDb') THEN f.rating ELSE works.rating END,
+                rating_votes = CASE WHEN works.rating IS NULL OR (works.rating_source <> 'IMDb' AND f.rating_source = 'IMDb') THEN f.rating_votes ELSE works.rating_votes END,
+                rating_source = CASE WHEN works.rating IS NULL OR (works.rating_source <> 'IMDb' AND f.rating_source = 'IMDb') THEN f.rating_source ELSE works.rating_source END,
+                updated_at = $now
+            FROM (SELECT * FROM works WHERE id = $f) AS f WHERE works.id = $t
+            """, p);
+        foreach (string table in new[] { "programmes", "recordings", "library_items" })
+            Db.Exec(c, $"UPDATE {table} SET work_id = $t WHERE work_id = $f", p);
+        Db.Exec(c, "UPDATE works SET parent_id = $t WHERE parent_id = $f", p);
+        // visto e stelle: se il profilo li ha su tutte e due, visto se lo è una delle due, le stelle dell'opera che resta
+        Db.Exec(c, """
+            UPDATE watch_states SET watched = max(watched, (SELECT o.watched FROM watch_states o WHERE o.profile_id = watch_states.profile_id AND o.work_id = $f AND o.item_id IS NULL)),
+                                    stars = coalesce(stars, (SELECT o.stars FROM watch_states o WHERE o.profile_id = watch_states.profile_id AND o.work_id = $f AND o.item_id IS NULL))
+            WHERE work_id = $t AND item_id IS NULL
+              AND EXISTS (SELECT 1 FROM watch_states o WHERE o.profile_id = watch_states.profile_id AND o.work_id = $f AND o.item_id IS NULL)
+            """, p);
+        Db.Exec(c, "UPDATE OR IGNORE watch_states SET work_id = $t WHERE work_id = $f", p);
+        Db.Exec(c, "UPDATE OR IGNORE list_items SET work_id = $t WHERE work_id = $f", p);
+        Db.Exec(c, "UPDATE OR IGNORE alerts SET work_id = $t WHERE work_id = $f", p);
+        Db.Exec(c, "UPDATE OR IGNORE availability SET work_id = $t WHERE work_id = $f", p);
+        foreach (string table in new[] { "watch_states", "list_items", "alerts", "availability" })
+            Db.Exec(c, $"DELETE FROM {table} WHERE work_id = $f", p);
+        Db.Exec(c, """
+            INSERT OR IGNORE INTO ignored_works (profile_id, work_key, added_at)
+            SELECT i.profile_id, t.work_key, i.added_at FROM ignored_works i, works f, works t WHERE f.id = $f AND t.id = $t AND i.work_key = f.work_key
+            """, p);
+        Db.Exec(c, "UPDATE works SET merged_into = $t WHERE merged_into = $f OR id = $f", p);
     }
 
     /// <summary>Indirizzo completo di un'immagine TMDB (/abc.jpg) nella misura chiesta; gli indirizzi completi restano come sono.</summary>
@@ -257,7 +399,7 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
         using var c = Open();
         return Db.Query(c, """
             SELECT w.id, w.tmdb_id, coalesce(w.tmdb_kind, 'movie') FROM works w
-            WHERE w.tmdb_id IS NOT NULL AND w.kind IN ('film', 'series', 'documentary') AND (w.details_at IS NULL OR w.details_at < $old)
+            WHERE w.tmdb_id IS NOT NULL AND w.kind IN ('film', 'series', 'documentary') AND (w.details_at IS NULL OR w.details_at < $old OR w.tmdb_year IS NULL)
               AND EXISTS (SELECT 1 FROM programmes p WHERE p.work_id = w.id AND p.stop > $now AND p.start < $to)
             ORDER BY (SELECT min(p.start) FROM programmes p WHERE p.work_id = w.id AND p.stop > $now) LIMIT $max
             """,
@@ -273,10 +415,11 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
             UPDATE works SET overview = CASE WHEN $o <> '' THEN $o ELSE overview END, poster = $p, backdrop = $b,
                    runtime_min = CASE WHEN $r > 0 THEN $r ELSE runtime_min END,
                    original_title = CASE WHEN original_title = '' THEN $ot ELSE original_title END,
-                   trailer = $t, details_at = $now, genres = CASE WHEN $g <> '[]' THEN $g ELSE genres END WHERE id = $id
-            """,
+                   directors = CASE WHEN $dir <> '' THEN $dir ELSE directors END, actors = CASE WHEN $act <> '' THEN $act ELSE actors END,
+                   trailer = $t, details_at = $now, genres = CASE WHEN $g <> '[]' THEN $g ELSE genres END, tmdb_year = $y WHERE id = $id
+            """, ("$y", d.Year),
             ("$g", System.Text.Json.JsonSerializer.Serialize(d.GenreIds ?? [])), ("$o", d.Overview), ("$p", d.PosterPath), ("$b", d.BackdropPath), ("$r", d.Runtime), ("$ot", d.OriginalTitle),
-            ("$t", d.Trailer), ("$now", Db.Unix(now)), ("$id", workId));
+            ("$t", d.Trailer), ("$now", Db.Unix(now)), ("$id", workId), ("$dir", d.Directors), ("$act", d.Actors));
         Db.Exec(c, "DELETE FROM availability WHERE work_id = $w", ("$w", workId));
         foreach (var p in d.Providers)
             Db.Exec(c, "INSERT OR IGNORE INTO availability (work_id, platform, kind, link, checked_at, source) VALUES ($w, $n, $k, $l, $t, $s)",

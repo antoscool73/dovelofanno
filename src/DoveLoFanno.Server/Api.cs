@@ -14,12 +14,15 @@ public sealed record RatingSettings(bool HasTmdbKey, string KeyHint, bool ImdbEn
 public sealed record RatingSettingsPatch(string? TmdbKey, bool? ClearTmdbKey, bool? ImdbEnabled);
 public sealed record ScheduledRecording(long Id, IReadOnlyList<string> Warnings);
 
+/// <summary>Nuova fine di una registrazione in corso o in programma: fine effettiva, margine compreso.</summary>
+public sealed record RecordingEnd(DateTimeOffset RecordTo);
+
 /// <summary>Canali da mostrare o nascondere nella guida: Show = auto, show o hide.</summary>
 public sealed record ChannelGuideBody(IReadOnlyList<long> Ids, string Show);
 public sealed record ChannelGuideResult(int Changed);
 public sealed record RecordingDetail(RecordingRow Recording, IReadOnlyList<PartRow> Parts);
-public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin);
-public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin);
+public sealed record NewProfile(string Name, bool IsChild, string? Avatar, string? Pin, string? Icon = null);
+public sealed record ProfilePatch(string? Name, bool? IsChild, string? Avatar, string? Pin, bool? ClearPin, string? Icon = null);
 public sealed record PinCheck(string? Pin);
 public sealed record WorkRef(long WorkId);
 public sealed record StarsBody(int? Stars);
@@ -192,6 +195,28 @@ public static class Api
             .Produces<ScheduledRecording>().Produces(StatusCodes.Status404NotFound)
             .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
 
+        // aggiunta del 24/11/2026: allungare o accorciare una registrazione già partita (una partita in ritardo, un
+        // programma che sfora). Si indica la fine effettiva: il margine dopo resta se ci sta, altrimenti va a zero
+        rec.MapPut("/{id:long}/end", IResult (long id, RecordingEnd body, ServerContext ctx) =>
+        {
+            if (ctx.Recordings.Get(id) is not { } r) return Results.NotFound();
+            if (r.State is not ("scheduled" or "recording")) return Results.Conflict(new ApiError("la registrazione non è in corso né in programma"));
+            var now = ctx.Clock.GetUtcNow();
+            if (body.RecordTo <= now.AddMinutes(1)) return Results.BadRequest(new ApiError("la nuova fine deve essere tra almeno un minuto: per fermarla subito c'è «Ferma»"));
+            if (body.RecordTo <= r.RecordFrom) return Results.BadRequest(new ApiError("la fine deve essere dopo l'inizio"));
+            int after = r.AfterMin;
+            var stop = body.RecordTo.AddMinutes(-after);
+            if (stop <= r.Start) { after = 0; stop = body.RecordTo; }
+            if (stop <= r.Start) return Results.BadRequest(new ApiError("la fine deve essere dopo l'inizio del programma"));
+            var warnings = Warnings(ctx, r.RecordFrom, body.RecordTo, id);
+            return ctx.Scheduler.ChangeEnd(id, stop, after)
+                ? Results.Ok(new ScheduledRecording(id, warnings))
+                : Results.Conflict(new ApiError("la registrazione è appena finita"));
+        })
+            .WithSummary("Sposta la fine di una registrazione in corso o in programma (fine effettiva, margine compreso); risponde con gli avvisi")
+            .Produces<ScheduledRecording>().Produces(StatusCodes.Status404NotFound)
+            .Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
+
         rec.MapPost("/{id:long}/stop", IResult (long id, ServerContext ctx) =>
             ctx.Recordings.Get(id) is null ? Results.NotFound()
             : ctx.Scheduler.Stop(id) ? Results.Accepted() : Results.Conflict(new ApiError("la registrazione non è in corso né in programma")))
@@ -212,7 +237,7 @@ public static class Api
 
         prof.MapPost("", IResult (NewProfile body, ServerContext ctx) =>
         {
-            var (res, id) = ctx.Profiles.Create(body.Name, body.IsChild, body.Avatar, body.Pin, ctx.Clock.GetUtcNow());
+            var (res, id) = ctx.Profiles.Create(body.Name, body.IsChild, body.Avatar, body.Pin, ctx.Clock.GetUtcNow(), body.Icon);
             return res == ProfileResult.Ok ? Results.Created($"/api/v1/profiles/{id}", ctx.Profiles.Get(id)) : ProfileError(res);
         })
             .WithSummary("Crea un profilo con la sua lista «La mia lista»; PIN facoltativo (4-8 cifre) solo per gli adulti")
@@ -220,10 +245,10 @@ public static class Api
 
         prof.MapPatch("/{id:long}", IResult (long id, ProfilePatch body, ServerContext ctx) =>
         {
-            var res = ctx.Profiles.Update(id, body.Name, body.IsChild, body.Avatar, body.Pin, body.ClearPin == true);
+            var res = ctx.Profiles.Update(id, body.Name, body.IsChild, body.Avatar, body.Pin, body.ClearPin == true, body.Icon);
             return res == ProfileResult.Ok ? Results.Ok(ctx.Profiles.Get(id)) : ProfileError(res);
         })
-            .WithSummary("Modifica nome, colore, tipo o PIN di un profilo")
+            .WithSummary("Modifica nome, colore, icona, tipo o PIN di un profilo")
             .Produces<ProfileRow>().Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest).Produces<ApiError>(StatusCodes.Status409Conflict);
 
         prof.MapDelete("/{id:long}", IResult (long id, ServerContext ctx) =>
@@ -448,6 +473,7 @@ public static class Api
         ProfileResult.NameTaken => Results.Conflict(new ApiError("c'è già un profilo con questo nome")),
         ProfileResult.LastAdult => Results.Conflict(new ApiError("deve restare almeno un profilo adulto")),
         ProfileResult.InvalidPin => Results.BadRequest(new ApiError("PIN: da 4 a 8 cifre, solo per i profili adulti")),
+        ProfileResult.InvalidIcon => Results.BadRequest(new ApiError("icona non valida")),
         _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 40 caratteri")),
     };
 

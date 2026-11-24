@@ -19,9 +19,12 @@ public sealed record TmdbSearchHit(int Id, string Kind, string Title, string Ori
 /// <summary>Una persona trovata con search/multi: regista, attore... (KnownFor = known_for_department, es. Directing).</summary>
 public sealed record TmdbPerson(int Id, string Name, string KnownFor, double Popularity);
 
-/// <summary>Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg).</summary>
+/// <summary>
+/// Dettagli di un film per la Scheda; immagini come percorsi TMDB (/abc.jpg). Directors e Actors: nomi separati da
+/// virgola (regia, o ideatori di una serie; i primi attori del cast).
+/// </summary>
 public sealed record MovieDetails(string Overview, string PosterPath, string BackdropPath, int Runtime, string OriginalTitle, string Trailer, string WatchLink, IReadOnlyList<Provider> Providers,
-    IReadOnlyList<int>? GenreIds = null);
+    IReadOnlyList<int>? GenreIds = null, string Directors = "", string Actors = "", int Year = 0);
 
 /// <summary>
 /// Client TMDB con la chiave dell'utente: chiave v3 (32 caratteri) come parametro api_key, token v4 (lungo) come
@@ -96,6 +99,26 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
         if (x.Id <= 0 || x.Title.Length == 0) return null;
         return new TmdbSearchHit(x.Id, kind, x.Title, x.OriginalTitle, x.Year, Str(m, "poster_path"), Str(m, "overview"),
             x.VoteAverage, x.VoteCount, Num(m, "popularity"), x.GenreIds);
+    }
+
+    /// <summary>
+    /// La persona che il testo indica: prima chi ha esattamente quel nome, altrimenti chi ha nel nome tutte le parole del
+    /// testo, anche solo l'inizio («allen» = Woody Allen, «coppola» = Francis Ford Coppola); a parità la più nota. Solo
+    /// registi e attori. null se nessuno.
+    /// </summary>
+    public static TmdbPerson? PersonFor(string text, IEnumerable<TmdbPerson> people)
+    {
+        string k = Epg.Titles.TitleKey(text);
+        if (k.Length < 2) return null;
+        var list = people.Where(p => p.KnownFor is "" or "Directing" or "Acting" or "Writing").ToList();
+        var exact = list.Where(p => Epg.Titles.TitleKey(p.Name) == k).MaxBy(p => p.Popularity);
+        if (exact != null) return exact;
+        var words = k.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return list.Where(p =>
+        {
+            var name = Epg.Titles.TitleKey(p.Name).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return words.All(w => name.Any(n => n.StartsWith(w, StringComparison.Ordinal)));
+        }).MaxBy(p => p.Popularity);
     }
 
     internal static List<TmdbPerson> ParsePeople(JsonElement root)
@@ -211,7 +234,7 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
     public async Task<MovieDetails> TvDetailsAsync(int tmdbId, CancellationToken ct)
     {
         using var doc = await GetAsync("tv/" + tmdbId.ToString(CultureInfo.InvariantCulture),
-            "language=it-IT&append_to_response=videos,watch/providers&include_video_language=it,en", ct);
+            "language=it-IT&append_to_response=videos,watch/providers,aggregate_credits&include_video_language=it,en", ct);
         return ParseDetails(doc.RootElement);
     }
 
@@ -225,7 +248,7 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
     public async Task<MovieDetails> MovieDetailsAsync(int tmdbId, CancellationToken ct)
     {
         using var doc = await GetAsync("movie/" + tmdbId.ToString(CultureInfo.InvariantCulture),
-            "language=it-IT&append_to_response=videos,watch/providers,release_dates&include_video_language=it,en", ct);
+            "language=it-IT&append_to_response=videos,watch/providers,release_dates,credits&include_video_language=it,en", ct);
         return ParseDetails(doc.RootElement);
     }
 
@@ -299,8 +322,42 @@ public sealed class TmdbClient(HttpClient http, string apiKey) : ITmdbSearch, Li
         if (original.Length == 0) original = Str(m, "original_name");
         var genres = m.TryGetProperty("genres", out var gs) && gs.ValueKind == JsonValueKind.Array
             ? gs.EnumerateArray().Select(g => (int)Num(g, "id")).Where(x => x > 0).ToList() : [];
+        var (directors, actors) = Credits(m);
+        // anno d'uscita (film) o della prima puntata (serie): la guida a volte lo sbaglia
+        string date = Str(m, "release_date");
+        if (date.Length == 0) date = Str(m, "first_air_date");
+        int year = date.Length >= 4 && int.TryParse(date.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var y) ? y : 0;
         return new MovieDetails(Str(m, "overview"), Str(m, "poster_path"), Str(m, "backdrop_path"), runtime,
-            original, trailer, link, providers, genres);
+            original, trailer, link, providers, genres, directors, actors, year);
+    }
+
+    /// <summary>
+    /// Regia e attori principali: per un film da credits (crew con job Director, cast in ordine di locandina), per una
+    /// serie da created_by (ideatori) e aggregate_credits (cast di tutte le stagioni). Al massimo 3 registi e 5 attori.
+    /// </summary>
+    internal static (string Directors, string Actors) Credits(JsonElement m)
+    {
+        var directors = new List<string>();
+        var cast = new List<(string Name, int Order)>();
+        foreach (var prop in new[] { "credits", "aggregate_credits" })
+        {
+            if (!m.TryGetProperty(prop, out var cr) || cr.ValueKind != JsonValueKind.Object) continue;
+            if (cr.TryGetProperty("crew", out var crew) && crew.ValueKind == JsonValueKind.Array)
+                foreach (var p in crew.EnumerateArray())
+                    if (Str(p, "job") == "Director" && Str(p, "name") is { Length: > 0 } n && !directors.Contains(n)) directors.Add(n);
+            if (cr.TryGetProperty("cast", out var cs) && cs.ValueKind == JsonValueKind.Array)
+                foreach (var p in cs.EnumerateArray())
+                    if (Str(p, "name") is { Length: > 0 } n && !cast.Any(x => x.Name == n))
+                        cast.Add((n, p.TryGetProperty("order", out var o) && o.ValueKind == JsonValueKind.Number ? o.GetInt32() : int.MaxValue));
+        }
+        // serie: gli ideatori al posto della regia, che cambia di puntata in puntata
+        if (m.TryGetProperty("created_by", out var cb) && cb.ValueKind == JsonValueKind.Array)
+        {
+            directors.Clear();
+            foreach (var p in cb.EnumerateArray())
+                if (Str(p, "name") is { Length: > 0 } n && !directors.Contains(n)) directors.Add(n);
+        }
+        return (string.Join(", ", directors.Take(3)), string.Join(", ", cast.OrderBy(x => x.Order).Take(5).Select(x => x.Name)));
     }
 
     /// <summary>

@@ -94,6 +94,9 @@ public sealed class RatingsHost(ServerContext ctx, ILogger<RatingsHost> log) : B
                 int rated = await RatingSync.RunAsync(ctx.Guide, Current(), ctx.Clock.GetUtcNow(), ct);
                 if (rated > 0) log.LogInformation("Voti dei film: {Rated} opere con voto", rated);
                 await DetailsAsync(ct);
+                // stesso film TMDB in più opere (anno della guida sbagliato o mancante): una sola
+                int merged = ctx.Works.MergeDuplicates(ctx.Clock.GetUtcNow());
+                if (merged > 0) log.LogInformation("Opere doppie unite: {Count}", merged);
                 await ListRatingsAsync(ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RegionPicker from '../lib/components/RegionPicker.svelte';
   // Preferenze › Canali nella guida (23/11/2026, richiesta di Antonio; prima in Impostazioni): la regione della famiglia per il filtro «Canali» della guida
   // e la scelta canale per canale: Automatico (decide il filtro), Sempre, Mai. Vale per tutta la famiglia e vince sul
   // filtro. Con i gruppi e la ricerca si sceglie anche in blocco (es. tutte le locali di un'altra regione: Mai).
@@ -34,7 +35,7 @@
     try {
       const g = await api.updateGeneralSettings({ region: v });
       region = g.region;
-      message = v ? `Regione: ${v}.` : 'Nessuna regione.';
+      message = v ? `Regioni: ${v.split(',').join(', ')}.` : 'Nessuna regione: tutti i canali.';
     } catch (e) { error = e instanceof ApiError ? e.message : 'Regione non salvata'; }
   }
 
@@ -66,11 +67,8 @@
   <h2>Canali nella guida</h2>
   <p class="muted">Nella guida il filtro «Canali» decide quali canali vedere: nazionali, della tua regione, di altre regioni, altri, radio. Qui scegli la regione della famiglia (si cambia anche dal filtro della guida) e, se serve, i singoli canali: «Sempre» e «Mai» valgono per tutti e vincono sul filtro.</p>
 
-  <label class="field">La nostra regione
-    <select value={region} onchange={(e) => saveRegion(e.currentTarget.value)}>
-      <option value="">Nessuna: tutti i canali</option>
-      {#each regions as r (r)}<option value={r}>{r}</option>{/each}
-    </select>
+  <label class="field">Le nostre regioni
+    <RegionPicker value={region} {regions} onchange={saveRegion} />
   </label>
   <p class="muted small">La regione di un canale si ricava dal nome (città, provincia, regione): «Bergamo Tv» è in Lombardia. Con «Nessuna» la guida mostra tutti i canali, senza dividerli per gruppi. Il tipo (notizie, sport, televendite…) viene dal database pubblico di iptv-org.</p>
 

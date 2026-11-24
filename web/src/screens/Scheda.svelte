@@ -65,11 +65,15 @@
   }
   $effect(() => { void id; w = null; load(); });
 
-  // trama, regia, attori, paese: dalla guida se TMDB non li ha
+  // trama, regia, attori, paese: dalla guida se TMDB non li ha (regia e attori da TMDB dal 24/11/2026)
   const first = $derived(w?.airings[0] ?? null);
   const plot = $derived(w?.overview || first?.description || '');
   const runtime = $derived(w?.runtimeMin ?? (first ? Math.round(between(first.start, first.stop)) : null));
-  const genre = $derived(first ? first.sub || first.group : '');
+  // genere e anno da TMDB, poi dalla guida (24/11/2026: Rai Movie dava «Per qualche dollaro in più» come Film del 2019, non Western del 1966)
+  const genre = $derived(w?.genres?.length ? w.genres.slice(0, 3).join(', ') : first ? first.sub || first.group : '');
+  const year = $derived(w?.tmdbYear || w?.year || 0);
+  const directors = $derived(w?.directors || first?.directors || '');
+  const actors = $derived(w?.actors || first?.actors || '');
   const nextRecordable = $derived(w?.airings.find((a) => a.channelId != null) ?? null);
 
   const stars = [1, 2, 3, 4, 5];
@@ -233,7 +237,7 @@
         <h1>{w.title}</h1>
         {#if w.originalTitle && w.originalTitle !== w.title}<div class="orig">{w.originalTitle}</div>{/if}
         <div class="facts">
-          {#if w.year}<span>{w.year}</span>{/if}
+          {#if year}<span>{year}</span>{/if}
           {#if genre}<span>{genre}</span>{/if}
           {#if runtime}<span>{minutes(runtime)}</span>{/if}
           {#if first?.country}<span>{first.country}</span>{/if}
@@ -241,8 +245,8 @@
           {#if w.watched}<Badge tone="green">Visto</Badge>{/if}
         </div>
         {#if plot}<p class="plot">{plot}</p>{/if}
-        {#if first?.directors || first?.actors}
-          <p class="credits">{first.directors ? `Regia di ${first.directors}` : ''}{first.directors && first.actors ? ' · ' : ''}{first.actors ? `Con ${first.actors}` : ''}</p>
+        {#if directors || actors}
+          <p class="credits">{directors ? `${w.kind === 'series' ? 'Ideata da' : 'Regia di'} ${directors}` : ''}{directors && actors ? ' · ' : ''}{actors ? `Con ${actors}` : ''}</p>
         {/if}
         {#if session.profile}
           <div class="stars" role="group" aria-label="Il tuo voto">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RegionPicker from '../lib/components/RegionPicker.svelte';
   // Guida TV. Griglia a scorrimento continuo (23/11/2026, Antonio): una sola linea del tempo da oggi all'ultimo giorno
   // della guida, senza cambiare pagina; i giorni si caricano uno alla volta man mano che ci si arriva e si disegnano
   // solo i programmi nel tratto visibile. I pulsanti dei giorni si accendono secondo il giorno dell'orario sul bordo
@@ -484,10 +485,7 @@
     {#if recordable && channels.length > 0}
       <!-- regione della famiglia (23/11/2026, Antonio): anche qui, oltre che in Preferenze › Canali nella guida; «nessuna» = tutti -->
       <label class="sel" title="La regione della famiglia: vale per tutti e si cambia anche in Preferenze › Canali nella guida"><span class="sr-only">Regione</span>
-        <select value={famRegion} onchange={(e) => setRegion(e.currentTarget.value)}>
-          <option value="">Regione: nessuna</option>
-          {#each regions as r (r)}<option value={r}>Regione: {r}</option>{/each}
-        </select>
+        <RegionPicker value={famRegion} {regions} prefix="Regioni: " onchange={setRegion} />
       </label>
     {/if}
   </div>

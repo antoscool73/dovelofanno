@@ -26,6 +26,9 @@ public sealed class RecordingScheduler(
         public required Task Task;
         public required CancellationTokenSource Stop;
         public long CurrentSource;
+        /// <summary>Fine della registrazione (margine compreso) in tick UTC: si sposta con <see cref="ChangeEnd"/>.</summary>
+        public long EndTicks;
+        public DateTimeOffset End => new(Interlocked.Read(ref EndTicks), TimeSpan.Zero);
     }
 
     readonly ConcurrentDictionary<long, Active> running = new();
@@ -46,12 +49,23 @@ public sealed class RecordingScheduler(
         {
             if (running.ContainsKey(r.Id)) continue;
             var stop = new CancellationTokenSource();
-            var a = new Active { Task = Task.CompletedTask, Stop = stop };
+            var a = new Active { Task = Task.CompletedTask, Stop = stop, EndTicks = r.RecordTo.UtcTicks };
             if (!running.TryAdd(r.Id, a)) continue;
             recordings.SetState(r.Id, "recording");
             a.Task = Task.Run(() => RunOneAsync(r, a));
         }
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Sposta la fine di una registrazione in programma o in corso (anche durante: il registratore la rilegge a ogni
+    /// controllo). false se non è in programma né in corso.
+    /// </summary>
+    public bool ChangeEnd(long id, DateTimeOffset stop, int afterMin)
+    {
+        if (!recordings.ChangeEnd(id, stop, afterMin)) return false;
+        if (running.TryGetValue(id, out var a)) Interlocked.Exchange(ref a.EndTicks, stop.AddMinutes(afterMin).UtcTicks);
+        return true;
     }
 
     /// <summary>Ferma una registrazione in corso (si unisce quello che c'è) o annulla una in programma.</summary>
@@ -83,7 +97,7 @@ public sealed class RecordingScheduler(
             // cartelle e nomi che Jellyfin, Plex ed Emby riconoscono, con il .nfo per film ed episodi
             var (folder, baseName, info) = LibraryLayout.For(r.Title, r.ChannelName, r.Start, r.Format, recordings.Media(r.Id), options.RecordingsDir);
             var job = new RecordingJob(r.Id, r.Title, r.ChannelName, r.RecordFrom, r.RecordTo, r.Format,
-                Path.Combine(options.RecordingsDir, folder), baseName, options.LogDir, info);
+                Path.Combine(options.RecordingsDir, folder), baseName, options.LogDir, info, () => a.End);
             // dopo un riavvio del server si continua dagli spezzoni già registrati (quello interrotto non ha l'ora di fine:
             // vale l'ultima modifica del file)
             var resume = recordings.PartsSoFar(r.Id).Select(p => new RecordedPart(p.PartNo, p.StreamId ?? 0, p.Url, p.File, p.StartedAt,

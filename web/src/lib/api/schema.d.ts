@@ -968,6 +968,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Sposta la fine di una registrazione in corso o in programma (fine effettiva, margine compreso); risponde con gli avvisi */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordingEnd"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduledRecording"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/stop": {
         parameters: {
             query?: never;
@@ -1147,7 +1214,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Modifica nome, colore, tipo o PIN di un profilo */
+        /** Modifica nome, colore, icona, tipo o PIN di un profilo */
         patch: {
             parameters: {
                 query?: never;
@@ -1995,7 +2062,9 @@ export interface paths {
         /** Prepara la copia per il browser (MKV, TS, audio AC3, HEVC...): 202 in coda, 204 se si guarda già così */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    profileId?: number;
+                };
                 header?: never;
                 path: {
                     id: number;
@@ -5117,6 +5186,8 @@ export interface components {
             /** Format: int32 */
             durationS: number;
             recorded: boolean;
+            /** @default  */
+            copyState: string;
         };
         LibraryFile: {
             /** Format: int64 */
@@ -5315,6 +5386,7 @@ export interface components {
             isChild: boolean;
             avatar: null | string;
             pin: null | string;
+            icon?: null | string;
         };
         NewRecording: {
             /** Format: int64 */
@@ -5438,6 +5510,7 @@ export interface components {
             avatar: null | string;
             pin: null | string;
             clearPin: null | boolean;
+            icon?: null | string;
         };
         ProfileRow: {
             /** Format: int64 */
@@ -5447,6 +5520,8 @@ export interface components {
             avatar: string;
             hasPin: boolean;
             inheritsSubscriptions: boolean;
+            /** @default  */
+            icon: string;
         };
         ProfileSubscriptions: {
             inherits: boolean;
@@ -5497,6 +5572,10 @@ export interface components {
             recording: components["schemas"]["RecordingRow"];
             parts: components["schemas"]["PartRow"][];
         };
+        RecordingEnd: {
+            /** Format: date-time */
+            recordTo: string;
+        };
         RecordingRow: {
             /** Format: int64 */
             id: number;
@@ -5523,6 +5602,10 @@ export interface components {
             createdAt: string;
             /** Format: int64 */
             workId: null | number;
+            /** @default  */
+            poster: string;
+            /** Format: int64 */
+            libraryItemId?: null | number;
             /** Format: date-time */
             recordFrom?: string;
             /** Format: date-time */
@@ -5830,6 +5913,13 @@ export interface components {
             /** Format: int64 */
             parentId: null | number;
             parentTitle: string;
+            /** @default  */
+            directors: string;
+            /** @default  */
+            actors: string;
+            /** Format: int32 */
+            tmdbYear?: number;
+            genres?: string[];
         };
         WorkFile: {
             /** Format: int64 */

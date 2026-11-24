@@ -158,6 +158,11 @@ public sealed class MediaProbeTests
         var args = MediaProbe.CopyArgs("in.mp4", "out.mp4", two, Playback.Remux);
         int first = args.IndexOf("0:a:1"), second = args.IndexOf("0:a:0");
         Assert.True(first > 0 && second > first);
+        // audio ricodificato sempre in stereo: un 5.1 in AAC usciva muto nel browser (Interstellar, 24/11/2026)
+        var ac3 = MediaProbe.CopyArgs("in.mkv", "out.mp4", P("matroska,webm", "h264", ("ac3", "ita")), Playback.Audio);
+        int ac = ac3.IndexOf("-ac");
+        Assert.True(ac > 0 && ac3[ac + 1] == "2");
+        Assert.DoesNotContain("-ac", MediaProbe.CopyArgs("in.mkv", "out.mp4", two, Playback.Remux));
         Assert.Equal(Playback.Direct, MediaProbe.Decide("a.mp3", new ProbeInfo(100, "mp3", "", "mp3", null, null, [new TrackInfo(0, "mp3", "", "")], [])));
     }
 

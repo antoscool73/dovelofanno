@@ -101,13 +101,14 @@ public static class LibraryApi
             .Produces(StatusCodes.Status200OK, contentType: "video/mp4").Produces(StatusCodes.Status206PartialContent)
             .Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status409Conflict);
 
-        lib.MapPost("/items/{id:long}/prepare", IResult (long id, ServerContext ctx, LibraryHost host) =>
+        // profileId (facoltativo, 24/11/2026): il profilo che riceve la notifica a copia finita; senza, tutti
+        lib.MapPost("/items/{id:long}/prepare", IResult (long id, long? profileId, ServerContext ctx, LibraryHost host) =>
         {
             if (ctx.Library.StreamPath(id) is not { } s) return Results.NotFound();
             if (s.Ready) return Results.NoContent();
             if (s.CopyState is "" or "done") return Results.NoContent();
             if (!ctx.Library.QueueCopy(id)) return Results.Conflict(new ApiError("il file non si legge: non si può preparare"));
-            host.CopyQueued();
+            host.CopyQueued(id, profileId);
             return Results.Accepted();
         })
             .WithSummary("Prepara la copia per il browser (MKV, TS, audio AC3, HEVC...): 202 in coda, 204 se si guarda già così")

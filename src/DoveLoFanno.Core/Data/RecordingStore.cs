@@ -6,7 +6,8 @@ namespace DoveLoFanno.Data;
 
 public sealed record RecordingRow(
     long Id, long ChannelId, string ChannelName, string Title, DateTimeOffset Start, DateTimeOffset Stop, int BeforeMin, int AfterMin,
-    string Format, string State, int LostMinutes, IReadOnlyList<LostRange> LostRanges, string File, string Log, DateTimeOffset CreatedAt, long? WorkId)
+    string Format, string State, int LostMinutes, IReadOnlyList<LostRange> LostRanges, string File, string Log, DateTimeOffset CreatedAt, long? WorkId,
+    string Poster = "", long? LibraryItemId = null)
 {
     public DateTimeOffset RecordFrom => Start.AddMinutes(-BeforeMin);
     public DateTimeOffset RecordTo => Stop.AddMinutes(AfterMin);
@@ -74,14 +75,17 @@ public sealed class RecordingStore(string dbPath)
 
     const string Select = """
         SELECT r.id, r.channel_id, ch.name, r.title, r.start, r.stop, r.before_min, r.after_min, r.format, r.state,
-               r.lost_minutes, r.lost_ranges, r.file, r.log, r.created_at, r.work_id
-        FROM recordings r JOIN channels ch ON ch.id = r.channel_id
+               r.lost_minutes, r.lost_ranges, r.file, r.log, r.created_at, r.work_id,
+               COALESCE(w.poster, ''),
+               (SELECT li.id FROM library_items li WHERE li.recording_id = r.id AND li.missing_since IS NULL ORDER BY li.id LIMIT 1)
+        FROM recordings r JOIN channels ch ON ch.id = r.channel_id LEFT JOIN works w ON w.id = r.work_id
         """;
 
     static RecordingRow Map(SqliteDataReader r) => new(
         r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.GetString(3), Db.FromUnix(r.GetInt64(4)), Db.FromUnix(r.GetInt64(5)),
         r.GetInt32(6), r.GetInt32(7), r.GetString(8), r.GetString(9), r.GetInt32(10), LostRange.Parse(r.GetString(11)), r.GetString(12), r.GetString(13),
-        Db.FromUnix(r.GetInt64(14)), Db.NLong(r, 15));
+        Db.FromUnix(r.GetInt64(14)), Db.NLong(r, 15),
+        WorkStore.ImageUrl(r.GetString(16), "w342"), Db.NLong(r, 17));
 
     public RecordingRow? Get(long id)
     {
@@ -126,6 +130,19 @@ public sealed class RecordingStore(string dbPath)
             """,
             ("$c", channelId), ("$t", title), ("$s", Db.Unix(start)), ("$e", Db.Unix(stop)), ("$b", beforeMin), ("$a", afterMin),
             ("$f", format), ("$id", id)) == 1;
+    }
+
+    /// <summary>
+    /// Nuova fine del programma e margine dopo, anche per una registrazione in corso. false se non è in programma né in
+    /// corso (o la fine non è dopo l'inizio).
+    /// </summary>
+    public bool ChangeEnd(long id, DateTimeOffset stop, int afterMin)
+    {
+        if (afterMin < 0) throw new ArgumentException("margine negativo");
+        using var c = Open();
+        return Db.Exec(c, """
+            UPDATE recordings SET stop = $e, after_min = $a WHERE id = $id AND state IN ('scheduled', 'recording') AND start < $e
+            """, ("$e", Db.Unix(stop)), ("$a", afterMin), ("$id", id)) == 1;
     }
 
     /// <summary>Annulla una registrazione non ancora partita; false se è già partita o finita.</summary>

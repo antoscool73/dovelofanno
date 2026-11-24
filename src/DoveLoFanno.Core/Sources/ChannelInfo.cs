@@ -113,9 +113,11 @@ public static partial class ChannelInfo
     public static ChannelFacts For(string key, string name, string group)
     {
         string id = key.Contains(':') ? key[(key.IndexOf(':') + 1)..] : key;
-        IptvOrgChannel? c = null;
-        foreach (string k in new[] { Key(id), Key(name) })
-            if (k.Length > 0 && Db.Value.TryGetValue(k, out c)) break;
+        // prima il codice, poi il nome; ma un canale chiuso cede a uno aperto: nella playlist LA7 Cinema ha ancora il
+        // codice «la7d», che nel database è il vecchio LA7d chiuso, e spariva dalla guida (24/11/2026)
+        var found = new[] { Key(id), Key(name) }.Where(k => k.Length > 0)
+            .Select(k => Db.Value.TryGetValue(k, out var x) ? x : null).Where(x => x != null).ToList();
+        IptvOrgChannel? c = found.FirstOrDefault(x => !x!.Closed) ?? found.FirstOrDefault();
         string kind = group.Equals("radio", StringComparison.OrdinalIgnoreCase) || RadioWord().IsMatch(Plain(name)) ? "radio"
             : c?.Cat.Select(x => Kinds.GetValueOrDefault(x)).FirstOrDefault(x => x != null) ?? "";
         return new ChannelFacts(RegionOf(name), kind, c?.Closed ?? false);

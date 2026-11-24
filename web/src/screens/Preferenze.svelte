@@ -5,26 +5,24 @@
   import { HOME_OPTIONAL } from '../lib/sections.svelte';
   import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
-  import Badge from '../lib/components/Badge.svelte';
   import ServicePicker from '../lib/components/ServicePicker.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
-    api, ApiError, type AlertRow, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
+    api, ApiError, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
     type NotificationSettings,
   } from '../lib/api/client';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
-  import { day, time } from '../lib/format';
+  import { day } from '../lib/format';
   import PreferenzeCanali from './PreferenzeCanali.svelte';
   import { introOn, setIntroOn } from '../lib/intro';
   import Intro from '../lib/components/Intro.svelte';
   let introEnabled = $state(introOn());
   let introPreview = $state(false);
 
-  type Tab = 'serata' | 'avvisi' | 'abbonamenti' | 'canali' | 'notifiche';
+  type Tab = 'serata' | 'abbonamenti' | 'canali' | 'notifiche';
   const tabs: { id: Tab; label: string }[] = [
     { id: 'serata', label: 'La mia lista' },
-    { id: 'avvisi', label: 'I miei avvisi' },
     { id: 'abbonamenti', label: 'I miei abbonamenti' },
     // canali nella guida (23/11/2026: spostati da Impostazioni, «non è un'impostazione», Antonio)
     { id: 'canali', label: 'Canali nella guida' },
@@ -33,7 +31,7 @@
   // senza scheda nell'indirizzo (o con #proposte, quello di prima) si apre «La mia serata»
   // #registrazione (la scheda di prima) porta a Impostazioni › Registrazioni
   if (location.hash === '#registrazione') router.go('/impostazioni#registrazioni');
-  let tab = $state<Tab>((['serata', 'avvisi', 'abbonamenti', 'canali', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
+  let tab = $state<Tab>((['serata', 'abbonamenti', 'canali', 'notifiche'] as Tab[]).find((t) => location.hash === '#' + t) ?? 'serata');
   $effect(() => { history.replaceState(history.state, '', '#' + tab); });
 
   const prof = $derived(session.profile);
@@ -41,7 +39,6 @@
 
   let lists = $state<ListSummary[]>([]);
   let ignored = $state<IgnoredWork[]>([]);
-  let alerts = $state<AlertRow[]>([]);
   let mySubs = $state<ProfileSubscriptions | null>(null);
   let family = $state<FamilySubscriptions | null>(null);
   // sezioni predefinite di La mia lista che il profilo ha spento (20/11/2026)
@@ -54,10 +51,10 @@
     const p = session.profile;
     if (!p) return;
     try {
-      const [a, c, e, f, g, h] = await Promise.all([
-        api.lists(p.id), api.ignored(p.id), api.alerts(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(), api.homeSections(p.id),
+      const [a, c, f, g, h] = await Promise.all([
+        api.lists(p.id), api.ignored(p.id), api.profileSubscriptions(p.id), api.familySubscriptions(), api.homeSections(p.id),
       ]);
-      lists = a.filter((l) => !l.isTonight); ignored = c; alerts = e; mySubs = f; family = g; homeHidden = h.hidden;
+      lists = a.filter((l) => !l.isTonight); ignored = c; mySubs = f; family = g; homeHidden = h.hidden;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Preferenze non lette';
@@ -110,7 +107,6 @@
     permission = await Notification.requestPermission();
   }
 
-  const kindLabel: Record<string, string> = { tv: 'In chiaro in TV', subscription: 'Nei miei abbonamenti', rent_buy: 'Noleggio o acquisto' };
 </script>
 
 <div class="wrap">
@@ -170,40 +166,6 @@
           {#each ignored as i (i.workKey)}
             <li><span class="grow">{i.title}</span><span class="f-muted">dal {day(i.addedAt).toLowerCase()}</span>
               <Button size="s" variant="ghost" onclick={() => act(() => api.unignore(prof!.id, i.workKey), 'Tornerà nelle liste e nelle ricerche.')}>Riammetti</Button></li>
-          {/each}
-        </ul>
-      {/if}
-
-    {:else if tab === 'avvisi'}
-      <h2>I miei avvisi</h2>
-      <p class="f-muted">Si creano con «Avvisami» dalla scheda di un titolo. Ognuno scatta una volta sola per passaggio o piattaforma.</p>
-      {#if alerts.length === 0}
-        <div class="empty"><p>Nessun avviso. Apri un film dalla <a href="/guida" onclick={navigate}>Guida</a> o dalla <a href="/libreria" onclick={navigate}>Libreria</a> e tocca «Avvisami».</p></div>
-      {:else}
-        <!-- righe a colonne fisse con locandina, matita e bidone (Antonio, 24/11/2026: stessa misura per ogni riga, niente pulsanti a capo) -->
-        <ul class="arows">
-          {#each alerts as a (a.id)}
-            <li class="arow">
-              <label class="f-check"><input type="checkbox" checked={a.active} disabled={busy} aria-label="Attiva l'avviso su {a.workTitle}"
-                onchange={(e) => act(() => api.saveAlert(prof!.id, { workId: a.workId, kind: a.kind, active: e.currentTarget.checked, channels: null, autoRecord: null, moments: null, services: null, offers: null }))} /></label>
-              <a class="aposter" href="/opera/{a.workId}" onclick={navigate} aria-label="Apri la scheda di {a.workTitle}" title="Apri la scheda">
-                {#if a.poster}<img src={a.poster} alt="" loading="lazy" />{:else}<span class="ph" aria-hidden="true">{a.workTitle.charAt(0)}</span>{/if}
-              </a>
-              <div class="awhat">
-                <div class="aline"><a class="atitle" href="/opera/{a.workId}" onclick={navigate}>{a.workTitle}</a>{#if a.workYear}<span class="f-muted">{a.workYear}</span>{/if}</div>
-                <div class="aline"><Badge tone="blue">{kindLabel[a.kind] ?? a.kind}</Badge>{#if a.kind === 'tv' && a.autoRecord}<Badge tone="red">Registra da solo</Badge>{/if}</div>
-                <div class="f-muted ameta">{a.status}{a.lastFiredAt ? ` · ultimo avviso ${day(a.lastFiredAt).toLowerCase()} ${time(a.lastFiredAt)}` : ''}</div>
-              </div>
-              <div class="aacts">
-                <button type="button" class="ico" onclick={() => router.go(`/opera/${a.workId}`)} aria-label="Modifica l'avviso su «{a.workTitle}»" title="Modifica">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
-                </button>
-                <button type="button" class="ico del" disabled={busy} aria-label="Togli l'avviso su «{a.workTitle}»" title="Togli l'avviso"
-                  onclick={async () => { if (await ask({ title: `Togliere l'avviso su «${a.workTitle}»?`, text: 'Si perdono anche le sue impostazioni (quando avvisare, canali, registrazione automatica).', ok: 'Togli l\'avviso' })) act(() => api.deleteAlert(prof!.id, a.id), 'Avviso tolto.'); }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
-                </button>
-              </div>
-            </li>
           {/each}
         </ul>
       {/if}
@@ -294,22 +256,6 @@
   .tab.on { background: var(--raised); color: var(--text); font-weight: 600; }
   .main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
   .pname { font-weight: 600; }
-  .arows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); }
-  .arow { display: grid; grid-template-columns: auto 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 18px; }
-  .arow + .arow { border-top: 1px solid var(--line); }
-  .aposter { width: 48px; height: 72px; border-radius: 6px; overflow: hidden; background: var(--raised); display: flex; align-items: center; justify-content: center; text-decoration: none; }
-  .aposter:hover { outline: 2px solid var(--blue); outline-offset: 2px; }
-  .aposter img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .ph { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--muted); }
-  .awhat { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .aline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-  .atitle { font-weight: 600; font-size: 16px; color: var(--text); }
-  .ameta { font-size: 13px; overflow-wrap: anywhere; }
-  .aacts { display: flex; gap: 8px; }
-  .ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-s); border: 1px solid var(--line-btn); background: none; color: var(--text-2); cursor: pointer; }
-  .ico:hover { color: var(--text); background: var(--raised); }
-  .ico.del:hover:not(:disabled) { color: var(--orange-text); border-color: var(--orange); }
-  .ico:disabled { opacity: 0.5; cursor: progress; }
   .grow { flex: 1 1 180px; }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
   .empty p { margin: 0; }

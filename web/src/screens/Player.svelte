@@ -52,7 +52,7 @@
 
   async function prepare() {
     if (!item) return;
-    try { await api.prepareItem(item.id); preparing = true; notice = ''; }
+    try { await api.prepareItem(item.id, session.profile?.id); preparing = true; notice = ''; }
     catch (e) { error = e instanceof ApiError ? e.message : 'Copia non avviata'; }
   }
 
@@ -198,7 +198,7 @@
       <div class="center prep">
         <h2>{item.title}</h2>
         {#if preparing}
-          <p role="status">Preparo il file per il browser… Con video e audio già adatti bastano pochi minuti; con una ricodifica completa può volerci quanto la durata del film. Puoi chiudere: la copia va avanti sul server.</p>
+          <p role="status">Preparo il file per il browser… Con video e audio già adatti bastano pochi minuti; con una ricodifica completa può volerci quanto la durata del film. Puoi chiudere: la copia va avanti sul server e quando è pronta arriva una notifica.</p>
         {:else if item.copyState === 'failed'}
           <p class="error">Il file non si legge o la copia non è riuscita. Prova ad aprirlo con un altro programma.</p>
           <Button variant="primary" onclick={prepare}>Riprova</Button>
@@ -220,7 +220,7 @@
       <div class="spacer"></div>
       {#if session.profile}
         <a href="/profili" onclick={navigate} class="prof" aria-label="Profilo attivo: {session.profile.name}. Cambia profilo">
-          <Avatar name={session.profile.name} color={session.profile.avatar} /><span>{session.profile.name}</span>
+          <Avatar name={session.profile.name} color={session.profile.avatar} icon={session.profile.icon} /><span>{session.profile.name}</span>
         </a>
       {/if}
     </div>

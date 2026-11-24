@@ -1,22 +1,29 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
-  import Avatar from './Avatar.svelte';
+  import ProfileMenu from './ProfileMenu.svelte';
   import NotificationBell from './NotificationBell.svelte';
   import { router, navigate, type Route } from '../router.svelte';
   import { session } from '../session.svelte';
+  import AboutDialog from './AboutDialog.svelte';
+
+  let about = $state(false);
 
   const items: { route: Route; path: string; label: string }[] = [
     { route: 'stasera', path: '/', label: 'La mia lista' },
     { route: 'guida', path: '/guida', label: 'Guida tv' },
     { route: 'libreria', path: '/libreria', label: 'Libreria' },
     { route: 'registrazioni', path: '/registrazioni', label: 'Registrazioni' },
+    // I miei avvisi: pagina propria dopo Registrazioni (24/11/2026, Antonio; prima in Preferenze)
+    { route: 'avvisi', path: '/avvisi', label: 'I miei avvisi' },
     { route: 'preferenze', path: '/preferenze', label: 'Preferenze' },
   ];
 
   // l'altezza dell'intestazione cambia con la larghezza (le voci vanno a capo): la si pubblica in --header-h, così
   // le barre fisse delle pagine (Cerca) si fermano esattamente sotto
   function measure(node: HTMLElement) {
-    const set = () => document.documentElement.style.setProperty('--header-h', node.offsetHeight + 'px');
+    // altezza vera arrotondata per eccesso: offsetHeight arrotonda e con lo zoom di Windows (125%) lasciava una fessura
+    // di un pixel tra l'intestazione e le barre fisse, da cui si vedevano le locandine (24/11/2026)
+    const set = () => document.documentElement.style.setProperty('--header-h', Math.ceil(node.getBoundingClientRect().height) + 'px');
     set();
     const ro = new ResizeObserver(set);
     ro.observe(node);
@@ -26,10 +33,17 @@
 </script>
 
 <header use:measure>
-  <a href="/" class="home" onclick={navigate}><Logo size={26} /></a>
+  <!-- il logo apre «Informazioni su DoveLoFanno»; a La mia lista si va con la casa (Antonio, 24/11/2026) -->
+  <button type="button" class="home" onclick={() => (about = true)} aria-label="Informazioni su DoveLoFanno" title="Informazioni"><Logo size={26} /></button>
   <nav aria-label="Principale">
     {#each items as it (it.route)}
-      <a href={it.path} onclick={navigate} aria-current={router.route === it.route ? 'page' : undefined}>{it.label}</a>
+      {#if it.route === 'stasera'}
+        <a href={it.path} onclick={navigate} class="house" aria-label={it.label} title={it.label} aria-current={router.route === it.route ? 'page' : undefined}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9v11h5v-6h4v6h5V9" /></svg>
+        </a>
+      {:else}
+        <a href={it.path} onclick={navigate} aria-current={router.route === it.route ? 'page' : undefined}>{it.label}</a>
+      {/if}
     {/each}
   </nav>
   <!-- la lente dopo «Preferenze», senza riquadro (Antonio, 23/11/2026; prima era tra il logo e le voci): cerca qualunque
@@ -44,13 +58,11 @@
   </a>
   {#if session.profile}
     <NotificationBell />
-    <a href="/profili" onclick={navigate} class="profile" aria-label="Profilo attivo: {session.profile.name}. Cambia profilo">
-      <Avatar name={session.profile.name} color={session.profile.avatar} size={28} />
-      <span class="pname">{session.profile.name}</span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-    </a>
+    <!-- un clic apre il menu degli altri profili, con «Modifica» in fondo (24/11/2026) -->
+    <ProfileMenu />
   {/if}
 </header>
+{#if about}<AboutDialog onclose={() => (about = false)} />{/if}
 
 <style>
   /* barra fissa in alto e sottile (feedback di Antonio, 18/11): resta visibile scorrendo */
@@ -60,7 +72,9 @@
     padding: 6px var(--gutter); border-bottom: 1px solid var(--line);
     background: var(--bg);
   }
-  .home { text-decoration: none; display: flex; }
+  .home { display: flex; padding: 4px 6px 4px 0; border: 0; border-radius: var(--radius-s); background: none; color: inherit; cursor: pointer; }
+  .home:focus-visible { box-shadow: var(--focus); outline: none; }
+  nav a.house { display: flex; align-items: center; padding: 7px 10px; }
   nav { display: flex; flex-wrap: nowrap; gap: 2px; }
   nav a {
     padding: 7px 12px; border-radius: var(--radius-s); color: var(--muted);
@@ -80,15 +94,6 @@
   .icon.search { color: var(--bg); background: var(--text); border-radius: 999px; }
   .icon.search:hover { color: var(--bg); background: var(--text-2); }
   .icon.search[aria-current='page'] { color: var(--bg); background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--blue); }
-  /* profilo senza riquadro (Antonio, 20/11/2026): avatar, nome e freccia; sfondo solo al passaggio */
-  .profile {
-    display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px 4px 4px;
-    border-radius: var(--radius-s); text-decoration: none; color: var(--text);
-  }
-  .profile:hover { background: var(--card); }
-  .profile svg { color: var(--muted); }
-  .pname { font-size: 14px; font-weight: 600; }
-  @media (max-width: 1000px) { .pname { display: none; } }
   @media (max-width: 720px) {
     header { padding: 4px 16px; }
     nav { order: 3; width: 100%; overflow-x: auto; }

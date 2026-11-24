@@ -49,6 +49,23 @@ public sealed class ProfilesTests : IDisposable
     }
 
     [Fact]
+    public void IconaDelProfilo()
+    {
+        long a = store.Create("Anna", false, null, null, Now, "gatto").Id;
+        Assert.Equal("gatto", store.Get(a)!.Icon);
+        long b = store.Create("Bruno", false, null, null, Now).Id;
+        Assert.Equal("", store.Get(b)!.Icon);                                              // senza icona: l'iniziale
+        Assert.Equal(ProfileResult.InvalidIcon, store.Create("Carla", false, null, null, Now, "<svg>").Result);
+        Assert.Equal(ProfileResult.Ok, store.Update(a, null, null, null, null, false, "razzo"));
+        Assert.Equal("razzo", store.Get(a)!.Icon);
+        Assert.Equal(ProfileResult.Ok, store.Update(a, "Anna B", null, null, null, false));  // senza icona resta quella
+        Assert.Equal("razzo", store.Get(a)!.Icon);
+        Assert.Equal(ProfileResult.InvalidIcon, store.Update(a, null, null, null, null, false, "Razzo!"));
+        Assert.Equal(ProfileResult.Ok, store.Update(a, null, null, null, null, false, ""));
+        Assert.Equal("", store.Get(a)!.Icon);
+    }
+
+    [Fact]
     public void PinEUltimoAdulto()
     {
         long a = store.Create("Anna", false, null, "4321", Now).Id;

@@ -9,6 +9,7 @@
   import Preferenze from './screens/Preferenze.svelte';
   import Benvenuto from './screens/Benvenuto.svelte';
   import Registrazioni from './screens/Registrazioni.svelte';
+  import Avvisi from './screens/Avvisi.svelte';
   import Impostazioni from './screens/Impostazioni.svelte';
   import Guida from './screens/Guida.svelte';
   import Stasera from './screens/Stasera.svelte';
@@ -65,7 +66,7 @@
   load();
 
   const titles: Record<string, string> = {
-    stasera: 'La mia lista', cerca: 'Cerca', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni',
+    stasera: 'La mia lista', cerca: 'Cerca', opera: 'Scheda', guida: 'Guida TV', libreria: 'Libreria', guarda: 'Player', registrazioni: 'Registrazioni', avvisi: 'I miei avvisi',
     preferenze: 'Preferenze', impostazioni: 'Impostazioni', profili: 'Chi guarda?', 'non-trovata': 'Pagina non trovata',
   };
 
@@ -96,6 +97,8 @@
 {:else}
   {#if intro}<Intro onclose={() => (intro = false)} />{/if}
   <AppHeader />
+  <!-- cambiando profilo dal menu in alto si resta sulla stessa pagina, ricreata con i dati del profilo nuovo -->
+  {#key session.profile?.id}
   <main>
     {#if router.route === 'stasera'}
       <Stasera />
@@ -109,6 +112,8 @@
       <Libreria />
     {:else if router.route === 'registrazioni'}
       <Registrazioni />
+    {:else if router.route === 'avvisi'}
+      <Avvisi />
     {:else if router.route === 'preferenze'}
       <Preferenze />
     {:else if router.route === 'impostazioni'}
@@ -117,6 +122,7 @@
       <NonTrovata />
     {/if}
   </main>
+  {/key}
 {/if}
 
 <!-- conferme delle azioni che cancellano o fermano qualcosa -->

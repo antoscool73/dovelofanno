@@ -1,9 +1,10 @@
 <script lang="ts">
-  // Impostazioni › Profili e abbonamenti: nome, colore, bambino, PIN ed eliminazione dei profili; abbonamenti della famiglia.
+  // Impostazioni › Profili e abbonamenti: nome, colore, icona, bambino, PIN ed eliminazione dei profili; abbonamenti della famiglia.
   import { ask } from '../lib/confirm.svelte';
   import Avatar from '../lib/components/Avatar.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import Button from '../lib/components/Button.svelte';
+  import IconPicker from '../lib/components/IconPicker.svelte';
   import ServicePicker from '../lib/components/ServicePicker.svelte';
   import { api, ApiError, type FamilySubscriptions, type Profile } from '../lib/api/client';
   import { session } from '../lib/session.svelte';
@@ -45,13 +46,14 @@
   }
 
   let editId = $state<number | 'new' | null>(null);
-  let eName = $state(''), eColor = $state(colors[0]!), eChild = $state(false), ePin = $state(''), eClearPin = $state(false);
+  let eName = $state(''), eColor = $state(colors[0]!), eIcon = $state(''), eChild = $state(false), ePin = $state(''), eClearPin = $state(false);
   // abbonamenti: ereditati dalla famiglia (predefinito) o una scelta propria, che parte da quelli della famiglia
   let eInherits = $state(true);
   function edit(p: Profile | null) {
     editId = p ? p.id : 'new';
     eName = p?.name ?? '';
     eColor = p?.avatar ?? colors[profiles.length % colors.length]!;
+    eIcon = p?.icon ?? '';
     eChild = p?.isChild ?? false;
     ePin = '';
     eClearPin = false;
@@ -63,10 +65,10 @@
     if (id === null) return;
     act(async () => {
       if (id === 'new') {
-        const p = await api.createProfile({ name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null });
+        const p = await api.createProfile({ name: eName, isChild: eChild, avatar: eColor, icon: eIcon, pin: !eChild && ePin ? ePin : null });
         if (!eInherits) await api.setProfileSubscriptions(p.id, false, family?.services ?? []);
       } else {
-        await api.updateProfile(id, { name: eName, isChild: eChild, avatar: eColor, pin: !eChild && ePin ? ePin : null, clearPin: eClearPin });
+        await api.updateProfile(id, { name: eName, isChild: eChild, avatar: eColor, icon: eIcon, pin: !eChild && ePin ? ePin : null, clearPin: eClearPin });
         const before = profiles.find((p) => p.id === id)?.inheritsSubscriptions ?? true;
         // smettendo di ereditare, la scelta propria parte da quella della famiglia
         if (eInherits !== before) await api.setProfileSubscriptions(id, eInherits, eInherits ? null : family?.services ?? []);
@@ -104,7 +106,7 @@
 <ul class="f-list">
   {#each profiles as p (p.id)}
     <li>
-      <Avatar name={p.name} color={p.avatar} size={40} />
+      <Avatar name={p.name} color={p.avatar} icon={p.icon} size={40} />
       <span class="pname">{p.name}</span>
       {#if p.isChild}<Badge tone="green">Bambino</Badge>{/if}
       {#if p.hasPin}<Badge>PIN</Badge>{/if}
@@ -131,6 +133,7 @@
         </div>
       </div>
     </div>
+    <IconPicker bind:value={eIcon} color={eColor} name={eName} size={40} />
     <label class="f-check"><input type="checkbox" bind:checked={eChild} /> Profilo bambino (vede solo i titoli per bambini, niente PIN)</label>
     <label class="f-check"><input type="checkbox" bind:checked={eInherits} /> Usa gli abbonamenti della famiglia
       {#if !eInherits}<span class="f-muted">(sceglie i suoi in Preferenze › I miei abbonamenti; si parte da quelli della famiglia)</span>{/if}</label>

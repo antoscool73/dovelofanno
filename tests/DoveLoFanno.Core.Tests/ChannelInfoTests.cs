@@ -31,6 +31,9 @@ public sealed class ChannelInfoTests
         Assert.Equal("news", ChannelInfo.For("id:rainews24", "Rai News 24", "Rai").Kind);
         Assert.Equal("shop", ChannelInfo.For("id:qvc", "QVC", "Italy").Kind);
         Assert.Equal("", ChannelInfo.For("name:canalechenonesiste", "Canale Che Non Esiste", "Italy").Kind);
+        // codice vecchio di un canale chiuso, nome di quello che l'ha sostituito: vale quello aperto
+        Assert.False(ChannelInfo.For("id:la7d", "LA7 Cinema", "Italy").Closed);
+        Assert.True(ChannelInfo.For("id:la7d", "LA7d", "Italy").Closed);
         Assert.Equal(20, ChannelInfo.RegionNames.Count);
     }
 

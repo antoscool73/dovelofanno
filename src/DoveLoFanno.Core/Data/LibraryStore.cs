@@ -11,7 +11,10 @@ public sealed record LibraryFolderRow(long Id, string Path, string Kind, bool En
 /// <summary>Una riga della libreria: un'opera (film, serie con i suoi episodi, programma) oppure un file da sistemare.</summary>
 public sealed record LibraryEntry(
     long? WorkId, long? ItemId, string Kind, string Title, int Year, string Poster, double? Rating, string RatingSource,
-    int? Stars, bool Watched, int Files, int Episodes, DateTimeOffset AddedAt, long? PlayItemId, int PositionS, int DurationS, bool Recorded);
+    int? Stars, bool Watched, int Files, int Episodes, DateTimeOffset AddedAt, long? PlayItemId, int PositionS, int DurationS, bool Recorded,
+    string CopyState = "");
+// CopyState (24/11/2026): la copia per il browser del file che parte con «Guarda» (PlayItemId): "" si guarda così,
+// "done" copia pronta, "needed" da preparare, "queued"/"working" in preparazione, "failed" non riuscita.
 
 /// <summary>Un file di un'opera, per la Scheda e per scegliere l'episodio.</summary>
 public sealed record LibraryFile(
@@ -258,7 +261,7 @@ public sealed class LibraryStore(string dbPath)
         IReadOnlyList<int>? genres = null)
     {
         using var c = Open();
-        if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'movie' AND tmdb_id = $t ORDER BY (kind = 'film') DESC, id LIMIT 1", ("$t", t)) is long byTmdb)
+        if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'movie' AND tmdb_id = $t AND merged_into IS NULL ORDER BY (kind = 'film') DESC, id LIMIT 1", ("$t", t)) is long byTmdb)
         {
             SetGenres(c, byTmdb, genres);
             return byTmdb;
@@ -280,7 +283,7 @@ public sealed class LibraryStore(string dbPath)
         IReadOnlyList<int>? genres = null)
     {
         using var c = Open();
-        if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'tv' AND tmdb_id = $t AND parent_id IS NULL ORDER BY id LIMIT 1", ("$t", t)) is long byTmdb)
+        if (tmdbId is int t && Db.ScalarLong(c, "SELECT id FROM works WHERE tmdb_kind = 'tv' AND tmdb_id = $t AND parent_id IS NULL AND merged_into IS NULL ORDER BY id LIMIT 1", ("$t", t)) is long byTmdb)
         {
             SetGenres(c, byTmdb, genres);
             return byTmdb;
@@ -351,7 +354,8 @@ public sealed class LibraryStore(string dbPath)
         string originalTitle, double vote, int votes, long? parentId, int? season, int? episode, DateTimeOffset now)
     {
         bool rated = votes >= 20 && vote > 0;
-        return Db.Insert(c, """
+        // un'opera unita a un'altra (WorkStore.MergeDuplicates) rimanda a quella che resta
+        return Db.ScalarLong(c, """
             INSERT INTO works (kind, work_key, title, title_key, original_title, year, parent_id, season, episode, tmdb_id, tmdb_kind, imdb_id,
                                rating, rating_source, rating_votes, updated_at)
             VALUES ($k, $key, $t, $tk, $ot, $y, $par, $se, $ep, $tm, $tmk, $im, $r, $rs, $rv, $now)
@@ -363,10 +367,11 @@ public sealed class LibraryStore(string dbPath)
                 rating_source = CASE WHEN works.rating IS NULL THEN excluded.rating_source ELSE works.rating_source END,
                 rating_votes = CASE WHEN works.rating IS NULL THEN excluded.rating_votes ELSE works.rating_votes END,
                 updated_at = excluded.updated_at
+            RETURNING coalesce(merged_into, id)
             """,
             ("$k", kind), ("$key", key), ("$t", title), ("$tk", Titles.TitleKey(title)), ("$ot", originalTitle), ("$y", year), ("$par", parentId),
             ("$se", season), ("$ep", episode), ("$tm", tmdbId), ("$tmk", tmdbKind), ("$im", imdbId),
-            ("$r", rated ? Math.Round(vote, 1) : null), ("$rs", rated ? "TMDB" : ""), ("$rv", rated ? votes : 0), ("$now", Db.Unix(now)));
+            ("$r", rated ? Math.Round(vote, 1) : null), ("$rs", rated ? "TMDB" : ""), ("$rv", rated ? votes : 0), ("$now", Db.Unix(now)))!.Value;
     }
 
     /// <summary>Opere della libreria con codice TMDB ma senza dettagli (locandina, trama): (opera, codice, movie|tv).</summary>
@@ -472,14 +477,14 @@ public sealed class LibraryStore(string dbPath)
         if (section == "unmatched")
             return Db.Query(c, """
                 SELECT li.id, li.title_guess, li.year_guess, li.added_at, coalesce(li.duration_s, 0), li.origin, li.path,
-                       coalesce(ws.position_s, 0), coalesce(ws.watched, 0)
+                       coalesce(ws.position_s, 0), coalesce(ws.watched, 0), li.copy_state
                 FROM library_items li LEFT JOIN watch_states ws ON ws.profile_id = $p AND ws.item_id = li.id
                 WHERE li.work_id IS NULL AND li.missing_since IS NULL AND li.match_state <> 'pending'
                 ORDER BY li.added_at DESC
                 """,
                 r => new LibraryEntry(null, r.GetInt64(0), "unmatched", r.GetString(1).Length > 0 ? r.GetString(1) : Path.GetFileNameWithoutExtension(r.GetString(6)),
                     r.GetInt32(2), "", null, "", null, r.GetInt64(8) == 1, 1, 0, Db.FromUnix(r.GetInt64(3)), r.GetInt64(0), r.GetInt32(7), r.GetInt32(4),
-                    r.GetString(5) == "recorded"),
+                    r.GetString(5) == "recorded", r.GetString(9)),
                 ("$p", profileId)).Where(e => !child && (tk.Length == 0 || Titles.TitleKey(e.Title).Contains(tk, StringComparison.Ordinal))).ToList();
 
         string filter = section switch
@@ -517,18 +522,18 @@ public sealed class LibraryStore(string dbPath)
             ("$p", profileId), ("$tk", tk));
 
         var play = rows.Where(x => x.Play != null).Select(x => x.Play!.Value).ToList();
-        var pos = new Dictionary<long, (int Pos, int Dur)>();
+        var pos = new Dictionary<long, (int Pos, int Dur, string Copy)>();
         if (play.Count > 0)
-            foreach (var (id, p, d) in Db.Query(c, $"""
-                SELECT li.id, coalesce(ws.position_s, 0), coalesce(li.duration_s, 0) FROM library_items li
+            foreach (var (id, p, d, cs) in Db.Query(c, $"""
+                SELECT li.id, coalesce(ws.position_s, 0), coalesce(li.duration_s, 0), li.copy_state FROM library_items li
                 LEFT JOIN watch_states ws ON ws.profile_id = $p AND ws.item_id = li.id WHERE li.id IN ({string.Join(',', play)})
-                """, r => (r.GetInt64(0), r.GetInt32(1), r.GetInt32(2)), ("$p", profileId)))
-                pos[id] = (p, d);
+                """, r => (r.GetInt64(0), r.GetInt32(1), r.GetInt32(2), r.GetString(3)), ("$p", profileId)))
+                pos[id] = (p, d, cs);
         return rows.Select(x =>
         {
-            var (p, d) = x.Play is long pid && pos.TryGetValue(pid, out var v) ? v : (0, 0);
+            var (p, d, cs) = x.Play is long pid && pos.TryGetValue(pid, out var v) ? v : (0, 0, "");
             return new LibraryEntry(x.Work, null, x.Kind, x.Title, x.Year, WorkStore.ImageUrl(x.Poster, "w342"), x.Rating, x.Src, x.Stars, x.Watched,
-                x.Files, x.Episodes, Db.FromUnix(x.Added), x.Play, p, d, x.Recorded);
+                x.Files, x.Episodes, Db.FromUnix(x.Added), x.Play, p, d, x.Recorded, cs);
         }).ToList();
     }
 
@@ -550,6 +555,8 @@ public sealed class LibraryStore(string dbPath)
             SELECT t.id, t.kind, t.title, t.year, t.poster, t.rating, t.rating_source, ws.stars, ws.watched, ws.updated_at,
                    (SELECT count(*) FROM library_items x JOIN works xw ON xw.id = x.work_id WHERE (xw.id = t.id OR xw.parent_id = t.id) AND x.missing_since IS NULL),
                    (SELECT x.id FROM library_items x JOIN works xw ON xw.id = x.work_id
+                    WHERE (xw.id = t.id OR xw.parent_id = t.id) AND x.missing_since IS NULL ORDER BY x.season, x.episode, x.added_at DESC LIMIT 1),
+                   (SELECT x.copy_state FROM library_items x JOIN works xw ON xw.id = x.work_id
                     WHERE (xw.id = t.id OR xw.parent_id = t.id) AND x.missing_since IS NULL ORDER BY x.season, x.episode, x.added_at DESC LIMIT 1)
             FROM watch_states ws JOIN works t ON t.id = ws.work_id
             WHERE ws.profile_id = $p AND ws.item_id IS NULL AND t.parent_id IS NULL AND (ws.watched = 1 OR ws.stars IS NOT NULL)
@@ -558,7 +565,7 @@ public sealed class LibraryStore(string dbPath)
             """,
             r => new LibraryEntry(r.GetInt64(0), null, r.GetString(1), r.GetString(2), r.GetInt32(3), WorkStore.ImageUrl(r.GetString(4), "w342"),
                 r.IsDBNull(5) ? null : r.GetDouble(5), r.GetString(6), Db.NInt(r, 7), r.GetInt64(8) == 1, r.GetInt32(10), 0,
-                Db.FromUnix(r.GetInt64(9)), Db.NLong(r, 11), 0, 0, false),
+                Db.FromUnix(r.GetInt64(9)), Db.NLong(r, 11), 0, 0, false, r.IsDBNull(12) ? "" : r.GetString(12)),
             ("$p", profileId), ("$tk", tk));
     }
 

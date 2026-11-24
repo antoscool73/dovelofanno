@@ -7,6 +7,7 @@
   import LivePreview from '../lib/components/LivePreview.svelte';
   import { api, ApiError, type Recording } from '../lib/api/client';
   import { between, day, fileName, minutes, range, time } from '../lib/format';
+  import { navigate } from '../lib/router.svelte';
 
   type Filter = 'tutte' | 'active' | 'scheduled' | 'completed' | 'incomplete' | 'failed';
   const filters: { id: Filter; label: string }[] = [
@@ -110,6 +111,35 @@
     finally { busyId = null; }
   }
 
+  // «Cambia la fine» di una registrazione in corso: un orario (il giorno dopo se è già passato oggi) o +15/+30/+60 min
+  let endFor = $state<number | null>(null);
+  let endTime = $state('');
+  function openEnd(r: Recording) {
+    endFor = r.id;
+    endTime = time(r.recordTo);
+    error = '';
+  }
+  function endFromTime(hhmm: string): Date | null {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+    if (!m) return null;
+    const d = new Date();
+    d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+    if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+    return d;
+  }
+  async function saveEnd(r: Recording, to: Date | null) {
+    if (!to) { error = 'Orario non valido'; return; }
+    busyId = r.id;
+    try {
+      const res = await api.changeRecordingEnd(r.id, to.toISOString());
+      notice = { text: `«${r.title}» ora finisce alle ${time(to)}.`, warnings: res.warnings };
+      endFor = null;
+      await load();
+    } catch (e) { error = e instanceof ApiError ? e.message : 'Fine non cambiata'; }
+    finally { busyId = null; }
+  }
+  const later = (r: Recording, min: number) => new Date(new Date(r.recordTo).getTime() + min * 60_000);
+
   async function cancel(r: Recording) {
     if (!(await ask({ title: `Annullare «${r.title}»?`, text: `Non verrà registrata ${day(r.start, now).toLowerCase()} alle ${time(r.start)}.`, ok: 'Annulla la registrazione', cancel: 'Tienila' }))) return;
     busyId = r.id;
@@ -125,6 +155,17 @@
     load();
   }
 </script>
+
+<!-- locandina dell'opera (se c'è) che apre la scheda; senza opera un riquadro vuoto tiene allineate le righe -->
+{#snippet poster(r: Recording)}
+  {#if r.workId != null}
+    <a class="poster" href="/opera/{r.workId}" onclick={navigate} aria-label="Apri la scheda di {r.title}" title="Apri la scheda">
+      {#if r.poster}<img src={r.poster} alt="" loading="lazy" />{:else}<span class="ph" aria-hidden="true">{r.title.charAt(0)}</span>{/if}
+    </a>
+  {:else}
+    <span class="poster none" aria-hidden="true"></span>
+  {/if}
+{/snippet}
 
 <section class="page">
   <div class="top">
@@ -167,7 +208,20 @@
             {#if r.state === 'recording'}
               <div class="bar" role="progressbar" aria-label="Avanzamento" aria-valuenow={progress(r)} aria-valuemin="0" aria-valuemax="100"><span style:width="{progress(r)}%"></span></div>
               <div class="meta">Mancano {minutes(Math.max(0, between(now.toISOString(), r.recordTo)))}</div>
-              <div><Button variant="primary" disabled={busyId === r.id} onclick={() => stop(r)}>Ferma ora</Button></div>
+              <div class="live-actions">
+                <Button variant="primary" disabled={busyId === r.id} onclick={() => stop(r)}>Ferma ora</Button>
+                <Button disabled={busyId === r.id} onclick={() => (endFor === r.id ? (endFor = null) : openEnd(r))}>Cambia la fine</Button>
+              </div>
+              {#if endFor === r.id}
+                <div class="end-edit">
+                  <label>Registra fino alle <input type="time" bind:value={endTime} /></label>
+                  <Button variant="primary" disabled={busyId === r.id} onclick={() => saveEnd(r, endFromTime(endTime))}>Salva</Button>
+                  <span class="muted small">oppure</span>
+                  {#each [15, 30, 60] as m (m)}
+                    <Button disabled={busyId === r.id} onclick={() => saveEnd(r, later(r, m))}>+{m === 60 ? '1 ora' : `${m} min`}</Button>
+                  {/each}
+                </div>
+              {/if}
             {:else}
               <div class="meta">Unione degli spezzoni: il file sarà pronto tra poco.</div>
             {/if}
@@ -181,6 +235,7 @@
       <ul class="list">
         {#each scheduled as r (r.id)}
           <li>
+            {@render poster(r)}
             <div class="when"><span>{day(r.start, now)}</span><span class="muted">{range(r.start, r.stop)}</span></div>
             <div class="what">
               <div class="line"><span class="title">{r.title}</span><Badge tone="blue">In programma</Badge></div>
@@ -210,14 +265,25 @@
         {#each shownFinished as r (r.id)}
           {@const s = states[r.state]}
           <li class={r.state}>
+            {@render poster(r)}
             <div class="when"><span>{day(r.start, now)}</span><span class="muted">{range(r.start, r.stop)}</span></div>
             <div class="what">
               <div class="line"><span class="title">{r.title}</span>{#if s}<Badge tone={s.tone}>{s.label}{r.state === 'incomplete' ? ` −${minutes(r.lostMinutes)}` : ''}</Badge>{/if}</div>
               <div class="meta">{meta(r)}</div>
               {#if note(r)}<div class="note">{note(r)}</div>{/if}
             </div>
-            {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file)}
-              <div class="acts"><Button size="s" variant="secondary" onclick={() => openConvert({ recordingId: r.id, name: fileName(r.file) })}>Converti...</Button></div>
+            {#if r.libraryItemId != null || (r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file))}
+              <div class="acts">
+                <!-- il player è quello della Libreria: la registrazione finita vi entra da sola -->
+                {#if r.libraryItemId != null}
+                  <Button size="s" variant="primary" href="/guarda/{r.libraryItemId}" onclick={navigate} label="{r.format === 'mp3' ? 'Ascolta' : 'Guarda'} «{r.title}»">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z" /></svg>{r.format === 'mp3' ? 'Ascolta' : 'Guarda'}
+                  </Button>
+                {/if}
+                {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file)}
+                  <Button size="s" variant="secondary" onclick={() => openConvert({ recordingId: r.id, name: fileName(r.file) })}>Converti...</Button>
+                {/if}
+              </div>
             {/if}
           </li>
         {/each}
@@ -263,6 +329,8 @@
   .empty p { margin: 0 0 6px; }
   .live { display: flex; flex-wrap: wrap; gap: 20px; background: var(--card); border: 1px solid #3a2a2e; border-radius: var(--radius-l); padding: 16px; }
   .live-body { flex: 1 1 380px; display: flex; flex-direction: column; gap: 10px; }
+  .live-actions, .end-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .end-edit input { margin-left: 6px; }
   .live-title { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
   .bar { height: 8px; border-radius: 999px; background: #262c37; overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--rec); }
@@ -279,6 +347,14 @@
   .meta { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
   .note { font-size: 13px; color: var(--orange-text); }
   .failed .note { color: var(--rec-text); }
-  .acts { display: flex; gap: 8px; }
+  .acts { display: flex; gap: 8px; align-items: center; }
+  .poster {
+    flex: 0 0 48px; width: 48px; height: 72px; border-radius: 6px; overflow: hidden; background: var(--raised);
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
+  }
+  .poster.none { background: none; }
+  a.poster:hover { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--muted); }
   .live-prev { flex: 0 0 260px; max-width: 100%; }
 </style>
