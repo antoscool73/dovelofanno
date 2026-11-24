@@ -1,4 +1,4 @@
-// Intro all'ingresso (23/11/2026, richiesta di Antonio): il logo animato con la tarantella («Jingle v1.mp4», ridotto a
+// Intro all'ingresso (23/11/2026, richiesta di Antonio): il logo animato col jingle («Jingle v3.mp4» del 24/11, archi; ridotto a
 // 720p in public/intro.mp4). Una volta per scheda del browser, dopo la scelta del profilo; si salta con un clic o Esc e
 // si spegne in Preferenze › Notifiche, su questo dispositivo. Niente intro a chi chiede meno animazioni al sistema.
 const KEY = 'dlf.intro';

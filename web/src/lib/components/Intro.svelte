@@ -43,7 +43,7 @@
 <div class="intro" class:leaving role="dialog" aria-label="Intro di DoveLoFanno" tabindex="-1" onclick={close}>
   <!-- solo musica, niente parlato: non ci sono sottotitoli da mettere -->
   <!-- svelte-ignore a11y_media_has_caption -->
-  <video bind:this={video} src="/intro.mp4" poster="/intro.jpg" playsinline preload="auto" onended={close}></video>
+  <video bind:this={video} src="/intro.mp4?v=3" poster="/intro.jpg" playsinline preload="auto" onended={close}></video>
   <div class="bar">
     {#if muted}<button type="button" class="b" onclick={unmute}>🔊 Con l'audio</button>{/if}
     <button type="button" class="b" onclick={(e) => { e.stopPropagation(); close(); }}>Salta ›</button>
