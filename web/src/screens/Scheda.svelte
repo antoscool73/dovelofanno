@@ -184,8 +184,14 @@
       const base = n.replace(/ (basic |standard )?with ads$/i, '');
       return base === n || !l.some((x) => x.toLowerCase() === base.toLowerCase());
     });
-    return ['mine', 'subscription', 'free', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
+    return ['mine', 'free', 'subscription', 'rent', 'buy'].filter((k) => m.has(k)).map((k) => ({ kind: k, label: kinds[k] ?? k, names: tidy(m.get(k)!) }));
   });
+  // prima dove non pago, poi a pagamento (Antonio, 24/11/2026): il passaggio in TV si divide nel primo che vedo (in chiaro
+  // o in un mio abbonamento) e nel primo su un canale a pagamento che non ho
+  const freeAiring = $derived(w?.airings.find((a) => !payPlatform(a) || inMySubscriptions(a, mySubs)) ?? null);
+  const paidAiring = $derived(w?.airings.find((a) => !!payPlatform(a) && !inMySubscriptions(a, mySubs)) ?? null);
+  const freeKinds = $derived(byKind.filter((k) => k.kind === 'mine' || k.kind === 'free'));
+  const paidKinds = $derived(byKind.filter((k) => k.kind !== 'mine' && k.kind !== 'free'));
   const watchLink = $derived(w?.availability.find((a) => a.link)?.link ?? '');
   // originale della piattaforma appena uscito: dedotto dall'uscita, JustWatch non lo ha ancora in catalogo
   const fromRelease = $derived((w?.availability ?? []).filter((a) => a.source === 'release').map((a) => a.platform));
@@ -340,12 +346,17 @@
     <aside>
       <h2>Dove Lo Fanno</h2>
       <div class="where">
-        {#if w.airings[0]}
-          <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{w.airings[0].channelName || w.airings[0].guideChannelName}, {day(w.airings[0].start).toLowerCase()} {time(w.airings[0].start)}</strong></span>{#if !payPlatform(w.airings[0])}<Badge tone="blue">Gratis</Badge>{:else if inMySubscriptions(w.airings[0], mySubs)}<Badge tone="green">Nel tuo abbonamento</Badge>{:else}<Badge tone="orange">A pagamento · {payPlatform(w.airings[0])}</Badge>{/if}</div>
-        {/if}
-        {#each byKind as k (k.kind)}
+        {#snippet airingRow(a: GuideProgramme)}
+          <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{a.channelName || a.guideChannelName}, {day(a.start).toLowerCase()} {time(a.start)}</strong></span>{#if !payPlatform(a)}<Badge tone="blue">Gratis</Badge>{:else if inMySubscriptions(a, mySubs)}<Badge tone="green">Nel tuo abbonamento</Badge>{:else}<Badge tone="orange">A pagamento · {payPlatform(a)}</Badge>{/if}</div>
+        {/snippet}
+        {#snippet kindRow(k: { kind: string; label: string; names: string[] })}
           <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
-        {/each}
+        {/snippet}
+        <!-- prima dove non pago (TV in chiaro o nei miei abbonamenti, streaming nei miei abbonamenti, gratis), poi a pagamento -->
+        {#if freeAiring}{@render airingRow(freeAiring)}{/if}
+        {#each freeKinds as k (k.kind)}{@render kindRow(k)}{/each}
+        {#if paidAiring}{@render airingRow(paidAiring)}{/if}
+        {#each paidKinds as k (k.kind)}{@render kindRow(k)}{/each}
         {#if !w.airings[0] && byKind.length === 0}<div class="wrow muted">{#if w.tmdbId}<span>Nessuna piattaforma nota in Italia, per ora. Per i titoli appena usciti JustWatch la aggiunge spesso dopo qualche giorno: con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> «nei miei abbonamenti» ti avviso quando arriva.</span>{:else if !hasTmdbKey}Per «Dove Lo Fanno» serve la chiave TMDB (Impostazioni › Voti dei film).{:else if w.kind === 'programme' || w.kind === 'episode'}Si vede quando passa in TV: per ora la guida non ha passaggi in arrivo. Con <a href="#avvisami" onclick={(e) => { e.preventDefault(); openAlerts(); }}>Avvisami</a> ti avviso quando torna.{:else}Titolo non trovato su TMDB: le piattaforme dove si vede non si conoscono.{/if}</div>{/if}
       </div>
       {#if byKind.length > 0}<p class="muted small">Disponibilità: JustWatch tramite TMDB{w.detailsAt ? `, verificata ${day(w.detailsAt).toLowerCase()}` : ''}.</p>{/if}

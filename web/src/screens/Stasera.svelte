@@ -74,7 +74,7 @@
       const isEvening = (d: Date) => d.getHours() >= 20 || d.getHours() < 2;
       tonightFilms = (films.filter((p) => (new Date(p.start) < now ? evening : isEvening(new Date(p.start)))))
         .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || a.start.localeCompare(b.start));
-      weekFilms = dedupe(week).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 18);
+      weekFilms = dedupe(week).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 60);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Stasera non letta';
     } finally {
@@ -109,13 +109,13 @@
       await Promise.all(homeRows.map(async (r) => {
         try {
           if (r.list.query) {
-            const res = await api.listResults(prof.id, r.list.id, 18);
+            const res = await api.listResults(prof.id, r.list.id, 36);
             r.hits = res.hits;
             r.more = !!res.more;
           } else {
             const items = (await api.list(prof.id, r.list.id)).items;
-            r.entries = items.slice(0, 18);
-            r.more = items.length > 18;
+            r.entries = items.slice(0, 36);
+            r.more = items.length > 36;
           }
           r.error = '';
         } catch (e) { r.error = e instanceof ApiError ? e.message : 'Lista non letta'; }
@@ -155,6 +155,7 @@
     return mine.filter(ok)[0] ?? films.find((p) => p.rating != null && recordable(p)) ?? films[0] ?? null;
   });
   const heroFromList = $derived(!!hero && tonightList.some((i) => i.workId === hero.workId));
+
 
   const live = $derived(recordings.filter((r) => r.state === 'recording' || r.state === 'merging'));
   const upcoming = $derived(
@@ -235,6 +236,75 @@
     dedupe(guideFilms.filter((p) => streamingFor(p, mySubs).length > 0)).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)),
   );
   const otherPlatforms = $derived([...new Set(filmsOther.map((p) => payPlatform(p)).filter((x): x is string => !!x))]);
+
+  // Banner solo dalle 20:00 alle 21:30 (punto 6 del 23/11, Antonio): è l'ora in cui si sceglie il film. Fuori da quella
+  // fascia, al suo posto, «Il top per la serata»: tre titoli in TV e tre per ogni mio abbonamento (24/11/2026). Criteri:
+  // - TV: film di stasera che il profilo vede (in chiaro o nei suoi abbonamenti), non iniziati da più di 20 minuti;
+  // - un abbonamento: film della guida nel suo catalogo streaming;
+  // con «Nascondi visti» acceso i visti escono (al loro posto entrano i successivi), altrimenti restano con la spunta
+  // (Antonio, 24/11/2026); prima quelli della mia lista, poi per voto; un titolo
+  // sta in una colonna sola (prima la TV, poi gli abbonamenti nell'ordine di rilievo) e non compare nelle altre righe della pagina.
+  const heroTime = $derived.by(() => {
+    const m = now.getHours() * 60 + now.getMinutes();
+    return m >= 20 * 60 && m < 21 * 60 + 30;
+  });
+  const listIds = $derived(new Set(tonightList.map((i) => i.workId)));
+  const inList = (p: GuideProgramme) => p.workId != null && listIds.has(p.workId);
+  const byTop = (a: GuideProgramme, b: GuideProgramme) =>
+    Number(inList(b)) - Number(inList(a)) || (b.rating ?? 0) - (a.rating ?? 0) || a.start.localeCompare(b.start);
+  type TopCol = { key: string; title: string; service: string | null; list: GuideProgramme[] };
+  const topCols = $derived.by((): TopCol[] => {
+    const taken = new Set<string>();
+    const k = (p: GuideProgramme) => (p.workId != null ? `w${p.workId}` : `t${p.title.trim().toLowerCase()}`);
+    const pick = (cands: GuideProgramme[]) => {
+      const out: GuideProgramme[] = [];
+      for (const p of [...cands].sort(byTop)) {
+        if (out.length === 3) break;
+        if (seenState.hidden(p.workId) || taken.has(k(p))) continue;
+        taken.add(k(p));
+        out.push(p);
+      }
+      return out;
+    };
+    const late = now.getTime() - 20 * 60_000;
+    const cols: TopCol[] = [{
+      key: 'tv', service: null, title: now.getHours() >= 21 || now.getHours() < 2 ? 'Ancora stasera in TV' : 'Stasera in TV',
+      list: pick(tonightFilms.filter((p) => inMySubscriptions(p, mySubs) && new Date(p.start).getTime() >= late && new Date(p.stop) > now)),
+    }];
+    for (const svc of platforms.sort(mySubs)) {
+      const list = pick(guideFilms.filter((p) => streamingFor(p, [svc]).length > 0));
+      if (list.length > 0) cols.push({ key: 's' + svc, service: svc, title: svc, list });
+    }
+    return cols;
+  });
+  // la top è un'unica riga che scorre in orizzontale: frecce ai lati, trascinamento col mouse, barra in basso (24/11/2026)
+  let topsEl = $state<HTMLElement | null>(null);
+  let topsAtStart = $state(true), topsAtEnd = $state(true);
+  function topsEdges() {
+    if (!topsEl) return;
+    topsAtStart = topsEl.scrollLeft <= 2;
+    topsAtEnd = topsEl.scrollLeft + topsEl.clientWidth >= topsEl.scrollWidth - 2;
+  }
+  function topsBy(dir: number) {
+    if (!topsEl) return;
+    const col = topsEl.querySelector<HTMLElement>('.topcol');
+    topsEl.scrollBy({ left: dir * ((col?.offsetWidth ?? 320) + 24), behavior: 'smooth' });
+  }
+  $effect(() => {
+    void topCols;
+    if (!topsEl) return;
+    topsEdges();
+    const ro = new ResizeObserver(topsEdges);
+    ro.observe(topsEl);
+    return () => ro.disconnect();
+  });
+  // righe della pagina: almeno 18 titoli quando ci sono (Antonio, 24/11/2026: «almeno una quindicina»); i titoli della top e
+  // i visti nascosti si tolgono PRIMA di tagliare, se no una riga restava con 5 locandine
+  const ROW = 18;
+  const fill = <T extends { workId?: number | null }>(l: T[]) =>
+    l.filter((x) => !seenState.hidden(x.workId) && !(x.workId != null && topIds.has(x.workId))).slice(0, ROW);
+  // opere della top: fuori dalle altre righe della pagina (solo quando la top si vede)
+  const topIds = $derived(new Set(heroTime ? [] : topCols.flatMap((c) => c.list.map((p) => p.workId)).filter((x): x is number => x != null)));
 
   // la mia serata: si vede stasera un titolo che passa in TV di sera (dalle 20, entro le 2), che è in casa o che è in
   // streaming nei miei abbonamenti (es. un originale Prime Video); gli altri restano sotto, con il motivo. Un passaggio
@@ -380,7 +450,50 @@
 {:else}
   {#if error}<p class="pad error" role="alert">{error}</p>{/if}
 
-  {#if hero}
+  {#if !heroTime && topCols.some((c) => c.list.length > 0)}
+    <!-- fuori dalle 20:00–21:30: «Il top per la serata» al posto del banner (24/11/2026) -->
+    <section class="tops" aria-labelledby="tops-h">
+      <h2 id="tops-h">Il top per la serata</h2>
+      <div class="topsrow">
+      {#if !topsAtStart}
+        <button type="button" class="arrow left" aria-label="Colonne precedenti" onclick={() => topsBy(-1)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
+      {/if}
+      {#if !topsAtEnd}
+        <button type="button" class="arrow right" aria-label="Colonne successive" onclick={() => topsBy(1)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg></button>
+      {/if}
+      <div class="topcols" bind:this={topsEl} use:dragScroll onscroll={topsEdges}>
+        {#each topCols as col (col.key)}
+          <div class="topcol">
+            <div class="kicker">{#if col.service}<ServiceIcon name={col.service} size={20} />{/if}{col.title.toUpperCase()}</div>
+            {#if col.list.length === 0}
+              <p class="muted small">Stasera in TV non resta niente da vedere dall'inizio.</p>
+            {:else}
+              <ol class="toplist">
+                {#each col.list as p, n (p.id)}
+                  <li>
+                    <span class="topn" aria-hidden="true">{n + 1}</span>
+                    <!-- due righe sempre (titolo; voto · anno · genere) e l'occhio sotto, come nelle altre righe; canale e orario
+                         sono nella scheda (Antonio, 24/11/2026) -->
+                    <button type="button" class="topposter" onclick={() => openWork(p)} aria-label="Apri la scheda di {p.title}" tabindex="-1">{#if p.poster || p.icon}<img src={p.poster || p.icon} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="ph" aria-hidden="true">{p.title.charAt(0)}</span>{/if}</button>
+                    <div class="toptext">
+                      <button type="button" class="topname" onclick={() => openWork(p)} aria-label="Apri la scheda di {p.title}">
+                        <span class="toptitle">{p.title}</span>
+                        <span class="topmeta">{[p.rating != null ? `★ ${vote(p.rating)}` : '', p.year ? String(p.year) : '', p.sub || p.group].filter(Boolean).join(' · ')}</span>
+                      </button>
+                      <SeenButton workId={p.workId} title={p.title} />
+                    </div>
+                  </li>
+                {/each}
+              </ol>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      </div>
+    </section>
+  {:else if hero && heroTime}
     <section class="hero">
       {#if hero.icon}<img class="backdrop" src={hero.icon} alt="" referrerpolicy="no-referrer" />{/if}
       <div class="hero-word" aria-hidden="true">{hero.title}</div>
@@ -483,9 +596,9 @@
           {#snippet after()}<a class="edit" {href} onclick={navigate} aria-label={dynamic ? `Modifica la ricerca di ${r.list.name}` : `Modifica la lista ${r.list.name}`} title={dynamic ? 'Modifica la ricerca' : 'Modifica la lista'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></a>{/snippet}
           {#if r.error}<p class="error small">{r.error}</p>
           {:else if dynamic && r.hits.length > 0}
-            {@render row(r.hits.map((h) => hitCard(r, h)), r.more ? { href, label: 'Tutta la lista', hint: 'con la sua ricerca' } : null)}
+            {@render row(fill(r.hits).map((h) => hitCard(r, h)), r.more ? { href, label: 'Tutta la lista', hint: 'con la sua ricerca' } : null)}
           {:else if !dynamic && r.entries.length > 0}
-            {@render row(r.entries.map(entryCard), r.more ? { href, label: 'Tutta la lista', hint: `${r.list.count} ${r.list.count === 1 ? 'titolo' : 'titoli'}` } : null)}
+            {@render row(fill(r.entries).map(entryCard), r.more ? { href, label: 'Tutta la lista', hint: `${r.list.count} ${r.list.count === 1 ? 'titolo' : 'titoli'}` } : null)}
           {:else if r.loading}<p class="muted small" role="status">Cerco i titoli…</p>
           {:else}<p class="muted small">{dynamic ? 'Per ora nessun titolo con questa ricerca.' : 'La lista è vuota.'}</p>{/if}
         </Section>
@@ -513,7 +626,7 @@
 
     {#snippet row(list: Card[], all: { filter?: Partial<SearchQuery>; href?: string; label: string; hint: string } | null = null)}
       <ul class="cards" use:dragScroll>
-        {#each list.filter((c) => !seenState.hidden(c.workId)) as c (c.key)}
+        {#each list.filter((c) => !seenState.hidden(c.workId) && !(c.workId != null && topIds.has(c.workId))) as c (c.key)}
           <li class:dim={c.dim}>
             <button type="button" class="card" data-k={c.key} onclick={c.open}>
               <span class="poster">
@@ -561,10 +674,10 @@
       <Section key="stasera-miei" title="Stasera in TV · Nei miei abbonamenti">
         {#snippet aside()}<span class="mysubs">dal voto più alto · <a href="/preferenze#abbonamenti" onclick={navigate}>I miei abbonamenti</a>{#each platforms.sort(mySubs) as s (s)}<ServiceIcon name={s} size={24} />{/each}</span>{/snippet}
         <h3 class="subrow">In diretta <span class="muted small">stasera sui canali in chiaro e su quelli dei tuoi abbonamenti</span></h3>
-        {#if filmsMine.length > 0}{@render row(filmsMine.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'] }, label: 'Tutti i film in TV', hint: 'nei prossimi giorni, con i filtri' })}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
+        {#if filmsMine.length > 0}{@render row(fill(filmsMine).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'] }, label: 'Tutti i film in TV', hint: 'nei prossimi giorni, con i filtri' })}{:else}<p class="muted small">Nessun film stasera in chiaro o sui canali dei tuoi abbonamenti.</p>{/if}
         <h3 class="subrow">On demand <span class="muted small">da vedere quando vuoi nei cataloghi dei tuoi abbonamenti</span></h3>
         {#if onDemand.length > 0}
-          {@render row(onDemand.slice(0, 18).map((p) => programmeCard(p, 'ondemand')), { filter: { kind: 'film', avail: ['mine'] }, label: 'Tutti i film nei tuoi abbonamenti', hint: 'il catalogo completo, con i filtri' })}
+          {@render row(fill(onDemand).map((p) => programmeCard(p, 'ondemand')), { filter: { kind: 'film', avail: ['mine'] }, label: 'Tutti i film nei tuoi abbonamenti', hint: 'il catalogo completo, con i filtri' })}
         {:else}
           <p class="muted small">{mySubs.length === 0 ? 'Scegli i tuoi abbonamenti (Netflix, Prime Video…) in Preferenze: qui compaiono i film dei loro cataloghi.' : 'Nessun film della guida nei cataloghi dei tuoi abbonamenti, per ora.'}</p>
         {/if}
@@ -573,14 +686,14 @@
       {#if filmsOther.length > 0 && shown('stasera-altri')}
         <Section key="stasera-altri" title="Stasera in TV · Non nei miei abbonamenti">
           {#snippet aside()}a pagamento fuori dai tuoi abbonamenti ({otherPlatforms.join(', ')}){/snippet}
-          {@render row(filmsOther.slice(0, 18).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paytv'] }, label: 'Tutti i film in TV a pagamento', hint: 'sui canali che non hai, nei prossimi giorni' })}
+          {@render row(fill(filmsOther).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['paytv'] }, label: 'Tutti i film in TV a pagamento', hint: 'sui canali che non hai, nei prossimi giorni' })}
         </Section>
       {/if}
     {/if}
     {#if weekFilms.length > 0 && shown('settimana')}
       <Section key="settimana" title="Questa settimana">
         {#snippet aside()}film con voto 7 e oltre nei prossimi giorni{/snippet}
-        {@render row(weekFilms.map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'], minRating: 7 }, label: 'Tutti i film da 7 in su', hint: 'in TV nei prossimi giorni' })}
+        {@render row(fill(weekFilms).map((p) => programmeCard(p)), { filter: { kind: 'film', avail: ['tv'], minRating: 7 }, label: 'Tutti i film da 7 in su', hint: 'in TV nei prossimi giorni' })}
       </Section>
     {/if}
 
@@ -606,6 +719,34 @@
   .muted { color: var(--muted); margin: 0; }
   .small { font-size: 13px; }
   .error { color: var(--rec-text); }
+  .tops { padding: 24px var(--gutter) 8px; background: linear-gradient(180deg, #172033, transparent); display: flex; flex-direction: column; gap: 14px; }
+  .tops h2 { font-size: 26px; margin: 0; }
+  .topsrow { position: relative; }
+  .arrow { position: absolute; top: calc(50% - 26px); z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-btn);
+    background: rgba(13, 16, 21, 0.85); color: var(--text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+  .arrow.left { left: -14px; }
+  .arrow.right { right: -14px; }
+  .arrow:hover { background: var(--raised); }
+  @media (hover: none) { .arrow { display: none; } }
+  .topcols { display: grid; grid-auto-flow: column; grid-auto-columns: min(300px, 86vw); gap: 24px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 12px;
+    scrollbar-width: thin; scrollbar-color: var(--line-btn) transparent; }
+  .topcols::-webkit-scrollbar { height: 8px; }
+  .topcols::-webkit-scrollbar-thumb { background: var(--line-btn); border-radius: 4px; }
+  .topcol { scroll-snap-align: start; }
+  :global(.topcols.dragging) { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+  .tops .kicker { display: flex; align-items: center; gap: 8px; }
+  .topcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .toplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .toplist li { display: grid; grid-template-columns: 22px 56px minmax(0, 1fr); align-items: center; gap: 10px 12px; }
+  .topn { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--muted); text-align: center; }
+  .topname { display: flex; flex-direction: column; gap: 3px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; min-width: 0; }
+  .topname:hover .toptitle, .topname:focus-visible .toptitle { text-decoration: underline; }
+  .topposter { width: 56px; height: 84px; padding: 0; border: 0; cursor: pointer; border-radius: 6px; overflow: hidden; background: var(--raised); display: flex; align-items: center; justify-content: center; }
+  .topposter img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .topposter .ph { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--muted); }
+  .toptext { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+  .toptitle { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topmeta { font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hero { position: relative; overflow: hidden; background: #172033; min-height: 360px; display: flex; align-items: flex-end; }
   .backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.35; }
   .hero-word {
