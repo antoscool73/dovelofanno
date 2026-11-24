@@ -4615,6 +4615,8 @@ export interface components {
             /** Format: date-time */
             lastFiredAt: null | string;
             status: string;
+            /** @default  */
+            poster: string;
         };
         ApiError: {
             error: string;
@@ -5128,6 +5130,13 @@ export interface components {
             telegramChat: string;
             quietFrom: string;
             quietTo: string;
+            /** @default  */
+            telegramBot: string;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            telegramQueued: number;
         };
         NotificationSettingsPatch: {
             telegramToken: null | string;

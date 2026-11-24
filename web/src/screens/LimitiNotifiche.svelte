@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Impostazioni › Limiti e Impostazioni › Notifiche (Telegram, orari di silenzio): valgono per tutta la famiglia.
+  // Impostazioni › Limiti e Impostazioni › Notifiche (collegamento del bot Telegram): valgono per tutta la famiglia.
+  // Gli orari di silenzio dal 24/11/2026 sono in Preferenze › Notifiche (Antonio).
   import { ask } from '../lib/confirm.svelte';
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type GeneralSettings, type NotificationSettings } from '../lib/api/client';
@@ -13,7 +14,7 @@
   let busy = $state(false);
 
   let maxParallel = $state(''), minFree = $state('');
-  let token = $state(''), chat = $state(''), quietFrom = $state(''), quietTo = $state('');
+  let token = $state(''), chat = $state('');
 
   async function load() {
     try {
@@ -21,8 +22,6 @@
       maxParallel = String(general.maxParallel);
       minFree = String(general.minFreeGb);
       chat = notif.telegramChat;
-      quietFrom = notif.quietFrom;
-      quietTo = notif.quietTo;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Impostazioni non lette';
@@ -56,29 +55,25 @@
   {/if}
 {:else}
   <div class="head"><h2>Notifiche</h2></div>
-  <p class="f-muted">Ogni profilo vede le sue notifiche nella campanella in alto. Qui si collegano i canali che valgono per tutta la famiglia.</p>
+  <p class="f-muted">Ogni profilo vede le sue notifiche nella campanella in alto. Qui si collega il bot Telegram, che vale per tutta la famiglia; gli orari di silenzio sono in Preferenze › Notifiche.</p>
   {#if error}<p class="f-error" role="alert">{error}</p>{/if}
   {#if message}<p class="f-ok" role="status">{message}</p>{/if}
   {#if notif}
     <form class="card" onsubmit={(e) => { e.preventDefault(); act(() => api.updateNotificationSettings({ telegramToken: token || null, telegramChat: chat || null }), 'Telegram collegato: è arrivato un messaggio di prova.'); token = ''; }}>
-      <h3>Telegram {notif.telegramConfigured ? '· collegato' : ''}</h3>
-      <p class="f-muted">Per ricevere avvisi e registrazioni sul telefono anche fuori casa: crea un bot con @BotFather, scrivigli un messaggio, poi metti qui il token del bot e il numero della chat (lo dà per esempio @userinfobot). Prima di salvare DoveLoFanno manda un messaggio di prova.</p>
+      <h3>Telegram</h3>
+      {#if notif.telegramConfigured}
+        <p class="state on">● Collegato{notif.telegramBot ? ` al bot @${notif.telegramBot}` : ''}, chat {notif.telegramChat}</p>
+      {:else}
+        <p class="state">○ Non collegato</p>
+      {/if}
+      <p class="f-muted">Per ricevere avvisi e registrazioni sul telefono anche fuori casa: crea un bot con @BotFather, aprilo e premi Avvia (o scrivigli un messaggio), poi metti qui il token del bot e il numero della chat. Il numero si trova aprendo nel browser <code>https://api.telegram.org/bot&lt;token&gt;/getUpdates</code>: è quello dopo <code>"chat":{'{'}"id":</code>. Prima di salvare DoveLoFanno manda un messaggio di prova.</p>
       <div class="f-row">
         <label class="f-field w2">Token del bot{notif.telegramConfigured ? ' (vuoto = resta quello)' : ''}<input bind:value={token} autocomplete="off" placeholder="123456:ABC…" /></label>
         <label class="f-field">Chat<input bind:value={chat} autocomplete="off" placeholder="123456789" /></label>
       </div>
       <div class="f-row">
         <Button variant="primary" type="submit" disabled={busy || (!token && !notif.telegramConfigured) || !chat}>{notif.telegramConfigured ? 'Salva e prova' : 'Collega e prova'}</Button>
-        {#if notif.telegramConfigured}<Button variant="ghost" disabled={busy} onclick={async () => { if (await ask({ title: 'Scollegare Telegram?', text: 'Gli avvisi non arriveranno più su Telegram; per ricollegarlo serviranno di nuovo il token del bot e la chat.', ok: 'Scollega' })) act(() => api.updateNotificationSettings({ clearTelegram: true }), 'Telegram scollegato.'); }}>Scollega</Button>{/if}
-      </div>
-    </form>
-    <form class="card" onsubmit={(e) => { e.preventDefault(); act(() => api.updateNotificationSettings({ quietFrom, quietTo }), 'Orari di silenzio salvati.'); }}>
-      <h3>Orari di silenzio</h3>
-      <p class="f-muted">In questi orari non parte nulla su Telegram (la campanella si aggiorna lo stesso). Vuoti = mai silenzio.</p>
-      <div class="f-row">
-        <label class="f-field">Dalle<input type="time" bind:value={quietFrom} /></label>
-        <label class="f-field">Alle<input type="time" bind:value={quietTo} /></label>
-        <Button type="submit" disabled={busy}>Salva</Button>
+        {#if notif.telegramConfigured}<span class="trash" title="Scollega Telegram"><Button label="Scollega Telegram" disabled={busy} onclick={async () => { if (await ask({ title: 'Scollegare Telegram?', text: 'Gli avvisi non arriveranno più su Telegram; per ricollegarlo serviranno di nuovo il token del bot e la chat.', ok: 'Scollega' })) act(() => api.updateNotificationSettings({ clearTelegram: true }), 'Telegram scollegato.'); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg></Button></span>{/if}
       </div>
     </form>
   {/if}
@@ -90,4 +85,10 @@
   h3 { font-size: 17px; }
   .card { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
   .w2 { flex: 1 1 280px; }
+  .trash { display: contents; }
+  .trash :global(.btn) { padding-inline: 10px; color: var(--muted); }
+  .trash :global(.btn:hover:not(:disabled)) { color: var(--orange-text); border-color: var(--orange); }
+  .state { margin: 0; font-weight: 600; color: var(--muted); }
+  .state.on { color: var(--green-text); }
+  code { font-size: 13px; overflow-wrap: anywhere; }
 </style>

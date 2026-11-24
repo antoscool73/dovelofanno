@@ -4321,6 +4321,10 @@
           },
           "status": {
             "type": "string"
+          },
+          "poster": {
+            "type": "string",
+            "default": ""
           }
         }
       },
@@ -6200,6 +6204,15 @@
           },
           "quietTo": {
             "type": "string"
+          },
+          "telegramBot": {
+            "type": "string",
+            "default": ""
+          },
+          "telegramQueued": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },

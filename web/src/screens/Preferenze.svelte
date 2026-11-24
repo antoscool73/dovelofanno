@@ -10,6 +10,7 @@
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
     api, ApiError, type AlertRow, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
+    type NotificationSettings,
   } from '../lib/api/client';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
@@ -84,6 +85,21 @@
     const cur = mySubs.inherits ? (family?.services ?? []) : mySubs.own;
     const next = cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s];
     act(() => api.setProfileSubscriptions(p.id, false, next));
+  }
+
+  // ---------------------------------------------------------------- Telegram e orari di silenzio (24/11/2026: gli orari
+  // sono qui, il collegamento del bot resta in Impostazioni › Notifiche; valgono per tutta la famiglia)
+  let notif = $state<NotificationSettings | null>(null);
+  let quietFrom = $state(''), quietTo = $state('');
+  async function loadNotif() {
+    try { notif = await api.notificationSettings(); quietFrom = notif.quietFrom; quietTo = notif.quietTo; }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Notifiche non lette'; }
+  }
+  loadNotif();
+  const quietChanged = $derived(!!notif && (quietFrom !== notif.quietFrom || quietTo !== notif.quietTo));
+  const quietOk = $derived((quietFrom === '') === (quietTo === ''));
+  function saveQuiet(from: string, to: string, ok: string) {
+    act(async () => { notif = await api.updateNotificationSettings({ quietFrom: from, quietTo: to }); quietFrom = notif.quietFrom; quietTo = notif.quietTo; }, ok);
   }
 
   // ---------------------------------------------------------------- notifiche del browser
@@ -164,17 +180,29 @@
       {#if alerts.length === 0}
         <div class="empty"><p>Nessun avviso. Apri un film dalla <a href="/guida" onclick={navigate}>Guida</a> o dalla <a href="/libreria" onclick={navigate}>Libreria</a> e tocca «Avvisami».</p></div>
       {:else}
-        <ul class="f-list">
+        <!-- righe a colonne fisse con locandina, matita e bidone (Antonio, 24/11/2026: stessa misura per ogni riga, niente pulsanti a capo) -->
+        <ul class="arows">
           {#each alerts as a (a.id)}
-            <li>
+            <li class="arow">
               <label class="f-check"><input type="checkbox" checked={a.active} disabled={busy} aria-label="Attiva l'avviso su {a.workTitle}"
                 onchange={(e) => act(() => api.saveAlert(prof!.id, { workId: a.workId, kind: a.kind, active: e.currentTarget.checked, channels: null, autoRecord: null, moments: null, services: null, offers: null }))} /></label>
-              <span class="atitle"><a href="/opera/{a.workId}" onclick={navigate}>{a.workTitle}</a>{#if a.workYear} ({a.workYear}){/if}</span>
-              <Badge tone="blue">{kindLabel[a.kind] ?? a.kind}</Badge>
-              {#if a.kind === 'tv' && a.autoRecord}<Badge tone="red">Registra da solo</Badge>{/if}
-              <span class="f-muted grow">{a.status}{a.lastFiredAt ? ` · ultimo avviso ${day(a.lastFiredAt).toLowerCase()} ${time(a.lastFiredAt)}` : ''}</span>
-              <Button size="s" onclick={() => router.go(`/opera/${a.workId}`)}>Modifica</Button>
-              <Button size="s" variant="ghost" onclick={async () => { if (await ask({ title: `Togliere l'avviso su «${a.workTitle}»?`, text: 'Si perdono anche le sue impostazioni (quando avvisare, canali, registrazione automatica).', ok: 'Togli l\'avviso' })) act(() => api.deleteAlert(prof!.id, a.id), 'Avviso tolto.'); }}>Togli</Button>
+              <a class="aposter" href="/opera/{a.workId}" onclick={navigate} aria-label="Apri la scheda di {a.workTitle}" title="Apri la scheda">
+                {#if a.poster}<img src={a.poster} alt="" loading="lazy" />{:else}<span class="ph" aria-hidden="true">{a.workTitle.charAt(0)}</span>{/if}
+              </a>
+              <div class="awhat">
+                <div class="aline"><a class="atitle" href="/opera/{a.workId}" onclick={navigate}>{a.workTitle}</a>{#if a.workYear}<span class="f-muted">{a.workYear}</span>{/if}</div>
+                <div class="aline"><Badge tone="blue">{kindLabel[a.kind] ?? a.kind}</Badge>{#if a.kind === 'tv' && a.autoRecord}<Badge tone="red">Registra da solo</Badge>{/if}</div>
+                <div class="f-muted ameta">{a.status}{a.lastFiredAt ? ` · ultimo avviso ${day(a.lastFiredAt).toLowerCase()} ${time(a.lastFiredAt)}` : ''}</div>
+              </div>
+              <div class="aacts">
+                <button type="button" class="ico" onclick={() => router.go(`/opera/${a.workId}`)} aria-label="Modifica l'avviso su «{a.workTitle}»" title="Modifica">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                </button>
+                <button type="button" class="ico del" disabled={busy} aria-label="Togli l'avviso su «{a.workTitle}»" title="Togli l'avviso"
+                  onclick={async () => { if (await ask({ title: `Togliere l'avviso su «${a.workTitle}»?`, text: 'Si perdono anche le sue impostazioni (quando avvisare, canali, registrazione automatica).', ok: 'Togli l\'avviso' })) act(() => api.deleteAlert(prof!.id, a.id), 'Avviso tolto.'); }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
+                </button>
+              </div>
             </li>
           {/each}
         </ul>
@@ -215,13 +243,45 @@
         <span><strong>Intro all'ingresso</strong> <span class="f-muted">il logo animato con il jingle, una volta ogni volta che apri DoveLoFanno; si salta con un clic</span></span></label>
       <div><Button variant="soft" size="s" onclick={() => (introPreview = true)}>Guarda l'intro</Button></div>
       {#if introPreview}<Intro onclose={() => (introPreview = false)} />{/if}
-      <h3>Telegram e orari di silenzio</h3>
-      <p class="f-muted">Valgono per tutta la famiglia: <a href="/impostazioni#notifiche" onclick={navigate}>Impostazioni › Notifiche</a>.</p>
+      <h3>Telegram</h3>
+      {#if notif}
+        {#if notif.telegramConfigured}
+          <p class="tg on">● Collegato{notif.telegramBot ? ` al bot @${notif.telegramBot}` : ''}: avvisi e registrazioni arrivano anche lì, a tutta la famiglia.</p>
+        {:else}
+          <p class="tg">○ Non collegato. Il bot si collega in <a href="/impostazioni#notifiche" onclick={navigate}>Impostazioni › Notifiche</a>.</p>
+        {/if}
+        <form class="card" onsubmit={(e) => { e.preventDefault(); saveQuiet(quietFrom, quietTo, 'Orari di silenzio salvati.'); }}>
+          <h3>Orari di silenzio</h3>
+          <p class="f-muted">In questi orari i messaggi su Telegram restano in coda e partono tutti insieme, in un messaggio solo, quando il silenzio finisce (la campanella si aggiorna lo stesso). Valgono per tutta la famiglia.</p>
+          {#if notif.quietFrom && notif.quietTo}
+            <p class="tg on">In uso: silenzio dalle {notif.quietFrom} alle {notif.quietTo}.</p>
+          {:else}
+            <p class="tg">In uso: nessun silenzio, i messaggi partono a ogni ora.</p>
+          {/if}
+          {#if notif.telegramQueued > 0}
+            <p class="f-muted">In coda: {notif.telegramQueued === 1 ? '1 messaggio' : `${notif.telegramQueued} messaggi`}{notif.quietTo ? `, partono alle ${notif.quietTo}` : ''}.</p>
+          {/if}
+          <div class="f-row">
+            <label class="f-field">Dalle<input type="time" bind:value={quietFrom} /></label>
+            <label class="f-field">Alle<input type="time" bind:value={quietTo} /></label>
+            <Button variant="primary" type="submit" disabled={busy || !quietChanged || !quietOk}>{quietChanged ? 'Salva' : 'Salvato'}</Button>
+            {#if notif.quietFrom || notif.quietTo}<span class="trash" title="Togli il silenzio"><Button label="Togli gli orari di silenzio" disabled={busy} onclick={async () => { if (await ask({ title: 'Togliere gli orari di silenzio?', text: 'I messaggi su Telegram partiranno a ogni ora, anche di notte.', ok: 'Togli il silenzio' })) saveQuiet('', '', 'Silenzio tolto: i messaggi partono a ogni ora.'); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg></Button></span>{/if}
+          </div>
+          {#if !quietOk}<p class="f-muted">Servono tutti e due gli orari, oppure nessuno.</p>{/if}
+        </form>
+      {/if}
     {/if}
   </div>
 </div>
 
 <style>
+  .trash { display: contents; }
+  .trash :global(.btn) { padding-inline: 10px; color: var(--muted); }
+  .trash :global(.btn:hover:not(:disabled)) { color: var(--orange-text); border-color: var(--orange); }
+  .tg { margin: 0; color: var(--muted); }
+  .tg.on { color: var(--green-text); }
+  .card { display: flex; flex-direction: column; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
+  .card h3 { margin-top: 0; }
   .introsw { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
   .introsw input { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); flex: 0 0 auto; }
   .fam { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
@@ -234,7 +294,22 @@
   .tab.on { background: var(--raised); color: var(--text); font-weight: 600; }
   .main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
   .pname { font-weight: 600; }
-  .atitle { font-weight: 600; }
+  .arows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); }
+  .arow { display: grid; grid-template-columns: auto 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 18px; }
+  .arow + .arow { border-top: 1px solid var(--line); }
+  .aposter { width: 48px; height: 72px; border-radius: 6px; overflow: hidden; background: var(--raised); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .aposter:hover { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .aposter img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--muted); }
+  .awhat { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .aline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  .atitle { font-weight: 600; font-size: 16px; color: var(--text); }
+  .ameta { font-size: 13px; overflow-wrap: anywhere; }
+  .aacts { display: flex; gap: 8px; }
+  .ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-s); border: 1px solid var(--line-btn); background: none; color: var(--text-2); cursor: pointer; }
+  .ico:hover { color: var(--text); background: var(--raised); }
+  .ico.del:hover:not(:disabled) { color: var(--orange-text); border-color: var(--orange); }
+  .ico:disabled { opacity: 0.5; cursor: progress; }
   .grow { flex: 1 1 180px; }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
   .empty p { margin: 0; }

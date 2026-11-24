@@ -10,7 +10,7 @@ namespace DoveLoFanno.Server;
 /// Avvisi e notifiche: ogni minuto controlla gli avvisi (e programma le registrazioni automatiche), ogni ora le proposte
 /// nuove di ogni profilo, una volta al giorno le piattaforme delle opere con un avviso su abbonamenti o noleggio. Le
 /// registrazioni finite diventano notifiche per tutta la famiglia. Le notifiche si inoltrano anche su Telegram, se
-/// configurato, fuori dagli orari di silenzio.
+/// configurato; negli orari di silenzio restano in coda e partono tutte insieme quando il silenzio finisce.
 /// </summary>
 public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : BackgroundService
 {
@@ -44,6 +44,8 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             var now = ctx.Clock.GetUtcNow();
             try { RunAlerts(now); }
             catch (Exception ex) { log.LogError(ex, "Errore nel controllo degli avvisi"); }
+            try { await FlushTelegramAsync(); }      // fine del silenzio o Telegram di nuovo raggiungibile
+            catch (Exception ex) { log.LogError(ex, "Errore nell'invio della coda Telegram"); }
             if (now - lastProposals > TimeSpan.FromHours(1))
             {
                 lastProposals = now;
@@ -148,12 +150,47 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         }
     }
 
+    /// <summary>
+    /// Inoltro su Telegram. Negli orari di silenzio (o con Telegram irraggiungibile) il messaggio va in coda
+    /// (TelegramQueue) e parte con gli altri appena il silenzio finisce: 24/11/2026, richiesta di Antonio.
+    /// </summary>
     async Task ForwardAsync(NotificationRow n)
     {
-        string token = ctx.Settings.Get("TelegramToken"), chat = ctx.Settings.Get("TelegramChat");
-        if (token.Length == 0 || chat.Length == 0 || Quiet(ctx.Settings, ctx.Clock.GetLocalNow())) return;
-        try { await Telegram.SendAsync(ctx.Http, token, chat, n.Title + (n.Text.Length > 0 ? "\n" + n.Text : ""), CancellationToken.None); }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { log.LogWarning("Telegram non raggiunto: {Error}", ex.Message); }
+        if (!TelegramOn(out _, out _)) return;
+        TelegramQueue.Add(ctx.Settings, [new QueuedMessage(n.CreatedAt, n.Title + (n.Text.Length > 0 ? "\n" + n.Text : ""))]);
+        await FlushTelegramAsync();
+    }
+
+    bool TelegramOn(out string token, out string chat)
+    {
+        token = ctx.Settings.Get("TelegramToken");
+        chat = ctx.Settings.Get("TelegramChat");
+        return token.Length > 0 && chat.Length > 0;
+    }
+
+    static readonly SemaphoreSlim flushing = new(1, 1);
+
+    /// <summary>Manda la coda in un messaggio solo, se non è silenzio; se Telegram non risponde la rimette in coda.</summary>
+    async Task FlushTelegramAsync()
+    {
+        if (!TelegramOn(out string token, out string chat) || Quiet(ctx.Settings, ctx.Clock.GetLocalNow())) return;
+        if (!await flushing.WaitAsync(0)) return;    // un invio è già in corso: il prossimo giro prende il resto
+        try
+        {
+            var items = TelegramQueue.TakeAll(ctx.Settings);
+            if (items.Count == 0) return;
+            try
+            {
+                await Telegram.SendAsync(ctx.Http, token, chat, TelegramQueue.Format(items, ctx.Clock.LocalTimeZone), CancellationToken.None);
+                if (items.Count > 1) log.LogInformation("Telegram: mandate {Count} notifiche rimaste in coda", items.Count);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                TelegramQueue.Add(ctx.Settings, items);
+                log.LogWarning("Telegram non raggiunto, {Count} notifiche restano in coda: {Error}", items.Count, ex.Message);
+            }
+        }
+        finally { flushing.Release(); }
     }
 
     /// <summary>Vero negli orari di silenzio (QuietFrom-QuietTo, anche a cavallo della mezzanotte).</summary>
@@ -174,6 +211,17 @@ static class Telegram
         cts.CancelAfter(TimeSpan.FromSeconds(15));
         using var resp = await http.PostAsJsonAsync($"https://api.telegram.org/bot{token}/sendMessage", new { chat_id = chat, text }, cts.Token);
         if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"Telegram ha risposto {(int)resp.StatusCode}");
+    }
+
+    /// <summary>Nome utente del bot (getMe), senza @.</summary>
+    public static async Task<string> BotNameAsync(HttpClient http, string token, CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(15));
+        using var resp = await http.GetAsync($"https://api.telegram.org/bot{token}/getMe", cts.Token);
+        if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"Telegram ha risposto {(int)resp.StatusCode}");
+        using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cts.Token));
+        return doc.RootElement.TryGetProperty("result", out var r) && r.TryGetProperty("username", out var u) ? u.GetString() ?? "" : "";
     }
 }
 

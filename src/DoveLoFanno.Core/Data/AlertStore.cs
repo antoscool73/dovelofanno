@@ -12,7 +12,7 @@ namespace DoveLoFanno.Data;
 public sealed record AlertRow(
     long Id, long WorkId, string WorkTitle, int WorkYear, string WorkKind, string Kind, bool Active,
     string Channels, bool AutoRecord, IReadOnlyList<string> Moments, IReadOnlyList<string> Services, IReadOnlyList<string> Offers,
-    DateTimeOffset? LastFiredAt, string Status);
+    DateTimeOffset? LastFiredAt, string Status, string Poster = "");
 
 /// <summary>Campi di un avviso; quelli mancanti prendono il valore predefinito.</summary>
 public sealed record AlertBody(long WorkId, string Kind, bool? Active, string? Channels, bool? AutoRecord,
@@ -47,23 +47,23 @@ public sealed class AlertStore(string dbPath, GuideStore guide, SubscriptionStor
     /// <summary>Avvisi del profilo (di un'opera sola se indicata); null se il profilo non esiste.</summary>
     public List<AlertRow>? List(long profileId, long? workId, DateTimeOffset now)
     {
-        List<(long Id, long Work, string Title, int Year, string WKind, string Kind, bool Active, string Opt, DateTimeOffset? Last)> rows;
+        List<(long Id, long Work, string Title, int Year, string WKind, string Kind, bool Active, string Opt, DateTimeOffset? Last, string Poster)> rows;
         using (var c = Open())
         {
             if (Db.ScalarLong(c, "SELECT id FROM profiles WHERE id = $p", ("$p", profileId)) == null) return null;
             rows = Db.Query(c, """
-                SELECT a.id, a.work_id, w.title, w.year, w.kind, a.kind, a.active, a.options, a.last_fired_at
+                SELECT a.id, a.work_id, w.title, w.year, w.kind, a.kind, a.active, a.options, a.last_fired_at, COALESCE(w.poster, '')
                 FROM alerts a JOIN works w ON w.id = a.work_id WHERE a.profile_id = $p AND ($w IS NULL OR a.work_id = $w)
                 ORDER BY w.title COLLATE NOCASE, a.kind
                 """,
-                r => (r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.GetInt32(3), r.GetString(4), r.GetString(5), r.GetInt64(6) == 1, r.GetString(7), Db.NTime(r, 8)),
+                r => (r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.GetInt32(3), r.GetString(4), r.GetString(5), r.GetInt64(6) == 1, r.GetString(7), Db.NTime(r, 8), r.GetString(9)),
                 ("$p", profileId), ("$w", workId));
         }
         return rows.Select(x =>
         {
             var o = Parse(x.Opt, x.Kind);
             return new AlertRow(x.Id, x.Work, x.Title, x.Year, x.WKind, x.Kind, x.Active, o.Channels, o.AutoRecord, o.Moments, o.Services, o.Offers,
-                x.Last, Status(profileId, x.Work, x.Kind, o, now));
+                x.Last, Status(profileId, x.Work, x.Kind, o, now), WorkStore.ImageUrl(x.Poster, "w342"));
         }).ToList();
     }
 

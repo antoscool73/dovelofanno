@@ -13,7 +13,9 @@ public sealed record ProfileSubscriptionsBody(bool Inherits, IReadOnlyList<strin
 public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format, int MaxParallel, int MinFreeGb, bool SetupDone, string RecordingsDir, double? FreeGb,
     string Region, IReadOnlyList<string> Regions);
 public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone, string? Region = null);
-public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo);
+/// <summary>TelegramBot = nome utente del bot collegato (senza @), vuoto se non si è potuto leggere; TelegramQueued = messaggi
+/// in coda per il silenzio o Telegram irraggiungibile (24/11/2026).</summary>
+public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo, string TelegramBot = "", int TelegramQueued = 0);
 /// <summary>
 /// Sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026, richiesta di Antonio): continua, registrazioni,
 /// stasera-miei, stasera-altri, settimana. «Da vedere stasera» e «I miei titoli» ci sono sempre.
@@ -209,14 +211,22 @@ public static class PreferencesApi
             .WithSummary("Cambia margini, formato, limiti, regione della famiglia o segna fatto il primo avvio")
             .Produces<GeneralSettings>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
-        set.MapGet("/notifications", (ServerContext ctx) => NotificationInfo(ctx))
+        set.MapGet("/notifications", async (ServerContext ctx, CancellationToken ct) =>
+        {
+            // collegamenti fatti prima del 24/11/2026: il nome del bot si legge una volta da Telegram
+            string token = ctx.Settings.Get("TelegramToken");
+            if (token.Length > 0 && ctx.Settings.Get("TelegramBot").Length == 0)
+                try { ctx.Settings.Set("TelegramBot", await Telegram.BotNameAsync(ctx.Http, token, ct)); }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
+            return NotificationInfo(ctx);
+        })
             .WithSummary("Telegram (solo se è configurato, mai il token) e orari di silenzio");
         set.MapPut("/notifications", async Task<IResult> (NotificationSettingsPatch b, ServerContext ctx, CancellationToken ct) =>
         {
             foreach (string? t in new[] { b.QuietFrom, b.QuietTo })
                 if (t is { Length: > 0 } && !TimeOnly.TryParse(t, System.Globalization.CultureInfo.InvariantCulture, out _))
                     return Results.BadRequest(new ApiError("orari di silenzio nel formato 23:00"));
-            if (b.ClearTelegram == true) { ctx.Settings.Set("TelegramToken", ""); ctx.Settings.Set("TelegramChat", ""); }
+            if (b.ClearTelegram == true) { ctx.Settings.Set("TelegramToken", ""); ctx.Settings.Set("TelegramChat", ""); ctx.Settings.Set("TelegramBot", ""); TelegramQueue.Clear(ctx.Settings); }
             else if (!string.IsNullOrWhiteSpace(b.TelegramToken) || !string.IsNullOrWhiteSpace(b.TelegramChat))
             {
                 string token = string.IsNullOrWhiteSpace(b.TelegramToken) ? ctx.Settings.Get("TelegramToken") : b.TelegramToken.Trim();
@@ -227,8 +237,12 @@ public static class PreferencesApi
                 {
                     return Results.BadRequest(new ApiError("Telegram non ha accettato il messaggio di prova: controlla token e chat (" + ex.Message + ")"));
                 }
+                string bot = "";
+                try { bot = await Telegram.BotNameAsync(ctx.Http, token, ct); }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
                 ctx.Settings.Set("TelegramToken", token);
                 ctx.Settings.Set("TelegramChat", chat);
+                ctx.Settings.Set("TelegramBot", bot);
             }
             if (b.QuietFrom != null) ctx.Settings.Set("QuietFrom", b.QuietFrom.Trim());
             if (b.QuietTo != null) ctx.Settings.Set("QuietTo", b.QuietTo.Trim());
@@ -262,5 +276,5 @@ public static class PreferencesApi
 
     static NotificationSettings NotificationInfo(ServerContext ctx) =>
         new(ctx.Settings.Get("TelegramToken").Length > 0 && ctx.Settings.Get("TelegramChat").Length > 0, ctx.Settings.Get("TelegramChat"),
-            ctx.Settings.Get("QuietFrom"), ctx.Settings.Get("QuietTo"));
+            ctx.Settings.Get("QuietFrom"), ctx.Settings.Get("QuietTo"), ctx.Settings.Get("TelegramBot"), TelegramQueue.Count(ctx.Settings));
 }
