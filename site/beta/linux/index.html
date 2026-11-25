@@ -12,7 +12,7 @@
 <header class="bar">
   <div class="wrap bar-in">
     <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="tag" href="/beta/" aria-label="Beta 0.3.0, pagina iniziale della beta">Beta 0.3.0</a>
+    <a class="tag" href="/beta/" aria-label="Beta 0.4.0, pagina iniziale della beta">Beta 0.4.0</a>
     <nav class="areas" aria-label="Dove lo installi">
       <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
       <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
@@ -57,31 +57,31 @@
       <tbody>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.3.0/dovelofanno-0.3.0-docker-amd64.tar.gz">dovelofanno-0.3.0-docker-amd64.tar.gz</a>
-            <div class="hash" data-hash="docker-amd64">SHA-256 828f903f7a75fc0a7391f067bff56a5527be9f206db22a898ece8b3c22b5dda3</div></td>
+          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-amd64.tar.gz">dovelofanno-0.4.0-docker-amd64.tar.gz</a>
+            <div class="hash" data-hash="docker-amd64">SHA-256 d21a9e4dfdb6f3764e6280f4c16489317fd60fb17f4c7488b374d47f9249afb9</div></td>
           <td><code>x86_64</code>: Intel o AMD</td>
           <td class="size" data-size="docker-amd64">246 MB</td>
         </tr>
         <tr>
           <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.3.0/dovelofanno-0.3.0-docker-arm64.tar.gz">dovelofanno-0.3.0-docker-arm64.tar.gz</a>
-            <div class="hash" data-hash="docker-arm64">SHA-256 c40887061a35e83bcda4b282fa90a05becd7b0d6ecf547db3089b94ed733344d</div></td>
+          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-arm64.tar.gz">dovelofanno-0.4.0-docker-arm64.tar.gz</a>
+            <div class="hash" data-hash="docker-arm64">SHA-256 841ec11464757ddd84635606dd758d8a44c7b5a028d21e8dfb52a5bf5253d2ed</div></td>
           <td><code>aarch64</code>: Raspberry Pi 4/5 e altri ARM</td>
           <td class="size" data-size="docker-arm64">236 MB</td>
         </tr>
       </tbody>
     </table>
     <p>Poi copialo sul server, per esempio dal tuo computer con
-      <code>scp dovelofanno-0.3.0-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
-      Per controllarlo: <code>sha256sum dovelofanno-0.3.0-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
+      <code>scp dovelofanno-0.4.0-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
+      Per controllarlo: <code>sha256sum dovelofanno-0.4.0-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
   </section>
 
   <section id="installa">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Installa, passo per passo</h2>
     <ol>
       <li><strong>Carica l'immagine</strong> (con <code>arm64</code> al posto di <code>amd64</code> se è il tuo caso):
-<pre><code>docker load -i dovelofanno-0.3.0-docker-amd64.tar.gz</code></pre>
-        <span class="expect"><code>Loaded image: dovelofanno:0.3.0</code> dopo qualche decina di secondi.</span></li>
+<pre><code>docker load -i dovelofanno-0.4.0-docker-amd64.tar.gz</code></pre>
+        <span class="expect"><code>Loaded image: dovelofanno:0.4.0</code> dopo qualche decina di secondi.</span></li>
       <li><strong>Crea le cartelle</strong> e guarda i numeri del tuo utente:
 <pre><code>mkdir -p ~/dovelofanno/data ~/dovelofanno/registrazioni
 cd ~/dovelofanno
@@ -92,7 +92,7 @@ id -u; id -g</code></pre>
         <kbd>Invio</kbd> ed esci con <kbd>Ctrl</kbd>+<kbd>X</kbd>.
 <pre><code>services:
   dovelofanno:
-    image: dovelofanno:0.3.0
+    image: dovelofanno:0.4.0
     container_name: dovelofanno
     restart: unless-stopped
     user: "1000:1000"
@@ -139,7 +139,7 @@ id -u; id -g</code></pre>
       cambia il numero nella riga <code>image</code> di <code>compose.yaml</code> e dalla cartella
       <code>~/dovelofanno</code> lancia <code>docker compose up -d</code>. Dati, liste e registrazioni restano.</p>
     <p><strong>Togliere</strong>: dalla cartella <code>~/dovelofanno</code> <code>docker compose down</code>, poi
-      <code>docker image rm dovelofanno:0.3.0</code>. La cartella con dati e registrazioni resta finché non la cancelli
+      <code>docker image rm dovelofanno:0.4.0</code>. La cartella con dati e registrazioni resta finché non la cancelli
       tu.</p>
   </section>
 </main>
