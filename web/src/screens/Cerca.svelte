@@ -51,12 +51,12 @@
 <script lang="ts">
   // Cerca (la lente in alto): l'unica ricerca dell'app, quella avanzata del prototipo. Titolo, regista o attore e filtri
   // facoltativi (tipo, generi, anni, paese, voto minimo, disponibilità, senza i già visti o quelli in casa); risultati con
-  // dove si vede; a destra gli avvisi del titolo scelto. Prima le opere note (guida, casa, liste), poi TMDB (anche solo in
+  // dove si vede; «Avvisami» apre gli avvisi del titolo in un popup. Prima le opere note (guida, casa, liste), poi TMDB (anche solo in
   // streaming o non disponibili). È anche la pagina delle liste dinamiche (19/11/2026): una ricerca si salva come lista,
   // e una lista dinamica (#list=N) si apre qui con la sua ricerca, che si cambia e si salva di nuovo.
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
-  import AlertPanel from '../lib/components/AlertPanel.svelte';
+  import AlertDialog from '../lib/components/AlertDialog.svelte';
   import ListDialog from '../lib/components/ListDialog.svelte';
   import Button from '../lib/components/Button.svelte';
   import { availOfHit, type Avail } from '../lib/avail';
@@ -283,10 +283,7 @@
   }
   async function alertFor(h: SearchHit) {
     const id = await workOf(h);
-    if (id != null) {
-      selected = { workId: id, title: h.title };
-      setTimeout(() => document.getElementById('avvisi')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-    }
+    if (id != null) selected = { workId: id, title: h.title };
   }
 
   const summary = $derived.by(() => {
@@ -497,7 +494,7 @@
               {:else}
                 <span class="tip">
                   <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
-                  <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Il pannello si apre a destra.</span>
+                  <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Si apre una finestra con le scelte.</span>
                 </span>
               {/if}
             </div>
@@ -510,6 +507,9 @@
       {#if hits.length > 0}<p class="muted small">Titoli, locandine e piattaforme da TMDB e JustWatch.</p>{/if}
     </section>
 
+    {#if selected}
+      <AlertDialog workId={selected.workId} title={selected.title} onclose={() => (selected = null)} />
+    {/if}
     {#if saveOpen}
       <ListDialog query={toSaved(f)} currentListId={list?.id ?? null} suggestedName={saveName} onclose={() => (saveOpen = false)} ondone={listSaved} />
     {/if}
@@ -523,13 +523,6 @@
         {/each}
         <span class="muted small">Basta una delle caselle scelte: un film su Rai 5 e su Rai Play compare con la sola «In TV gratis». «In TV a pagamento» = su un canale che non hai (Sky senza Sky).</span>
       </fieldset>
-      {#if selected}
-        <div id="avvisi" class="panel alerts" aria-label="Avvisi per il titolo scelto">
-          <div class="muted small">Avvisami per</div>
-          <h2>{selected.title}</h2>
-          <AlertPanel workId={selected.workId} />
-        </div>
-      {/if}
     </aside>
   </div>
 </div>
@@ -610,8 +603,6 @@
   .side { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: calc(var(--header-h, 53px) + 84px); }
   .panel { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-l); padding: 18px; box-sizing: border-box; margin: 0; min-width: 0; }
   fieldset.panel legend { float: left; width: 100%; margin-bottom: 4px; }
-  .alerts { gap: 10px; }
-  .alerts h2 { margin: 0; font-size: 20px; }
   /* icona come sulle locandine, rimessa nel flusso del testo (come nella legenda) */
   .ic { position: relative; display: inline-block; flex: 0 0 18px; width: 18px; height: 18px; }
   .ic :global(.badges) { right: 0; bottom: 0; }

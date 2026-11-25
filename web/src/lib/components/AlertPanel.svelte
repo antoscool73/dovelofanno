@@ -4,8 +4,9 @@
   import { api, ApiError, type AlertKind, type AlertRow, type ProfileSubscriptions } from '../api/client';
   import { session } from '../session.svelte';
 
-  // onchange: quanti avvisi sono accesi (la Scheda lo mostra sul pulsante); onclose: pannello che si chiude (Scheda)
-  let { workId, onchange, onclose }: { workId: number; onchange?: (active: number) => void; onclose?: () => void } = $props();
+  // onchange: quanti avvisi sono accesi (la Scheda lo mostra sul pulsante); onclose: pannello che si chiude (Scheda);
+  // title: il titolo dell'opera nell'intestazione (popup di Cerca)
+  let { workId, title = '', onchange, onclose }: { workId: number; title?: string; onchange?: (active: number) => void; onclose?: () => void } = $props();
 
   let alerts = $state<AlertRow[]>([]);
   let subs = $state<ProfileSubscriptions | null>(null);
@@ -60,7 +61,8 @@
 
 <section class="panel" aria-labelledby="av-title">
   <div class="top">
-    <h2 id="av-title">Avvisami</h2>
+    {#if title}<div><div class="f-muted small">Avvisami per</div><h2 id="av-title">{title}</h2></div>
+    {:else}<h2 id="av-title">Avvisami</h2>{/if}
     {#if onclose}<button type="button" class="close" onclick={onclose}>Chiudi</button>{/if}
   </div>
   {#if error}<p class="f-error" role="alert">{error}</p>{/if}
