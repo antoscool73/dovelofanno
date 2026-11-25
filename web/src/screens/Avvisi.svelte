@@ -1,10 +1,11 @@
 <script lang="ts">
   // I miei avvisi (24/11/2026, Antonio): pagina propria nella barra in alto, dopo Registrazioni (prima era una scheda di
-  // Preferenze). Righe a colonne fisse con locandina, matita (apre la scheda, dove si cambia l'avviso) e bidone con conferma.
+  // Preferenze). Righe a colonne fisse con locandina, matita (apre il popup «Avvisami» del titolo, 25/11/2026) e bidone con conferma.
   import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
+  import AlertDialog from '../lib/components/AlertDialog.svelte';
   import { api, ApiError, type AlertRow } from '../lib/api/client';
-  import { navigate, router } from '../lib/router.svelte';
+  import { navigate } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
   import { day, time } from '../lib/format';
 
@@ -14,6 +15,8 @@
   let error = $state('');
   let message = $state('');
   let busy = $state(false);
+  // l'opera di cui si cambiano gli avvisi nel popup (matita)
+  let editing = $state<{ workId: number; title: string } | null>(null);
 
   async function load() {
     const p = session.profile;
@@ -61,7 +64,7 @@
             <div class="f-muted ameta">{a.status}{a.lastFiredAt ? ` · ultimo avviso ${day(a.lastFiredAt).toLowerCase()} ${time(a.lastFiredAt)}` : ''}</div>
           </div>
           <div class="aacts">
-            <button type="button" class="ico" onclick={() => router.go(`/opera/${a.workId}`)} aria-label="Modifica l'avviso su «{a.workTitle}»" title="Modifica">
+            <button type="button" class="ico" onclick={() => (editing = { workId: a.workId, title: a.workTitle })} aria-label="Modifica l'avviso su «{a.workTitle}»" title="Modifica">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
             </button>
             <button type="button" class="ico del" disabled={busy} aria-label="Togli l'avviso su «{a.workTitle}»" title="Togli l'avviso"
@@ -74,6 +77,11 @@
     </ul>
   {/if}
 </div>
+
+{#if editing}
+  <!-- alla chiusura si rilegge: nel popup si accendono, spengono o cambiano gli avvisi dell'opera -->
+  <AlertDialog workId={editing.workId} title={editing.title} onclose={() => { editing = null; load(); }} />
+{/if}
 
 <style>
   .page { padding: 28px var(--gutter) 64px; max-width: 1240px; display: flex; flex-direction: column; gap: 14px; }
