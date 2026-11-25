@@ -163,6 +163,17 @@
     return mine.filter(ok)[0] ?? films.find((p) => p.rating != null && recordable(p)) ?? films[0] ?? null;
   });
   const heroFromList = $derived(!!hero && tonightList.some((i) => i.workId === hero.workId));
+  // immagine del banner (25/11/2026: Eyes Wide Shut su Iris era senza, la guida non ha l'icona): lo sfondo TMDB
+  // dell'opera, poi l'icona della guida, poi la locandina ingrandita
+  let heroBackdrop = $state<{ workId: number; url: string } | null>(null);
+  $effect(() => {
+    const id = hero?.workId;
+    if (id == null || heroBackdrop?.workId === id) return;
+    api.work(id).then((w) => (heroBackdrop = { workId: id, url: w.backdrop ?? '' })).catch(() => (heroBackdrop = { workId: id, url: '' }));
+  });
+  const heroImage = $derived(hero
+    ? (hero.workId != null && heroBackdrop?.workId === hero.workId && heroBackdrop.url) || hero.icon || (hero.poster ?? '').replace('/t/p/w342/', '/t/p/w780/')
+    : '');
 
 
   const live = $derived(recordings.filter((r) => r.state === 'recording' || r.state === 'merging'));
@@ -534,8 +545,7 @@
   {/if}
   {#if hero}
     <section class="hero">
-      {#if hero.icon}<img class="backdrop" src={hero.icon} alt="" referrerpolicy="no-referrer" />{/if}
-      <div class="hero-word" aria-hidden="true">{hero.title}</div>
+      {#if heroImage}<img class="backdrop" src={heroImage} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{hero.title}</div>{/if}
       <div class="hero-body">
         <div class="kicker">{heroFromList ? 'DALLA MIA LISTA' : 'IL FILM DI STASERA'} · {when(hero).toUpperCase()} SU {(hero.channelName || hero.guideChannelName).toUpperCase()}</div>
         <h1>{hero.title}</h1>
