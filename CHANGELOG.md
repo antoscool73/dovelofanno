@@ -7,11 +7,11 @@ Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/bet
 
 <!-- La sezione «Prossima versione» non ha numero né data: tools/changelog.py la salta, così version.json non annuncia
      un aggiornamento che non c'è ancora. Al rilascio diventa «## X.Y.Z · gg/mm/aaaa» e si lancia lo script. -->
-## Prossima versione
+## 0.4.0 · 25/11/2026
 
 - Password del server, oppure accesso solo dalla rete di casa; ogni dispositivo entra una volta
 - Avvertenze da accettare al primo avvio
-- «Il top per la serata»: fuori dalle 20:00-21:30, al posto del banner, i tre film migliori in TV e in ognuno dei tuoi abbonamenti
+- «Il top per la serata» in cima a La mia lista: i tre film migliori in TV e in ognuno dei tuoi abbonamenti; sotto, il film di stasera
 - Banner e scheda con l'immagine di scena del film; la locandina solo se manca
 - Dove Lo Fanno, nella scheda: prima dove lo vedi senza pagare, poi a pagamento
 - «I miei avvisi» come pagina nella barra in alto, con locandina, matita e bidone

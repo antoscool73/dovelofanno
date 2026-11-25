@@ -1,6 +1,6 @@
 {
-  "version": "0.3.0",
-  "date": "2026-11-23",
-  "notes": "• Guida TV che scorre di continuo su tutti i giorni, con lo zoom (anche Ctrl+rotella o due dita) e il trascinamento col mouse\n• In alto, ferme, le opzioni e l'anteprima del canale; sotto scorre solo la griglia\n• Loghi dei canali e filtro «Canali»: nazionali, della tua regione, di altre regioni, altri, radio\n• Canali senza guida in fondo alla griglia, con «Registra a orario libero»\n…e altre novità su dovelofanno.it/beta/novita/",
+  "version": "0.4.0",
+  "date": "2026-11-25",
+  "notes": "• Password del server, oppure accesso solo dalla rete di casa; ogni dispositivo entra una volta\n• Avvertenze da accettare al primo avvio\n• «Il top per la serata» in cima a La mia lista: i tre film migliori in TV e in ognuno dei tuoi abbonamenti; sotto, il film di stasera\n• Banner e scheda con l'immagine di scena del film; la locandina solo se manca\n• Dove Lo Fanno, nella scheda: prima dove lo vedi senza pagare, poi a pagamento\n…e altre novità su dovelofanno.it/beta/novita/",
   "url": "https://dovelofanno.it/beta/#aggiornare"
 }
