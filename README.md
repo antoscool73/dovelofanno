@@ -32,10 +32,13 @@ senza IPTV (guida, libreria, liste). Nessun account, nessun servizio in cloud, n
 
 Istruzioni complete in [docs/installazione.md](docs/installazione.md).
 
-- **Docker** (NAS Synology, mini-PC, Linux, amd64 e arm64): `ghcr.io/antoscool73/dovelofanno`, esempio in
+> Durante la beta l'installatore Windows e le immagini Docker si scaricano solo dalla pagina riservata a chi prova
+> la beta. Nella pagina [Releases](https://github.com/antoscool73/dovelofanno/releases) ci sono i sorgenti di ogni
+> versione e le impronte SHA-256 di tutti i file.
+
+- **Docker** (NAS Synology, mini-PC, Linux, amd64 e arm64): immagine `dovelofanno`, esempio in
   [deploy/compose.yaml](deploy/compose.yaml).
-- **Windows**: installatore `DoveLoFanno-<versione>-setup.exe` dalla pagina
-  [Releases](https://github.com/antoscool73/dovelofanno/releases): installa il servizio e, se mancano, il runtime .NET
+- **Windows**: installatore `DoveLoFanno-<versione>-setup.exe`: installa il servizio e, se mancano, il runtime .NET
   di Microsoft e ffmpeg.
 
 Poi si apre `http://<indirizzo-del-server>:8765` dal browser.
@@ -52,6 +55,12 @@ dotnet test DoveLoFanno.slnx -c Release
 
 L'API è descritta in [docs/api/openapi-v1.json](docs/api/openapi-v1.json); la grafica dell'interfaccia in
 [docs/prototipo.md](docs/prototipo.md).
+
+## Contribuire
+
+Domande e idee nelle [Discussions](https://github.com/antoscool73/dovelofanno/discussions), errori nelle
+[segnalazioni](https://github.com/antoscool73/dovelofanno/issues). Come proporre modifiche in
+[CONTRIBUTING.md](CONTRIBUTING.md); i problemi di sicurezza si segnalano in privato, vedi [SECURITY.md](SECURITY.md).
 
 ## Code signing policy
 
@@ -79,7 +88,8 @@ folders with a resumable browser player, family profiles, personal recommendatio
 service, accounts or telemetry. It runs as a Docker container (amd64/arm64) or as a Windows service, and is used from
 any browser on the home network. The user interface is in Italian.
 
-- Install: [docs/installazione.md](docs/installazione.md) (Docker image `ghcr.io/antoscool73/dovelofanno`, Windows zip
-  from [Releases](https://github.com/antoscool73/dovelofanno/releases)).
+- Install: [docs/installazione.md](docs/installazione.md) (Docker image for amd64/arm64, Windows installer). During
+  the beta, installers and images are only available to beta testers;
+  [Releases](https://github.com/antoscool73/dovelofanno/releases) carry the source code and SHA-256 checksums.
 - License: GPL-3.0-or-later, see [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 - Code signing policy: [CODE_SIGNING.md](CODE_SIGNING.md).

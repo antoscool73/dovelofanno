@@ -168,13 +168,30 @@ jobs:
         run: |
           cd out && sha256sum *.exe *.zip *.tar.gz > SHA256SUMS.txt && cat SHA256SUMS.txt && ls -l
 
+      # Beta riservata (25/11/2026, scelta di Antonio): finché la variabile del repository PUBLIC_DOWNLOADS non vale
+      # 'true', su GitHub vanno solo i sorgenti e le impronte; installatore e immagini Docker restano su R2, dietro
+      # Cloudflare Access (pagina beta). Per aprire i download: Settings › Secrets and variables › Actions › Variables.
       - name: Rilascio su GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.windows.outputs.version }}
+          PUBLIC_DOWNLOADS: ${{ vars.PUBLIC_DOWNLOADS }}
         run: |
           pre=""
           if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then pre="--prerelease"; fi
+          if [[ "$PUBLIC_DOWNLOADS" != true ]]; then
+            cat > notes.md <<EOF
+          ## Installazione
+
+          Durante la beta i file d'installazione (Windows e Docker) si scaricano solo dalla pagina riservata a chi prova
+          la beta. Qui ci sono i sorgenti di questa versione e le impronte SHA-256 di tutti i file, anche di quelli della
+          beta. Istruzioni in [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
+
+          EOF
+            gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS.txt $pre \
+              --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
+            exit 0
+          fi
           cat > notes.md <<EOF
           ## Installazione
 

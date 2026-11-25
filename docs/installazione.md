@@ -6,8 +6,10 @@ all'indirizzo `http://<nome-o-indirizzo>:8765`. L'API (`/api/v1/...`) è documen
 
 ## NAS o mini-PC con Docker
 
-Immagine pubblica per amd64 e arm64: `ghcr.io/antoscool73/dovelofanno`, con il tag della versione (per esempio
-`0.6.0`), `latest` per l'ultima versione rilasciata o `edge` per l'ultima compilazione del ramo `main`.
+Immagine per amd64 e arm64: `ghcr.io/antoscool73/dovelofanno`, con il tag della versione (per esempio `0.6.0`),
+`latest` per l'ultima versione rilasciata o `edge` per l'ultima compilazione del ramo `main`. Durante la beta
+l'immagine non è pubblica: chi prova la beta scarica dalla sua pagina i file `dovelofanno-<versione>-docker-<arch>.tar.gz`
+e li carica con `docker load -i` (o da Container Manager / Container Station), poi usa `image: dovelofanno:<versione>`.
 
 ```yaml
 # deploy/compose.yaml

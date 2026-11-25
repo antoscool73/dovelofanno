@@ -1,0 +1,26 @@
+name: Idea
+description: Una funzione nuova o un miglioramento
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per idee ancora da discutere puoi usare anche le Discussions. Non vengono accettate richieste di canali,
+        playlist, sorgenti o modi per aggirare DRM e abbonamenti.
+  - type: textarea
+    id: bisogno
+    attributes:
+      label: Cosa ti serve
+      description: Il problema o la situazione, più che la soluzione (es. «la sera non so cosa c'è sui canali Sky»).
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Come la immagini
+      description: Facoltativo. Anche uno schizzo o un'immagine vanno bene.
+  - type: textarea
+    id: altro
+    attributes:
+      label: Altri programmi che lo fanno
+      description: Facoltativo. Se un altro programma lo fa bene, dicci quale.

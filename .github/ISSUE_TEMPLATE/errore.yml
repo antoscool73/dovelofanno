@@ -1,0 +1,59 @@
+name: Errore
+description: Qualcosa non funziona come dovrebbe
+labels: ["errore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per la segnalazione. Prima di inviare controlla che non ci sia già una segnalazione uguale.
+        **Non incollare dati personali**: indirizzi di playlist o di flussi (spesso contengono chiavi), chiave TMDB,
+        token di Telegram, password. Le segnalazioni con playlist o canali vengono chiuse.
+        Per un problema di sicurezza non usare questo modulo: vedi SECURITY.md.
+  - type: input
+    id: versione
+    attributes:
+      label: Versione
+      description: In Impostazioni › Aggiornamenti, oppure con un clic sul logo («Informazioni»).
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: installazione
+    attributes:
+      label: Installazione
+      options:
+        - Docker su Linux o mini-PC
+        - Docker su NAS Synology
+        - Docker su NAS QNAP
+        - Docker su altro NAS
+        - Servizio Windows (installatore)
+        - Compilato dai sorgenti
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser e dispositivo
+      placeholder: "Chrome su Windows 11, Safari su iPhone…"
+  - type: textarea
+    id: cosa
+    attributes:
+      label: Cosa è successo
+      description: Cosa hai fatto, cosa ti aspettavi e cosa è successo invece. Se puoi, aggiungi un'immagine dello schermo.
+    validations:
+      required: true
+  - type: textarea
+    id: passi
+    attributes:
+      label: Come rifarlo
+      placeholder: |
+        1. Apri la Guida
+        2. …
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Le righe del log intorno all'errore, nella cartella dati sotto `logs/` (Docker: `./data/logs`,
+        Windows: `C:\ProgramData\DoveLoFanno\logs`). Controlla che non ci siano indirizzi con chiavi.
+      render: text
