@@ -7,7 +7,7 @@
   import PosterImg from '../lib/components/PosterImg.svelte';
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
-  import AlertPanel from '../lib/components/AlertPanel.svelte';
+  import AlertDialog from '../lib/components/AlertDialog.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import StableLabel from '../lib/components/StableLabel.svelte';
   import AbbinaDialog from './AbbinaDialog.svelte';
@@ -37,13 +37,12 @@
   let mySubs = $state<string[]>([]);
   let ignored = $state(false);
 
-  // "Avvisami" si apre sotto i pulsanti, come le liste: niente da cercare in fondo alla pagina
+  // "Avvisami" si apre nel popup comune (25/11/2026, Antonio: come in Cerca e in I miei avvisi, sganciato dalla pagina)
   let alertsOpen = $state(false);
   let activeAlerts = $state(0);
   function openAlerts() {
     alertsOpen = true;
     listsOpen = false;
-    setTimeout(() => document.getElementById('avvisami')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   }
 
   async function load() {
@@ -290,8 +289,7 @@
       </div>
     </div>
     {#if alertsOpen && session.profile}
-      <!-- fuori da .hero-in: la locandina resta dov'è; allineato alla colonna del testo -->
-      <div id="avvisami" class="alertbox"><AlertPanel workId={w.id} onchange={(n) => (activeAlerts = n)} onclose={() => (alertsOpen = false)} /></div>
+      <AlertDialog workId={w.id} title={w.title} onchange={(n) => (activeAlerts = n)} onclose={() => (alertsOpen = false)} />
     {/if}
   </section>
 
@@ -398,7 +396,6 @@
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }
   .listmenu { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; }
-  .alertbox { position: relative; max-width: 760px; margin: -12px var(--gutter) 32px calc(var(--gutter) + 260px); scroll-margin: 16px; }
   .lcheck { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; font-size: 15px; cursor: pointer; }
   .lcheck input { width: 18px; height: 18px; accent-color: var(--blue); }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1; letter-spacing: -0.02em; }
@@ -431,6 +428,4 @@
   .plat.mine :global(.ic) { box-shadow: 0 0 0 2px var(--green); }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
   @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .hero-in { gap: 20px; padding-top: 24px; } }
-  /* quando la locandina va sopra il testo (flex-wrap), il pannello parte dal margine */
-  @media (max-width: 780px) { .alertbox { margin-left: var(--gutter); } }
 </style>

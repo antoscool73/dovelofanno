@@ -1,9 +1,10 @@
 <script lang="ts">
-  // «Avvisami» di Cerca in un popup (24/11/2026, Antonio: il pannello stretto e lungo nella colonna di destra era
-  // «inguardabile e inutilizzabile»). Dentro c'è lo stesso AlertPanel della Scheda; Esc, «Chiudi» o il clic fuori chiudono.
+  // «Avvisami» in un popup (Cerca, I miei avvisi, Scheda) (24/11/2026, Antonio: il pannello stretto e lungo nella colonna di destra era
+  // «inguardabile e inutilizzabile»). Dentro c'è AlertPanel; Esc, «Chiudi» o il clic fuori chiudono.
   import AlertPanel from './AlertPanel.svelte';
 
-  let { workId, title, onclose }: { workId: number; title: string; onclose: () => void } = $props();
+  // onchange: quanti avvisi sono accesi (la Scheda lo mostra sul pulsante)
+  let { workId, title, onchange, onclose }: { workId: number; title: string; onchange?: (active: number) => void; onclose: () => void } = $props();
 
   function dialog(node: HTMLDialogElement) {
     node.showModal();
@@ -14,7 +15,7 @@
 </script>
 
 <dialog use:dialog aria-label="Avvisami per {title}">
-  <AlertPanel {workId} {title} {onclose} />
+  <AlertPanel {workId} {title} {onchange} {onclose} />
 </dialog>
 
 <style>
