@@ -1,6 +1,14 @@
-# DoveLoFanno
+<p align="center">
+  <a href="https://dovelofanno.it"><img src="site/favicon.svg" width="96" alt="Logo di DoveLoFanno"></a>
+</p>
 
-**La risposta a _stasera che si guarda?_** Guida TV, registratore e libreria di casa in un solo server domestico
+<h1 align="center">DoveLoFanno</h1>
+
+<p align="center"><b>La risposta a <i>stasera che si guarda?</i></b></p>
+
+<p align="center"><a href="https://dovelofanno.it"><b>dovelofanno.it</b></a> · schermate, presentazione e beta</p>
+
+Guida TV, registratore e libreria di casa in un solo server domestico
 (Docker su NAS o mini-PC, oppure servizio Windows), da usare dal browser di qualunque dispositivo della casa.
 
 > **Stato: pre-release 0.x.** Funziona ed è usato ogni giorno, ma interfaccia e API possono ancora cambiare.
@@ -88,6 +96,7 @@ folders with a resumable browser player, family profiles, personal recommendatio
 service, accounts or telemetry. It runs as a Docker container (amd64/arm64) or as a Windows service, and is used from
 any browser on the home network. The user interface is in Italian.
 
+- Website: [dovelofanno.it](https://dovelofanno.it)
 - Install: [docs/installazione.md](docs/installazione.md) (Docker image for amd64/arm64, Windows installer). During
   the beta, installers and images are only available to beta testers;
   [Releases](https://github.com/antoscool73/dovelofanno/releases) carry the source code and SHA-256 checksums.
