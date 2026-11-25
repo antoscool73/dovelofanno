@@ -5,6 +5,23 @@ Le novità di ogni versione della beta, dalla più recente. Con la 1.0 pubblica 
 Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/beta/novita/> e le note di
 `site/version.json` (quelle che l'app mostra in Impostazioni › Aggiornamenti e nella campanella).
 
+<!-- La sezione «Prossima versione» non ha numero né data: tools/changelog.py la salta, così version.json non annuncia
+     un aggiornamento che non c'è ancora. Al rilascio diventa «## X.Y.Z · gg/mm/aaaa» e si lancia lo script. -->
+## Prossima versione
+
+- Password del server, oppure accesso solo dalla rete di casa; ogni dispositivo entra una volta
+- Avvertenze da accettare al primo avvio
+- «Il top per la serata»: fuori dalle 20:00-21:30, al posto del banner, i tre film migliori in TV e in ognuno dei tuoi abbonamenti
+- Banner e scheda con l'immagine di scena del film; la locandina solo se manca
+- Dove Lo Fanno, nella scheda: prima dove lo vedi senza pagare, poi a pagamento
+- «I miei avvisi» come pagina nella barra in alto, con locandina, matita e bidone
+- «Avvisami» in una finestra a comparsa, uguale in Cerca, nella scheda e in I miei avvisi
+- Libreria a sezioni con locandine; «Continua a guardare» con locandina e barra di quanto hai visto
+- Avviso «Pronto da guardare» quando la copia per il browser è finita; audio sempre stereo (alcuni 5.1 restavano muti)
+- Telegram: negli orari di silenzio i messaggi aspettano e arrivano tutti insieme alla fine; orari in Preferenze › Notifiche
+- Icona della casa per La mia lista; un clic sul logo apre «Informazioni»
+- Intro con un jingle nuovo
+
 ## 0.3.0 · 23/11/2026
 
 - Guida TV che scorre di continuo su tutti i giorni, con lo zoom (anche Ctrl+rotella o due dita) e il trascinamento col mouse
