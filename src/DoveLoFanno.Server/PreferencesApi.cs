@@ -14,8 +14,10 @@ public sealed record GeneralSettings(int BeforeMin, int AfterMin, string Format,
     string Region, IReadOnlyList<string> Regions, int TermsAccepted = 0);
 public sealed record GeneralSettingsPatch(int? BeforeMin, int? AfterMin, string? Format, int? MaxParallel, int? MinFreeGb, bool? SetupDone, string? Region = null, int? TermsAccepted = null);
 /// <summary>TelegramBot = nome utente del bot collegato (senza @), vuoto se non si è potuto leggere; TelegramQueued = messaggi
-/// in coda per il silenzio o Telegram irraggiungibile (24/11/2026).</summary>
-public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo, string TelegramBot = "", int TelegramQueued = 0);
+/// in coda per il silenzio o Telegram irraggiungibile (24/11/2026); TelegramLinks = indirizzo di casa dei link nei messaggi
+/// (vuoto finché nessun dispositivo di casa ha aperto DoveLoFanno con l'indirizzo di rete, 25/11/2026).</summary>
+public sealed record NotificationSettings(bool TelegramConfigured, string TelegramChat, string QuietFrom, string QuietTo, string TelegramBot = "", int TelegramQueued = 0,
+    string TelegramLinks = "");
 /// <summary>
 /// Sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026, richiesta di Antonio): continua, registrazioni,
 /// stasera-miei, stasera-altri, settimana. «Da vedere stasera» e «I miei titoli» ci sono sempre.
@@ -282,5 +284,6 @@ public static class PreferencesApi
 
     static NotificationSettings NotificationInfo(ServerContext ctx) =>
         new(ctx.Settings.Get("TelegramToken").Length > 0 && ctx.Settings.Get("TelegramChat").Length > 0, ctx.Settings.Get("TelegramChat"),
-            ctx.Settings.Get("QuietFrom"), ctx.Settings.Get("QuietTo"), ctx.Settings.Get("TelegramBot"), TelegramQueue.Count(ctx.Settings));
+            ctx.Settings.Get("QuietFrom"), ctx.Settings.Get("QuietTo"), ctx.Settings.Get("TelegramBot"), TelegramQueue.Count(ctx.Settings),
+            HomeAddress.Get(ctx.Settings));
 }

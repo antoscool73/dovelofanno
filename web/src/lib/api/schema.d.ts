@@ -5447,6 +5447,8 @@ export interface components {
              * @default 0
              */
             telegramQueued: number;
+            /** @default  */
+            telegramLinks: string;
         };
         NotificationSettingsPatch: {
             telegramToken: null | string;

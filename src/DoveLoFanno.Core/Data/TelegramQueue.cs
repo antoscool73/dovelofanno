@@ -4,8 +4,11 @@ using System.Text.Json;
 
 namespace DoveLoFanno.Data;
 
-/// <summary>Un messaggio Telegram rimasto da mandare: il testo e quando è nata la notifica.</summary>
-public sealed record QueuedMessage(DateTimeOffset At, string Text);
+/// <summary>
+/// Un messaggio Telegram rimasto da mandare: il testo e quando è nata la notifica. Dal 25/11/2026 anche la locandina
+/// dell'opera (indirizzo TMDB, vuoto = solo testo) e il link alla scheda nella rete di casa (vuoto = nessun link).
+/// </summary>
+public sealed record QueuedMessage(DateTimeOffset At, string Text, string Photo = "", string Link = "");
 
 /// <summary>
 /// Coda dei messaggi Telegram (24/11/2026, richiesta di Antonio): le notifiche nate negli orari di silenzio, o quando
@@ -61,7 +64,10 @@ public static class TelegramQueue
 
     public static void Clear(SettingsStore s) { lock (Gate) Write(s, []); }
 
-    /// <summary>Il messaggio unico per la coda: un messaggio solo resta com'è, più messaggi diventano un elenco con l'ora.</summary>
+    /// <summary>
+    /// Il messaggio unico per la coda: un messaggio solo resta com'è (locandina e pulsante li aggiunge chi lo manda), più
+    /// messaggi diventano un elenco con l'ora e il link sotto ciascuno, senza locandine (non dieci foto di fila al risveglio).
+    /// </summary>
     public static string Format(IReadOnlyList<QueuedMessage> items, TimeZoneInfo zone)
     {
         if (items.Count == 1) return items[0].Text;
@@ -72,6 +78,7 @@ public static class TelegramQueue
             var t = TimeZoneInfo.ConvertTime(m.At, zone);
             string when = t.Date == today ? t.ToString("HH:mm", CultureInfo.InvariantCulture) : t.ToString("ddd d HH:mm", CultureInfo.GetCultureInfo("it-IT"));
             sb.Append("\n\n").Append(when).Append(" · ").Append(m.Text);
+            if (m.Link.Length > 0) sb.Append('\n').Append(m.Link);
         }
         if (items.Count > MaxLines) sb.Append($"\n\n… e altre {items.Count - MaxLines}: sono nella campanella di DoveLoFanno.");
         string text = sb.ToString();

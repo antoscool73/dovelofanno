@@ -63,6 +63,11 @@
       <h3>Telegram</h3>
       {#if notif.telegramConfigured}
         <p class="state on">● Collegato{notif.telegramBot ? ` al bot @${notif.telegramBot}` : ''}, chat {notif.telegramChat}</p>
+        {#if notif.telegramLinks}
+          <p class="f-muted">I messaggi su film e programmi hanno la locandina e il pulsante «Apri la scheda», che apre <code>{notif.telegramLinks}</code>: funziona con il telefono collegato al Wi-Fi di casa.</p>
+        {:else}
+          <p class="f-muted">I messaggi su film e programmi hanno la locandina. Il pulsante «Apri la scheda» si aggiunge quando apri DoveLoFanno da un telefono o da un altro computer di casa con l'indirizzo di rete del server (per esempio <code>http://192.168.1.10:8765</code>).</p>
+        {/if}
       {:else}
         <p class="state">○ Non collegato</p>
       {/if}

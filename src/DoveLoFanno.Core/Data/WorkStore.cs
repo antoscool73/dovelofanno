@@ -376,6 +376,21 @@ public sealed class WorkStore(string dbPath, GuideStore guide)
     public static string ImageUrl(string path, string size) => path.Length == 0 || path.StartsWith("http", StringComparison.Ordinal) ? path : ImageBase + size + path;
 
     /// <summary>
+    /// Opera e locandina per i messaggi Telegram (25/11/2026): segue l'unione delle opere doppie (merged_into) e per una
+    /// puntata senza locandina prende quella della serie. Null se l'opera non c'è; locandina vuota se non ne ha.
+    /// </summary>
+    public (long WorkId, string Poster)? PosterOf(long workId, string size = "w500")
+    {
+        using var c = Open();
+        var rows = Db.Query(c, """
+            SELECT w.id, CASE WHEN w.poster <> '' THEN w.poster ELSE coalesce(p.poster, '') END
+            FROM works w LEFT JOIN works p ON p.id = w.parent_id
+            WHERE w.id = coalesce((SELECT merged_into FROM works WHERE id = $w), $w)
+            """, r => (r.GetInt64(0), r.GetString(1)), ("$w", workId));
+        return rows.Count == 0 ? null : (rows[0].Item1, ImageUrl(rows[0].Item2, size));
+    }
+
+    /// <summary>
     /// Film e serie con codice TMDB i cui dettagli mancano o hanno più di un giorno: codice e tipo (movie o tv), altrimenti null.
     /// </summary>
     public (long TmdbId, string Kind)? DetailsToRefresh(long workId, DateTimeOffset now)

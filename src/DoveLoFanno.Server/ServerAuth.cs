@@ -47,13 +47,15 @@ public static class ServerAuth
         }
         app.Use(async (http, next) =>
         {
+            var ctx = http.RequestServices.GetRequiredService<ServerContext>();
+            // l'indirizzo che i dispositivi di casa usano per aprire DoveLoFanno: serve ai link dei messaggi Telegram
+            HomeAddress.Remember(ctx.Settings, FromHome(http), http.Connection.RemoteIpAddress, http.Request.Scheme, http.Request.Host.Value ?? "");
             string path = http.Request.Path.Value ?? "";
             if (!path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) || Open.Any(o => path.Equals(o, StringComparison.OrdinalIgnoreCase)))
             {
                 await next();
                 return;
             }
-            var ctx = http.RequestServices.GetRequiredService<ServerContext>();
             var auth = new AuthStore(ctx.Settings);
             if (auth.HasPassword)
             {

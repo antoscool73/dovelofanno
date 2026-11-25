@@ -19,6 +19,8 @@ Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/bet
 - Libreria a sezioni con locandine; «Continua a guardare» con locandina e barra di quanto hai visto
 - Avviso «Pronto da guardare» quando la copia per il browser è finita; audio sempre stereo (alcuni 5.1 restavano muti)
 - Telegram: negli orari di silenzio i messaggi aspettano e arrivano tutti insieme alla fine; orari in Preferenze › Notifiche
+- Telegram: i messaggi su film e programmi arrivano con la locandina e il pulsante «Apri la scheda» (con il telefono sul Wi-Fi di casa)
+- Avvisi: un messaggio solo per film, con tutti i posti dove vederlo, invece di uno per piattaforma
 - Icona della casa per La mia lista; un clic sul logo apre «Informazioni»
 - Intro con un jingle nuovo
 

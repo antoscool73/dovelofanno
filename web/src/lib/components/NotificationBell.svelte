@@ -105,7 +105,7 @@
   .ic.library { color: var(--green-text); }
   .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .t { font-weight: 600; font-size: 14px; }
-  .d { font-size: 13px; color: var(--text-2); }
+  .d { font-size: 13px; color: var(--text-2); white-space: pre-line; }
   .w { font-size: 12px; color: var(--muted); }
   .empty { margin: 0; padding: 16px; color: var(--muted); font-size: 14px; }
   @media (max-width: 720px) { .panel { position: fixed; left: 16px; right: 16px; width: auto; top: 56px; } }

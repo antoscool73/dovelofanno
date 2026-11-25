@@ -19,7 +19,16 @@ public sealed record AlertBody(long WorkId, string Kind, bool? Active, string? C
     IReadOnlyList<string>? Moments, IReadOnlyList<string>? Services, IReadOnlyList<string>? Offers);
 
 /// <summary>Quello che è successo in un giro di controllo degli avvisi.</summary>
-public sealed record AlertFired(long ProfileId, long WorkId, string Title, string Text, string Link, long? RecordingId);
+public sealed record AlertFired(long ProfileId, long WorkId, string Title, string Text, string Link, long? RecordingId)
+{
+    // per unire gli scatti della stessa opera in una notifica sola (25/11/2026)
+    internal string WorkTitle { get; init; } = "";
+    /// <summary>Passaggio in TV: la riga «Domani alle 21:20 su Rai 1».</summary>
+    internal string Line { get; init; } = "";
+    /// <summary>On demand: piattaforma e modo («in abbonamento», «a noleggio»…).</summary>
+    internal string Platform { get; init; } = "";
+    internal string How { get; init; } = "";
+}
 
 /// <summary>
 /// Avvisi: tre indipendenti per opera e profilo (in chiaro in TV, nei miei abbonamenti, a noleggio o acquisto). Ogni scatto
@@ -141,14 +150,15 @@ public sealed class AlertStore(string dbPath, GuideStore guide, SubscriptionStor
                     string pk = $"{p.GuideChannelId}:{Db.Unix(p.Start)}";
                     var local = TimeZoneInfo.ConvertTime(p.Start, zone);
                     var eveFrom = new DateTimeOffset(local.Date.AddDays(-1).AddHours(21), zone.GetUtcOffset(local.Date.AddDays(-1).AddHours(21)));
+                    string line = char.ToUpperInvariant(where[0]) + where[1..];
                     if (o.Moments.Contains("appear") && p.Start > now && Fire(a.Id, "appear:" + pk, now))
-                        fired.Add(new AlertFired(a.Profile, a.Work, $"«{a.Title}» passa in TV", where, link, null));
+                        fired.Add(new AlertFired(a.Profile, a.Work, $"«{a.Title}» passa in TV", where, link, null) { WorkTitle = a.Title, Line = line });
                     // la sera prima: solo per i passaggi di un giorno successivo, dalle 21 del giorno prima
                     bool laterDay = TimeZoneInfo.ConvertTime(now, zone).Date < local.Date;
                     if (o.Moments.Contains("eve") && laterDay && now >= eveFrom && Fire(a.Id, "eve:" + pk, now))
-                        fired.Add(new AlertFired(a.Profile, a.Work, $"Domani: «{a.Title}»", where, link, null));
+                        fired.Add(new AlertFired(a.Profile, a.Work, $"Domani: «{a.Title}»", where, link, null) { WorkTitle = a.Title, Line = line });
                     if (o.Moments.Contains("soon") && now >= p.Start.AddMinutes(-30) && now < p.Start && Fire(a.Id, "soon:" + pk, now))
-                        fired.Add(new AlertFired(a.Profile, a.Work, $"Tra poco: «{a.Title}»", where, link, null));
+                        fired.Add(new AlertFired(a.Profile, a.Work, $"Tra poco: «{a.Title}»", where, link, null) { WorkTitle = a.Title, Line = "Tra poco: " + where });
                 }
                 // registrazione automatica: il primo passaggio registrabile, se l'opera non è già in casa né in programma
                 if (o.AutoRecord && airings.FirstOrDefault(p => p.ChannelId != null && p.Stop > now) is { } first
@@ -171,11 +181,42 @@ public sealed class AlertStore(string dbPath, GuideStore guide, SubscriptionStor
                         : o.Offers.Contains(kind);
                     if (!match || !Fire(a.Id, $"{kind}:{platform}", now)) continue;
                     string how = kind switch { "free" => "gratis", "subscription" => "in abbonamento", "rent" => "a noleggio", _ => "in vendita" };
-                    fired.Add(new AlertFired(a.Profile, a.Work, $"«{a.Title}» è su {platform}", $"{char.ToUpperInvariant(how[0])}{how[1..]} su {platform}", link, null));
+                    fired.Add(new AlertFired(a.Profile, a.Work, $"«{a.Title}» è su {platform}", $"{char.ToUpperInvariant(how[0])}{how[1..]} su {platform}", link, null)
+                        { WorkTitle = a.Title, Platform = platform, How = how });
                 }
             }
         }
-        return fired;
+        return Merge(fired);
+    }
+
+    /// <summary>
+    /// Una notifica sola per opera e profilo in ogni giro (25/11/2026, richiesta di Antonio: «Le ali della libertà» ne aveva
+    /// mandate 9, una per piattaforma e modo). Prima i passaggi in TV, poi le piattaforme, ognuna su una riga con i suoi modi
+    /// («Su Amazon Video a noleggio o in vendita»). Le registrazioni automatiche restano a parte.
+    /// </summary>
+    static List<AlertFired> Merge(List<AlertFired> fired)
+    {
+        static int Rank(string how) => how switch { "gratis" => 0, "in abbonamento" => 1, "a noleggio" => 2, _ => 3 };
+        var result = new List<AlertFired>();
+        foreach (var g in fired.Where(f => f.RecordingId == null).GroupBy(f => (f.ProfileId, f.WorkId)))
+        {
+            var items = g.ToList();
+            if (items.Count == 1) { result.Add(items[0]); continue; }
+            var first = items[0];
+            var tv = items.Where(f => f.Line.Length > 0).Select(f => f.Line).Distinct().ToList();
+            var online = items.Where(f => f.Platform.Length > 0).GroupBy(f => f.Platform, StringComparer.OrdinalIgnoreCase)
+                .Select(p => (Platform: p.First().Platform, Hows: p.Select(f => f.How).Distinct().OrderBy(Rank).ToList()))
+                .OrderBy(p => Rank(p.Hows[0])).ThenBy(p => p.Platform, StringComparer.OrdinalIgnoreCase).ToList();
+            var lines = tv.Concat(online.Select(p => $"Su {p.Platform} {string.Join(" o ", p.Hows)}")).ToList();
+            string title = online.Count == 0 ? (items.All(f => f.Title == first.Title) ? first.Title : $"«{first.WorkTitle}» in TV")
+                : tv.Count > 0 ? $"«{first.WorkTitle}»: in TV e on demand"
+                : online.Count == 1 ? $"«{first.WorkTitle}» è su {online[0].Platform}"
+                : online.Count == 2 ? $"«{first.WorkTitle}» è su {online[0].Platform} e {online[1].Platform}"
+                : $"«{first.WorkTitle}» è su {online[0].Platform}, {online[1].Platform} e altre {online.Count - 2}";
+            result.Add(new AlertFired(first.ProfileId, first.WorkId, title, string.Join("\n", lines), first.Link, null) { WorkTitle = first.WorkTitle });
+        }
+        result.AddRange(fired.Where(f => f.RecordingId != null));
+        return result;
     }
 
     List<string> Services(long profileId, Options o) =>

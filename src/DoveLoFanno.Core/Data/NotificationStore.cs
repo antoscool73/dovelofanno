@@ -15,10 +15,11 @@ public sealed class NotificationStore(string dbPath)
 {
     SqliteConnection Open() => Database.Open(dbPath);
 
-    /// <summary>Evento per chi le inoltra fuori dall'app (Telegram).</summary>
-    public event Action<NotificationRow>? Added;
+    /// <summary>Evento per chi le inoltra fuori dall'app (Telegram), con l'opera della notifica se c'è (per locandina e scheda).</summary>
+    public event Action<NotificationRow, long?>? Added;
 
-    public long Add(long? profileId, string kind, string title, string text, string link, DateTimeOffset now)
+    /// <param name="workId">Opera di cui parla la notifica: non si salva, va solo a chi la inoltra.</param>
+    public long Add(long? profileId, string kind, string title, string text, string link, DateTimeOffset now, long? workId = null)
     {
         long id;
         using (var c = Open())
@@ -27,7 +28,7 @@ public sealed class NotificationStore(string dbPath)
                 ("$p", profileId), ("$k", kind), ("$t", title), ("$x", text), ("$l", link), ("$now", Db.Unix(now)));
             Db.Exec(c, "DELETE FROM notifications WHERE created_at < $old", ("$old", Db.Unix(now.AddDays(-30))));
         }
-        Added?.Invoke(new NotificationRow(id, profileId, kind, title, text, link, now, false));
+        Added?.Invoke(new NotificationRow(id, profileId, kind, title, text, link, now, false), workId);
         return id;
     }
 

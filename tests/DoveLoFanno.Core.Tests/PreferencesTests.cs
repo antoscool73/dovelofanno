@@ -182,8 +182,10 @@ public sealed class PreferencesTests : IDisposable
             cmd.Parameters.AddWithValue("$w", w.Padrino);
             cmd.ExecuteNonQuery();
         }
-        var fired = w.Alerts.Check(Now, TimeZoneInfo.Utc, (_, _) => null);
-        Assert.Equal(["«Il Padrino» è su Apple TV", "«Il Padrino» è su Netflix"], fired.Select(f => f.Title).Order());
+        // i due avvisi della stessa opera diventano una notifica sola (25/11/2026), prima l'abbonamento
+        var fired = Assert.Single(w.Alerts.Check(Now, TimeZoneInfo.Utc, (_, _) => null));
+        Assert.Equal("«Il Padrino» è su Netflix e Apple TV", fired.Title);
+        Assert.Equal("Su Netflix in abbonamento\nSu Apple TV a noleggio", fired.Text);
         Assert.Contains("Netflix", w.Alerts.List(w.Anna, w.Padrino, Now)!.Single(a => a.Kind == "subscription").Status);
 
         // il profilo con una scelta sua
@@ -195,15 +197,44 @@ public sealed class PreferencesTests : IDisposable
     }
 
     [Fact]
+    public void AvvisiDellaStessaOperaInUnaNotificaSola()
+    {
+        var w = Setup();
+        w.Alerts.Save(w.Anna, new AlertBody(w.Padrino, "tv", null, "all", false, ["appear"], null, null));
+        w.Alerts.Save(w.Anna, new AlertBody(w.Padrino, "rent_buy", null, null, null, null, null, ["rent", "buy"]));
+        using (var c = Database.Open(Db))
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = """
+                INSERT INTO availability (work_id, platform, kind, checked_at) VALUES ($w, 'CHILI', 'buy', 0), ($w, 'CHILI', 'rent', 0),
+                ($w, 'Apple TV', 'rent', 0), ($w, 'Apple TV', 'buy', 0), ($w, 'Rakuten TV', 'buy', 0)
+                """;
+            cmd.Parameters.AddWithValue("$w", w.Padrino);
+            cmd.ExecuteNonQuery();
+        }
+        var f = Assert.Single(w.Alerts.Check(Now, TimeZoneInfo.Utc, (_, _) => null));
+        Assert.Equal("«Il Padrino»: in TV e on demand", f.Title);
+        var lines = f.Text.Split('\n');
+        Assert.Equal(4, lines.Length);
+        Assert.Contains("Canale 5", lines[0]);
+        Assert.Equal(["Su Apple TV a noleggio o in vendita", "Su CHILI a noleggio o in vendita", "Su Rakuten TV in vendita"], lines[1..]);
+        Assert.Equal($"/opera/{w.Padrino}", f.Link);
+        Assert.Empty(w.Alerts.Check(Now, TimeZoneInfo.Utc, (_, _) => null));    // una volta sola, come prima
+    }
+
+    [Fact]
     public void NotifichePerProfiloEFamiglia()
     {
         var w = Setup();
         var n = new NotificationStore(Db);
         NotificationRow? forwarded = null;
-        n.Added += r => forwarded = r;
-        long f = n.Add(null, "recording", "Registrata", "", "/registrazioni", Now);
+        long? forwardedWork = -1;
+        n.Added += (r, work) => (forwarded, forwardedWork) = (r, work);
+        long f = n.Add(null, "recording", "Registrata", "", "/registrazioni", Now, workId: 7);
+        Assert.Equal(7, forwardedWork);
         n.Add(w.Anna, "alert", "Solo per Anna", "", "", Now);
         Assert.Equal("Solo per Anna", forwarded!.Title);
+        Assert.Null(forwardedWork);
         var anna = n.List(w.Anna)!;
         Assert.Equal((2, 2), (anna.Unread, anna.Items.Count));
         Assert.Equal(1, n.List(w.Bimbo)!.Unread);

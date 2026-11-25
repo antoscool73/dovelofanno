@@ -27,7 +27,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             string text = c.NewlyScheduled == 1
                 ? $"{first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))} su {first.ChannelName}"
                 : $"{c.NewlyScheduled} puntate nuove, la prima {first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))}";
-            ctx.Notifications.Add(c.Rule.ProfileId, "recording", $"Serie: «{c.Rule.Title}» programmata", text, "/registrazioni", now);
+            ctx.Notifications.Add(c.Rule.ProfileId, "recording", $"Serie: «{c.Rule.Title}» programmata", text, "/registrazioni", now, first.WorkId);
             log.LogInformation("Serie {Title}: {Count} puntate programmate", c.Rule.Title, c.NewlyScheduled);
         }
     }
@@ -35,7 +35,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         ctx.Scheduler.Finished += OnFinished;
-        ctx.Notifications.Added += n => _ = ForwardAsync(n);
+        ctx.Notifications.Added += (n, work) => _ = ForwardAsync(n, work);
         foreach (string note in ctx.ConvertedPreferences) log.LogWarning("Preferenza convertita in lista dinamica: {Note}", note);
         if (ctx.MergedChannels > 0) log.LogWarning("Canali doppi uniti all'avvio: {Count}", ctx.MergedChannels);
         try { await Task.Delay(TimeSpan.FromSeconds(20), ctx.Clock, ct); } catch (OperationCanceledException) { return; }
@@ -77,18 +77,19 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         var r = ctx.Recordings.Get(id);
         string title = r?.Title ?? "Registrazione";
         var now = ctx.Clock.GetUtcNow();
+        long? work = r?.WorkId;
         switch (o.State)
         {
             case "completed":
-                ctx.Notifications.Add(null, "recording", $"Registrata: «{title}»", o.MergeFailed ? "Unione in MP4 non riuscita: restano gli spezzoni" : r?.ChannelName ?? "", "/registrazioni", now);
+                ctx.Notifications.Add(null, "recording", $"Registrata: «{title}»", o.MergeFailed ? "Unione in MP4 non riuscita: restano gli spezzoni" : r?.ChannelName ?? "", "/registrazioni", now, work);
                 break;
             case "incomplete":
-                ctx.Notifications.Add(null, "recording", $"Registrazione incompleta: «{title}»", $"Mancano {o.LostMinutes} minuti", "/registrazioni", now);
+                ctx.Notifications.Add(null, "recording", $"Registrazione incompleta: «{title}»", $"Mancano {o.LostMinutes} minuti", "/registrazioni", now, work);
                 break;
             case "stopped":
                 break;   // fermata a mano: chi l'ha fermata lo sa già
             default:
-                ctx.Notifications.Add(null, "recording", $"Registrazione non riuscita: «{title}»", "Il motivo è nell'elenco delle registrazioni", "/registrazioni", now);
+                ctx.Notifications.Add(null, "recording", $"Registrazione non riuscita: «{title}»", "Il motivo è nell'elenco delle registrazioni", "/registrazioni", now, work);
                 break;
         }
     }
@@ -104,7 +105,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         });
         foreach (var f in fired)
         {
-            ctx.Notifications.Add(f.ProfileId, "alert", f.Title, f.Text, f.Link, now);
+            ctx.Notifications.Add(f.ProfileId, "alert", f.Title, f.Text, f.Link, now, f.WorkId);
             log.LogInformation("Avviso: {Title} ({Text})", f.Title, f.Text);
         }
     }
@@ -154,10 +155,20 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
     /// Inoltro su Telegram. Negli orari di silenzio (o con Telegram irraggiungibile) il messaggio va in coda
     /// (TelegramQueue) e parte con gli altri appena il silenzio finisce: 24/11/2026, richiesta di Antonio.
     /// </summary>
-    async Task ForwardAsync(NotificationRow n)
+    async Task ForwardAsync(NotificationRow n, long? workId)
     {
         if (!TelegramOn(out _, out _)) return;
-        TelegramQueue.Add(ctx.Settings, [new QueuedMessage(n.CreatedAt, n.Title + (n.Text.Length > 0 ? "\n" + n.Text : ""))]);
+        string text = n.Title + (n.Text.Length > 0 ? "\n" + n.Text : "");
+        // 25/11/2026: locandina dell'opera e link alla sua scheda (o alla pagina della notifica) nella rete di casa
+        string photo = "", path = n.Link;
+        try
+        {
+            if (workId is long w && ctx.Works.PosterOf(w) is { } p) { photo = p.Poster; path = $"/opera/{p.WorkId}"; }
+        }
+        catch (Exception ex) { log.LogWarning("Locandina per Telegram non trovata: {Error}", ex.Message); }
+        string home = HomeAddress.Get(ctx.Settings);
+        string link = home.Length > 0 && path.StartsWith('/') ? home + path : "";
+        TelegramQueue.Add(ctx.Settings, [new QueuedMessage(n.CreatedAt, text, photo, link)]);
         await FlushTelegramAsync();
     }
 
@@ -181,7 +192,13 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             if (items.Count == 0) return;
             try
             {
-                await Telegram.SendAsync(ctx.Http, token, chat, TelegramQueue.Format(items, ctx.Clock.LocalTimeZone), CancellationToken.None);
+                if (items.Count == 1)
+                {
+                    var m = items[0];
+                    await Telegram.SendAsync(ctx.Http, token, chat, m.Text, m.Photo, m.Link,
+                        m.Link.Contains("/opera/", StringComparison.Ordinal) ? "Apri la scheda" : "Apri DoveLoFanno", CancellationToken.None);
+                }
+                else await Telegram.SendAsync(ctx.Http, token, chat, TelegramQueue.Format(items, ctx.Clock.LocalTimeZone), CancellationToken.None);
                 if (items.Count > 1) log.LogInformation("Telegram: mandate {Count} notifiche rimaste in coda", items.Count);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -205,12 +222,42 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
 
 static class Telegram
 {
-    public static async Task SendAsync(HttpClient http, string token, string chat, string text, CancellationToken ct)
+    public static Task SendAsync(HttpClient http, string token, string chat, string text, CancellationToken ct) =>
+        SendAsync(http, token, chat, text, "", "", "", ct);
+
+    /// <summary>
+    /// Messaggio con la locandina (sendPhoto con didascalia; Telegram scarica l'immagine da TMDB) e il pulsante che apre
+    /// il link (25/11/2026). Se Telegram rifiuta il pulsante o la foto (400) si riprova più semplice: link nel testo, poi
+    /// solo testo. Gli errori di rete risalgono a chi chiama, che rimette il messaggio in coda.
+    /// </summary>
+    public static async Task SendAsync(HttpClient http, string token, string chat, string text, string photo, string link, string button, CancellationToken ct)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(15));
-        using var resp = await http.PostAsJsonAsync($"https://api.telegram.org/bot{token}/sendMessage", new { chat_id = chat, text }, cts.Token);
-        if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"Telegram ha risposto {(int)resp.StatusCode}");
+        string withLink = link.Length > 0 ? text + "\n\n" + link : text;
+        var attempts = new List<(string Method, Dictionary<string, object> Body)>();
+        Dictionary<string, object> Photo(string caption) =>
+            new() { ["chat_id"] = chat, ["photo"] = photo, ["caption"] = caption.Length <= 1024 ? caption : caption[..1020] + "…" };
+        Dictionary<string, object> Button(Dictionary<string, object> b)
+        {
+            b["reply_markup"] = new { inline_keyboard = new[] { new[] { new { text = button.Length > 0 ? button : "Apri", url = link } } } };
+            return b;
+        }
+        if (photo.Length > 0)
+        {
+            if (link.Length > 0) attempts.Add(("sendPhoto", Button(Photo(text))));
+            attempts.Add(("sendPhoto", Photo(withLink)));
+        }
+        if (link.Length > 0) attempts.Add(("sendMessage", Button(new() { ["chat_id"] = chat, ["text"] = text })));
+        attempts.Add(("sendMessage", new() { ["chat_id"] = chat, ["text"] = withLink }));
+
+        for (int i = 0; ; i++)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+            using var resp = await http.PostAsJsonAsync($"https://api.telegram.org/bot{token}/{attempts[i].Method}", attempts[i].Body, cts.Token);
+            if (resp.IsSuccessStatusCode) return;
+            if ((int)resp.StatusCode != 400 || i == attempts.Count - 1)
+                throw new HttpRequestException($"Telegram ha risposto {(int)resp.StatusCode}");
+        }
     }
 
     /// <summary>Nome utente del bot (getMe), senza @.</summary>
