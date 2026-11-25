@@ -199,8 +199,10 @@
   // originale della piattaforma appena uscito: dedotto dall'uscita, JustWatch non lo ha ancora in catalogo
   const fromRelease = $derived((w?.availability ?? []).filter((a) => a.source === 'release').map((a) => a.platform));
 
-  // banner: la locandina ingrandita e tagliata (più grande per non sgranare); senza locandina l'immagine di scena
-  const heroImage = $derived((w?.poster || first?.icon || '').replace('/t/p/w500/', '/t/p/w780/') || w?.backdrop || '');
+  // banner (25/11/2026, Antonio: «sempre uno zoom della locandina»): l'immagine di scena TMDB, poi quella della guida,
+  // poi la locandina ingrandita e tagliata (più grande per non sgranare, sfocata: heroZoom)
+  const heroZoom = $derived(!w?.backdrop && !first?.icon && !!w?.poster);
+  const heroImage = $derived(w?.backdrop || first?.icon || (w?.poster ?? '').replace('/t/p/w500/', '/t/p/w780/'));
 
   // aperta da un link diretto non c'è una pagina precedente dell'app: si torna a Stasera
   function goBack() {
@@ -220,7 +222,7 @@
   <p class="pad muted" role="status">Un momento…</p>
 {:else}
   <section class="hero">
-    {#if heroImage}<img class="backdrop" src={heroImage} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
+    {#if heroImage}<img class="backdrop" class:zoom={heroZoom} src={heroImage} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
     <div class="topbar">
       <button type="button" class="back" onclick={goBack}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
@@ -378,7 +380,8 @@
   .error { color: var(--rec-text); margin: 0; }
   .ok { color: var(--green-text); margin: 0; }
   .hero { position: relative; overflow: hidden; background: #172033; }
-  .backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; opacity: 0.5; filter: blur(2px) saturate(1.1); transform: scale(1.04); }
+  .backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; opacity: 0.5; }
+  .backdrop.zoom { filter: blur(2px) saturate(1.1); transform: scale(1.04); }
   /* il testo resta leggibile: scuro a sinistra e in basso, la locandina si vede a destra */
   .hero::after { content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(90deg, rgba(13, 16, 21, 0.92) 0%, rgba(13, 16, 21, 0.7) 45%, rgba(13, 16, 21, 0.25) 100%), linear-gradient(0deg, var(--bg) 0%, rgba(13, 16, 21, 0) 35%); }
