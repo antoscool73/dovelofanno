@@ -31,6 +31,13 @@ public sealed record RecorderOptions
     public int FailuresBeforeNextStream { get; init; } = 2;
     /// <summary>Si tengono gli spezzoni .ts dopo un'unione riuscita.</summary>
     public bool KeepTs { get; init; }
+    /// <summary>
+    /// Buco del flusso tra due spezzoni (o prima del primo, o dopo l'ultimo) da contare tra i minuti persi: i più corti li
+    /// copre il margine con cui un HLS live riparte (~20 s di contenuto già passato). 26/11/2026.
+    /// </summary>
+    public TimeSpan DataGap { get; init; } = TimeSpan.FromSeconds(30);
+    /// <summary>Salto nei tempi dei pacchetti dentro uno spezzone da contare tra i minuti persi (0 = non si cerca).</summary>
+    public double MinStreamGap { get; init; } = GapScanner.DefaultMinGap;
 }
 
 /// <summary>Esito: stato per la tabella recordings ('completed', 'incomplete', 'stopped', 'failed').</summary>
@@ -71,6 +78,9 @@ public sealed class NoKeepAwake : IKeepAwake
 /// spezzone con attesa crescente fino a 30 s; un salto dell'orologio di 60 s o più è una sospensione del PC e la
 /// parte persa si somma. Novità: dopo due tentativi senza dati sullo stesso flusso passa al flusso di riserva,
 /// e ogni spezzone ricorda da quale flusso viene. Alla fine unisce in MP4 (o MP3) e scrive il .nfo.
+/// Dal 26/11/2026 contano tra i minuti persi anche i buchi del flusso (oltre DataGap senza che il file cresca, tra due
+/// spezzoni o dentro lo stesso) e i salti nei tempi dei pacchetti dentro uno spezzone (GapScanner), uniti senza
+/// contare due volte lo stesso tratto: prima solo sospensione e partenza in ritardo.
 /// </summary>
 public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimeProvider clock, RecorderOptions? options = null, IKeepAwake? keepAwake = null)
 {
@@ -133,6 +143,19 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 run.Log($"Registrazione partita in ritardo (PC spento o in sospensione?): persi {Minutes((b - job.Start).TotalSeconds)}");
             }
 
+            // ultimo momento in cui il file ha ricevuto dati: i buchi tra uno spezzone e l'altro sono minuti persi (26/11/2026,
+            // «X Factor Live 5» sull'UN62: ~66 min persi per errori DNS/TLS ma segnata completata). Quello che è già contato
+            // (ritardo, ripresa) parte da adesso.
+            var lastData = Max(job.Start, Now);
+            void DataGapUntil(DateTimeOffset t, string why)
+            {
+                var a = Max(lastData, job.Start);
+                var b = Min(t, job.CurrentEnd);
+                if (b - a <= opt.DataGap) return;
+                run.AddLost(a, b);
+                run.Log($"Nessun dato registrato dalle {Fmt(a)} alle {Fmt(b)} ({why}): persi {Minutes((b - a).TotalSeconds)}");
+            }
+
             Directory.CreateDirectory(job.OutDir);
             string basePath = Path.Combine(job.OutDir, job.BaseName);
             // alla ripresa i registri di ffmpeg continuano dopo quelli già scritti (_ffmpeg_01.log poteva essere ancora aperto)
@@ -165,6 +188,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 obs.PartStarted(no, cand.StreamId, src.Url, part, started);
                 run.Log($"Avvio ffmpeg, spezzone {no}, flusso {cand.StreamId}, {remaining} s rimanenti");
                 string reason = "exit";
+                bool gotData = false;
                 using (var p = tools.StartFfmpeg(Args(job, cand, src, rate, part, remaining), ffLog))
                 {
                     long lastSize = -1;
@@ -177,10 +201,23 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                             run.Log("Arresto richiesto dall'utente");
                             stopped = true; reason = "stop"; p.Kill(); break;
                         }
-                        // dopo una sospensione ffmpeg può riprendersi da solo: gli si dà Stall dal risveglio
-                        if (run.CheckSleepGap()) lastGrow = Now;
+                        // dopo una sospensione ffmpeg può riprendersi da solo: gli si dà Stall dal risveglio (la parte persa è già
+                        // contata come sospensione)
+                        if (run.CheckSleepGap()) { lastGrow = Now; lastData = Now; }
                         long size = FileSize(part);
-                        if (size > lastSize) { lastSize = size; lastGrow = Now; }
+                        if (size > lastSize)
+                        {
+                            // dati dopo una pausa: dall'ultimo dato (di questo spezzone o del precedente) è un buco del flusso.
+                            // Anche dentro lo stesso spezzone: i salti di oltre 10 s ffmpeg li toglie dai tempi dei pacchetti
+                            // (dts_delta_threshold degli ingressi HLS), quindi si vedono solo dal file che non cresce
+                            if (size > 0)
+                            {
+                                DataGapUntil(Now, gotData ? "flusso fermo" : "flusso interrotto");
+                                gotData = true;
+                                lastData = Now;
+                            }
+                            lastSize = size; lastGrow = Now;
+                        }
                         else if (Now - lastGrow > opt.Stall)
                         {
                             run.Log($"Il file non cresce da {opt.Stall.TotalSeconds:0} s: riavvio ffmpeg");
@@ -225,6 +262,25 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 }
                 if (!stopped && Now < job.CurrentEnd.AddSeconds(-5) && !await run.Sleep(wait, stop)) stopped = true;
             }
+
+            // dopo l'ultimo dato fino alla fine (non se l'ha fermata l'utente)
+            if (!stopped && parts.Count > 0) DataGapUntil(job.CurrentEnd, "flusso interrotto fino alla fine");
+
+            // salti dentro gli spezzoni: segmenti persi mentre ffmpeg continuava a scrivere (si cercano prima dell'unione,
+            // dopo i tempi ripartono da capo e i buchi tra uno spezzone e l'altro non si vedono più)
+            if (opt.MinStreamGap > 0)
+                foreach (var x in parts.Where(x => File.Exists(x.File)))
+                {
+                    IReadOnlyList<StreamGap> gaps;
+                    try { gaps = await GapScanner.ScanAsync(tools, x.File, ct, opt.MinStreamGap); }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { run.Log($"Controllo dei salti dello spezzone {x.No} non riuscito: {ex.Message}"); continue; }
+                    foreach (var g in gaps)
+                    {
+                        var a = x.Started.AddSeconds(g.At);
+                        run.AddLost(Max(a, job.Start), Min(a.AddSeconds(g.Seconds), job.CurrentEnd));
+                        run.Log($"Salto nel flusso ({g.Stream}) nello spezzone {x.No}: mancano {g.Seconds.ToString("0.#", CultureInfo.InvariantCulture)} s verso le {Fmt(a)}");
+                    }
+                }
 
             if (parts.Count == 0)
             {
@@ -344,8 +400,24 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
         readonly CancellationToken ct;
         public readonly string LogPath;
         public DateTimeOffset? LastTick;
-        public double LostSeconds;
-        public readonly List<(DateTimeOffset From, DateTimeOffset To)> Lost = [];
+        readonly List<(DateTimeOffset From, DateTimeOffset To)> lost = [];
+
+        /// <summary>Tratti persi uniti: sospensione, buchi del flusso e salti possono sovrapporsi e non si contano due volte.</summary>
+        public List<(DateTimeOffset From, DateTimeOffset To)> Lost
+        {
+            get
+            {
+                var res = new List<(DateTimeOffset From, DateTimeOffset To)>();
+                foreach (var r0 in lost.OrderBy(x => x.From))
+                {
+                    if (res.Count > 0 && r0.From <= res[^1].To) { if (r0.To > res[^1].To) res[^1] = (res[^1].From, r0.To); }
+                    else res.Add(r0);
+                }
+                return res;
+            }
+        }
+
+        public double LostSeconds => Lost.Sum(x => (x.To - x.From).TotalSeconds);
 
         public Run(Recorder r, RecordingJob job, CancellationToken ct)
         {
@@ -377,8 +449,7 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
         public void AddLost(DateTimeOffset a, DateTimeOffset b)
         {
             if (b <= a) return;
-            LostSeconds += (b - a).TotalSeconds;
-            Lost.Add((a, b));
+            lost.Add((a, b));
         }
 
         /// <summary>Vero se dall'ultimo controllo l'orologio è saltato avanti (PC in sospensione).</summary>

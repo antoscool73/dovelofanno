@@ -10,6 +10,7 @@ Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/bet
 ## Prossima versione
 
 - Registrazioni da LA7 e Mediaset (DASH) di nuovo complete: prima potevano salvarne solo pezzi da mezzo minuto
+- Registrazioni «Incomplete» anche quando il canale si interrompe o salta dei pezzi, non solo con il PC in sospensione: i minuti mancanti con l'orario sono nell'elenco delle registrazioni
 - Notifiche a scelta: per ogni tipo (registrazioni, serie, avvisi, proposte, pronti da guardare, aggiornamenti) decidi se arrivano nel sito, su Telegram o in tutti e due, in Preferenze › Notifiche
 - Proposte più ricche: una notifica per film con voto, anno, genere, paese, regia, attori e quando passa
 - «Indietro» sempre in alto, sotto la barra, in tutte le pagine
