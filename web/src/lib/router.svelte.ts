@@ -45,6 +45,9 @@ class Router {
   /** Sezione della libreria: /libreria/film, /libreria/liste/12 ... */
   librarySection = $derived(this.path.match(/^\/libreria\/([a-z-]+)/)?.[1] ?? 'liste');
   libraryListId = $derived(Number(this.path.match(/^\/libreria\/liste\/(\d+)/)?.[1] ?? 0));
+  /** Quante pagine dell'app ci sono prima di questa nella cronologia (history.state.d): con 0 (pagina aperta da un
+   *  link o ricaricata all'inizio) «Indietro» non compare (26/11/2026). */
+  depth = $state(0);
 
   constructor() {
     // la posizione la rimette scrollMemory (anche le file di locandine), non il browser
@@ -55,7 +58,8 @@ class Router {
       this.path = here.pathname;
     }
     entryKey();
-    window.addEventListener('popstate', () => { this.path = window.location.pathname; this.nav++; restoreHere(); });
+    this.depth = depthOf(history.state);
+    window.addEventListener('popstate', () => { this.path = window.location.pathname; this.depth = depthOf(history.state); this.nav++; restoreHere(); });
   }
 
   /** Va a un indirizzo dell'app; un'ancora (/opera/12#avvisami) resta nell'indirizzo ma non nel percorso. */
@@ -63,11 +67,22 @@ class Router {
     const url = moved(new URL(path, window.location.origin));
     if (url.pathname === this.path && url.hash === window.location.hash) return;
     if (replace) history.replaceState(history.state, '', url.pathname + url.hash);
-    else { saveHere(); history.pushState(newEntryState(), '', url.pathname + url.hash); }
+    else { saveHere(); this.depth++; history.pushState({ ...newEntryState(), d: this.depth }, '', url.pathname + url.hash); }
     this.path = url.pathname;
     this.nav++;
     window.scrollTo(0, 0);
   }
+
+  /** «Indietro» dell'app: la pagina di prima; senza una pagina dell'app prima, La mia lista. */
+  back(): void {
+    if (this.depth > 0) history.back();
+    else this.go('/');
+  }
+}
+
+function depthOf(state: unknown): number {
+  const d = (state as { d?: unknown } | null)?.d;
+  return typeof d === 'number' && d > 0 ? d : 0;
 }
 
 export const router = new Router();

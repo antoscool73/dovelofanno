@@ -33,46 +33,59 @@
 </script>
 
 <header use:measure>
-  <!-- il logo apre «Informazioni su DoveLoFanno»; a La mia lista si va con la casa (Antonio, 24/11/2026) -->
-  <button type="button" class="home" onclick={() => (about = true)} aria-label="Informazioni su DoveLoFanno" title="Informazioni"><Logo size={26} /></button>
-  <nav aria-label="Principale">
-    {#each items as it (it.route)}
-      {#if it.route === 'stasera'}
-        <a href={it.path} onclick={navigate} class="house" aria-label={it.label} title={it.label} aria-current={router.route === it.route ? 'page' : undefined}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9v11h5v-6h4v6h5V9" /></svg>
-        </a>
-      {:else}
-        <a href={it.path} onclick={navigate} aria-current={router.route === it.route ? 'page' : undefined}>{it.label}</a>
-      {/if}
-    {/each}
-  </nav>
-  <!-- la lente dopo «Preferenze», senza riquadro (Antonio, 23/11/2026; prima era tra il logo e le voci): cerca qualunque
-       film o serie. Sul telefono le voci vanno su una riga a sé e la lente resta in alto accanto al logo -->
-  <a href="/cerca" onclick={navigate} class="icon search" aria-label="Cerca un film o una serie" title="Cerca" aria-current={router.route === 'cerca' ? 'page' : undefined}>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
-  </a>
-  <div class="spacer"></div>
-  <!-- Impostazioni: un piccolo ingranaggio al posto della scritta (Antonio, 20/11/2026) -->
-  <a href="/impostazioni" onclick={navigate} class="icon settings" aria-label="Impostazioni" title="Impostazioni" aria-current={router.route === 'impostazioni' ? 'page' : undefined}>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-  </a>
-  {#if session.profile}
-    <NotificationBell />
-    <!-- un clic apre il menu degli altri profili, con «Modifica» in fondo (24/11/2026) -->
-    <ProfileMenu />
+  <div class="bar">
+    <!-- il profilo tutto a sinistra, a larghezza fissa, e il logo tutto a destra (Antonio, 26/11/2026) -->
+    {#if session.profile}<ProfileMenu />{/if}
+    <nav aria-label="Principale">
+      {#each items as it (it.route)}
+        {#if it.route === 'stasera'}
+          <a href={it.path} onclick={navigate} class="house" aria-label={it.label} title={it.label} aria-current={router.route === it.route ? 'page' : undefined}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9v11h5v-6h4v6h5V9" /></svg>
+          </a>
+        {:else}
+          <a href={it.path} onclick={navigate} aria-current={router.route === it.route ? 'page' : undefined}>{it.label}</a>
+        {/if}
+      {/each}
+    </nav>
+    <!-- la lente dopo «Preferenze», senza riquadro (Antonio, 23/11/2026): cerca qualunque film o serie -->
+    <a href="/cerca" onclick={navigate} class="icon search" aria-label="Cerca un film o una serie" title="Cerca" aria-current={router.route === 'cerca' ? 'page' : undefined}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
+    </a>
+    <div class="spacer"></div>
+    <!-- Impostazioni: un piccolo ingranaggio al posto della scritta (Antonio, 20/11/2026) -->
+    <a href="/impostazioni" onclick={navigate} class="icon settings" aria-label="Impostazioni" title="Impostazioni" aria-current={router.route === 'impostazioni' ? 'page' : undefined}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+    </a>
+    {#if session.profile}<NotificationBell />{/if}
+    <!-- il logo apre «Informazioni su DoveLoFanno»; a La mia lista si va con la casa (Antonio, 24/11/2026) -->
+    <button type="button" class="home" onclick={() => (about = true)} aria-label="Informazioni su DoveLoFanno" title="Informazioni"><Logo size={26} /></button>
+  </div>
+  <!-- «Indietro» sempre fisso sotto la barra, in tutte le pagine (Antonio, 26/11/2026): fa parte dell'intestazione, così
+       le barre fisse delle pagine (Cerca, Libreria, La mia lista) si fermano sotto da sole con --header-h. Compare solo
+       se c'è una pagina dell'app a cui tornare -->
+  {#if router.depth > 0}
+    <div class="backrow">
+      <button type="button" class="back" onclick={() => router.back()}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        Indietro
+      </button>
+    </div>
   {/if}
 </header>
 {#if about}<AboutDialog onclose={() => (about = false)} />{/if}
 
 <style>
   /* barra fissa in alto e sottile (feedback di Antonio, 18/11): resta visibile scorrendo */
-  header {
-    position: sticky; top: 0; z-index: 40;
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;
-    padding: 6px var(--gutter); border-bottom: 1px solid var(--line);
-    background: var(--bg);
+  header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 6px var(--gutter); }
+  .backrow { padding: 0 var(--gutter) 8px; }
+  .back {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px 0 8px; border-radius: 18px;
+    border: 1px solid var(--line-btn); background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
   }
-  .home { display: flex; padding: 4px 6px 4px 0; border: 0; border-radius: var(--radius-s); background: none; color: inherit; cursor: pointer; }
+  .back:hover { background: var(--card); border-color: var(--text-2); }
+  .back:focus-visible { box-shadow: var(--focus); outline: none; }
+  .home { display: flex; padding: 4px 0 4px 6px; border: 0; border-radius: var(--radius-s); background: none; color: inherit; cursor: pointer; }
   .home:focus-visible { box-shadow: var(--focus); outline: none; }
   nav a.house { display: flex; align-items: center; padding: 7px 10px; }
   nav { display: flex; flex-wrap: nowrap; gap: 2px; }
@@ -95,7 +108,8 @@
   .icon.search:hover { color: var(--bg); background: var(--text-2); }
   .icon.search[aria-current='page'] { color: var(--bg); background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--blue); }
   @media (max-width: 720px) {
-    header { padding: 4px 16px; }
+    .bar { padding: 4px 16px; }
+    .backrow { padding: 0 16px 6px; }
     nav { order: 3; width: 100%; overflow-x: auto; }
   }
 </style>

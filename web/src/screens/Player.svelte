@@ -1,6 +1,7 @@
 <script lang="ts">
   // Player della libreria: video nel browser con ripresa dal punto, salti, sottotitoli e "Segna come visto".
   // La posizione si salva ogni 10 secondi, in pausa e all'uscita; oltre il 90% il titolo diventa visto.
+  import EyeIcon from '../lib/components/EyeIcon.svelte';
   import Avatar from '../lib/components/Avatar.svelte';
   import Button from '../lib/components/Button.svelte';
   import { api, ApiError, type LibraryItem } from '../lib/api/client';
@@ -154,7 +155,7 @@
 
   function leave() {
     save(true, true);
-    if (history.length > 1) history.back();
+    if (router.depth > 0) history.back();
     else router.go('/libreria');
   }
 
@@ -272,7 +273,7 @@
             </label>
           {/if}
           <button type="button" class="out" aria-pressed={seen} onclick={markSeen} disabled={seen}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>{seen ? 'Visto' : 'Segna come visto'}
+            <EyeIcon filled={seen} />{seen ? 'Visto' : 'Segna come visto'}
           </button>
           {#if item.nextItemId}<a class="out" href="/guarda/{item.nextItemId}" onclick={navigate}>Episodio successivo</a>{/if}
           <button type="button" class="icon" aria-label="Schermo intero" onclick={fullscreen}>

@@ -10,6 +10,7 @@
     disabled = false,
     pressed = undefined,
     href = undefined,
+    external = false,
     label = undefined,
     onclick = undefined,
     children,
@@ -20,6 +21,8 @@
     disabled?: boolean;
     pressed?: boolean;
     href?: string;
+    /** link fuori dall'app (trailer...): si apre in una nuova scheda del browser (26/11/2026, Antonio) */
+    external?: boolean;
     label?: string;
     onclick?: (e: MouseEvent) => void;
     children: Snippet;
@@ -27,7 +30,7 @@
 </script>
 
 {#if href}
-  <a class="btn {variant} {size}" {href} aria-label={label} {onclick}>{@render children()}</a>
+  <a class="btn {variant} {size}" {href} aria-label={label} {onclick} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{@render children()}</a>
 {:else}
   <button class="btn {variant} {size}" {type} {disabled} aria-pressed={pressed} aria-label={label} {onclick}>{@render children()}</button>
 {/if}

@@ -7,6 +7,7 @@
   import { api, ApiError, type AlertRow } from '../lib/api/client';
   import { navigate } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
+  import { alertedState } from '../lib/alerted.svelte';
   import { day, time } from '../lib/format';
 
   const prof = $derived(session.profile);
@@ -21,7 +22,13 @@
   async function load() {
     const p = session.profile;
     if (!p) return;
-    try { alerts = await api.alerts(p.id); error = ''; }
+    try {
+      alerts = await api.alerts(p.id);
+      error = '';
+      // lo stato comune dei pulsanti «Avvisami» segue questa pagina (avviso tolto con il bidone)
+      const on = new Set(alerts.filter((a) => a.active).map((a) => a.workId));
+      for (const id of new Set(alerts.map((a) => a.workId).concat([...alertedState.ids]))) alertedState.set(id, on.has(id) ? 1 : 0);
+    }
     catch (e) { error = e instanceof ApiError ? e.message : 'Avvisi non letti'; }
     finally { loaded = true; }
   }

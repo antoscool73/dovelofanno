@@ -87,8 +87,8 @@ public sealed class ConversionHost(ServerContext ctx, ILogger<ConversionHost> lo
                 var now = ctx.Clock.GetUtcNow();
                 ctx.Conversions.Finish(next.Id, o.Ok, o.Output, o.Method, o.Error, logBase, now);
                 string what = next.Format == "mp3" ? "in MP3" : "in MP4";
-                if (o.Ok) ctx.Notifications.Add(next.ProfileId, "recording", $"Convertito {what}: «{next.Title}»", Path.GetFileName(o.Output), "/impostazioni#registrazioni", now);
-                else ctx.Notifications.Add(next.ProfileId, "recording", $"Conversione non riuscita: «{next.Title}»", o.Error, "/impostazioni#registrazioni", now);
+                if (o.Ok) ctx.Notifications.Add(next.ProfileId, "library", $"Convertito {what}: «{next.Title}»", Path.GetFileName(o.Output), "/impostazioni#registrazioni", now);
+                else ctx.Notifications.Add(next.ProfileId, "library", $"Conversione non riuscita: «{next.Title}»", o.Error, "/impostazioni#registrazioni", now);
                 log.LogInformation("Conversione {Id} {Title}: {Result}", next.Id, next.Title, o.Ok ? o.Method : o.Error);
             }
             try { await wake.WaitAsync(TimeSpan.FromSeconds(30), ct); } catch (OperationCanceledException) { return; }

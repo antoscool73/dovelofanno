@@ -30,6 +30,10 @@ public sealed class ProfileStore(string dbPath)
 
     public ProfileRow? Get(long id) => List().FirstOrDefault(p => p.Id == id);
 
+    /// <summary>Nome di un profilo: al massimo 16 caratteri, perché stia nel selettore a larghezza fissa della barra in alto
+    /// (Antonio, 26/11/2026; prima 40). Un nome più lungo già salvato resta valido finché non lo si cambia.</summary>
+    public const int MaxName = 16;
+
     /// <summary>Nome di icona accettato: minuscole, cifre e trattini, al massimo 24 caratteri (vuoto = nessuna icona).</summary>
     public static bool ValidIcon(string icon) => icon.Length <= 24 && icon.All(ch => ch is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
 
@@ -38,7 +42,7 @@ public sealed class ProfileStore(string dbPath)
         icon = (icon ?? "").Trim();
         if (!ValidIcon(icon)) return (ProfileResult.InvalidIcon, 0);
         name = (name ?? "").Trim();
-        if (name.Length is 0 or > 40) return (ProfileResult.InvalidName, 0);
+        if (name.Length is 0 or > MaxName) return (ProfileResult.InvalidName, 0);
         if (pin != null && (isChild || !ValidPin(pin))) return (ProfileResult.InvalidPin, 0);
         using var c = Open();
         if (NameTaken(c, name, null)) return (ProfileResult.NameTaken, 0);
@@ -58,13 +62,13 @@ public sealed class ProfileStore(string dbPath)
         icon = icon?.Trim();
         if (icon != null && !ValidIcon(icon)) return ProfileResult.InvalidIcon;
         using var c = Open();
-        var cur = Db.Query(c, "SELECT is_child, pin_hash IS NOT NULL FROM profiles WHERE id = $id", r => (Child: r.GetInt64(0) == 1, Pin: r.GetInt64(1) == 1), ("$id", id));
+        var cur = Db.Query(c, "SELECT is_child, pin_hash IS NOT NULL, name FROM profiles WHERE id = $id", r => (Child: r.GetInt64(0) == 1, Pin: r.GetInt64(1) == 1, Name: r.GetString(2)), ("$id", id));
         if (cur.Count == 0) return ProfileResult.NotFound;
         bool child = isChild ?? cur[0].Child;
         if (name != null)
         {
             name = name.Trim();
-            if (name.Length is 0 or > 40) return ProfileResult.InvalidName;
+            if (name.Length == 0 || (name.Length > MaxName && name != cur[0].Name)) return ProfileResult.InvalidName;
             if (NameTaken(c, name, id)) return ProfileResult.NameTaken;
         }
         if (pin != null && (child || !ValidPin(pin))) return ProfileResult.InvalidPin;

@@ -131,7 +131,7 @@
     <form class="panel" onsubmit={editing ? saveEdit : add}>
       <h1>{editing ? 'Modifica profilo' : first ? 'Benvenuto. Come ti chiami?' : 'Nuovo profilo'}</h1>
       {#if first}<p class="lead">Sarà il primo profilo, da adulto. Gli altri della famiglia li aggiungi dopo.</p>{/if}
-      <label class="field">Nome<input bind:value={name} maxlength="40" required autocomplete="off" use:focusOnMount /></label>
+      <label class="field">Nome<input bind:value={name} maxlength="16" required autocomplete="off" use:focusOnMount /></label>
       {#if !first}
         <label class="check"><input type="checkbox" bind:checked={child} /> Profilo bambino: solo programmi adatti, senza PIN</label>
       {/if}
@@ -202,7 +202,7 @@
     {#if managing}
       <Button variant="primary" size="l" onclick={doneManaging}>Fatto</Button>
     {:else}
-      <p class="note">Il profilo scelto resta in alto a destra in ogni schermata; un clic lo cambia.</p>
+      <p class="note">Il profilo scelto resta in alto a sinistra in ogni schermata; un clic lo cambia.</p>
       <Button variant="secondary" onclick={() => router.go('/profili#modifica')}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>Modifica i profili
       </Button>

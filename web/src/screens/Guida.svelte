@@ -12,6 +12,7 @@
   import NuovaRegistrazione from './NuovaRegistrazione.svelte';
   import LivePreview from '../lib/components/LivePreview.svelte';
   import SeenButton from '../lib/components/SeenButton.svelte';
+  import EyeIcon from '../lib/components/EyeIcon.svelte';
   import { seenState } from '../lib/seen.svelte';
   import { api, ApiError, type Channel, type GuideProgramme, type GuideStatus } from '../lib/api/client';
   import { byChannelOrder, day, dayChip, episodeOf, midnight, range, time, vote } from '../lib/format';
@@ -41,10 +42,13 @@
   const dayAt = (i: number) => new Date(origin.getFullYear(), origin.getMonth(), origin.getDate() + i);
   const dayIndex = (d: Date) => Math.round((midnight(d).getTime() - origin.getTime()) / 86_400_000);
   let selectedDay = $state(initialDay());
-  let mode = $state<'griglia' | 'elenco'>('griglia');
-  let group = $state('');
-  let minRating = $state(0);
-  let text = $state('');
+  // filtri dall'indirizzo (26/11/2026, Antonio: «metto i filtri, apro un titolo, torno indietro e li perdo»): genere,
+  // voto, testo cercato ed elenco/griglia stanno nell'ancora come il giorno, così Indietro li ritrova
+  const initial = new URLSearchParams(location.hash.slice(1));
+  let mode = $state<'griglia' | 'elenco'>(initial.get('vista') === 'elenco' ? 'elenco' : 'griglia');
+  let group = $state(initial.get('genere') ?? '');
+  let minRating = $state(Number(initial.get('voto')) || 0);
+  let text = $state(initial.get('q') ?? '');
   let results = $state<GuideProgramme[] | null>(null);
   // un clic su un programma apre sempre la sua scheda (23/11/2026, Antonio: niente più popup del programma)
   const openWork = (p: GuideProgramme) => { if (p.workId != null) router.go(`/opera/${p.workId}`); };
@@ -61,8 +65,14 @@
   }
   const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   $effect(() => {
-    const h = selectedDay.getTime() === origin.getTime() ? '' : `#giorno=${iso(selectedDay)}`;
-    try { history.replaceState(history.state, '', '/guida' + h); } catch { /* indirizzo non aggiornato */ }
+    const p = new URLSearchParams();
+    if (selectedDay.getTime() !== origin.getTime()) p.set('giorno', iso(selectedDay));
+    if (mode === 'elenco') p.set('vista', 'elenco');
+    if (group) p.set('genere', group);
+    if (minRating) p.set('voto', String(minRating));
+    if (text.trim().length >= 2) p.set('q', text.trim());
+    const h = p.toString();
+    try { history.replaceState(history.state, '', '/guida' + (h ? '#' + h : '')); } catch { /* indirizzo non aggiornato */ }
   });
 
   const days = $derived.by(() => {
@@ -439,6 +449,8 @@
       }
     }, 250);
   }
+  // tornando con Indietro a una ricerca: i risultati si rifanno
+  if ((initial.get('q') ?? '').trim().length >= 2) onSearch();
 
   async function refresh() {
     refreshing = true;
@@ -614,7 +626,7 @@
                 style:left="{CH + x.a * ppm}px" style:width="{Math.max(8, (x.b - x.a) * ppm - 4)}px" onclick={() => { tipOut(); openWork(p); }}
                 onpointerenter={(e) => tipIn(e, p, r.name)} onpointerleave={tipOut} onpointerdown={tipOut}
                 aria-label="{p.title}, {day(p.start, now)} {range(p.start, p.stop)}, {r.name}{p.scheduled ? ', in programma' : ''}{proposed.has(p.id) ? ', proposta per te' : ''}">
-                <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{#if seenState.has(p.workId)}<span class="seenmark" aria-label="visto">✓</span>{/if}{p.title}{p.episode && p.group !== 'Film' ? ` · ${p.episode}` : ''}</span>
+                <span class="ptitle">{#if p.scheduled}<span class="dot" aria-hidden="true"></span>{/if}{#if seenState.has(p.workId)}<span class="seenmark" role="img" aria-label="visto"><EyeIcon filled size={13} /></span>{/if}{p.title}{p.episode && p.group !== 'Film' ? ` · ${p.episode}` : ''}</span>
                 <span class="pmeta">{time(p.start)}{p.rating != null ? ` · ★ ${vote(p.rating)}` : ''}{p.sub ? ` · ${p.sub}` : p.group !== 'Altro' ? ` · ${p.group}` : ''}</span>
               </button>
             {/each}
@@ -799,7 +811,7 @@
   .prog.dim { opacity: 0.35; }
   .prog.past { opacity: 0.6; }
   .prog.seen { border-style: dashed; }
-  .seenmark { color: var(--green); font-weight: 800; }
+  .seenmark { display: inline-flex; vertical-align: -2px; margin-right: 4px; color: var(--green); --eye-pupil: var(--bg); }
   .ptitle { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pmeta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* titolo e orario restano agganciati al bordo sinistro della linea del tempo, così un programma iniziato prima del

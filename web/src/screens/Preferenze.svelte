@@ -9,7 +9,7 @@
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import {
     api, ApiError, type IgnoredWork, type ListSummary, type ProfileSubscriptions, type FamilySubscriptions,
-    type NotificationSettings,
+    type NotificationSettings, type NotifyPref,
   } from '../lib/api/client';
   import { navigate, router } from '../lib/router.svelte';
   import { session } from '../lib/session.svelte';
@@ -97,6 +97,35 @@
   const quietOk = $derived((quietFrom === '') === (quietTo === ''));
   function saveQuiet(from: string, to: string, ok: string) {
     act(async () => { notif = await api.updateNotificationSettings({ quietFrom: from, quietTo: to }); quietFrom = notif.quietFrom; quietTo = notif.quietTo; }, ok);
+  }
+
+  // ---------------------------------------------------------------- cosa arriva e dove (26/11/2026, richiesta di Antonio):
+  // per ogni tipo di notifica, campanella (sito) e Telegram. Si salva a ogni spunta.
+  const kindLabels: Record<string, { label: string; hint: string }> = {
+    recording: { label: 'Registrazioni finite', hint: 'per tutta la famiglia' },
+    recording_problem: { label: 'Registrazioni incomplete o non riuscite', hint: 'per tutta la famiglia' },
+    series: { label: 'Serie: puntate nuove programmate', hint: 'da «Registra la serie»' },
+    alert: { label: 'I tuoi avvisi', hint: 'in TV, nei tuoi abbonamenti, a noleggio' },
+    proposals: { label: 'Proposte nuove', hint: 'con voto, anno, genere, paese, regia e cast' },
+    library: { label: 'Pronti da guardare e conversioni', hint: 'copie per il browser e «Converti...»' },
+    system: { label: 'Aggiornamenti di DoveLoFanno', hint: 'solo per gli adulti' },
+  };
+  let prefs = $state<NotifyPref[]>([]);
+  async function loadPrefs() {
+    const p = session.profile;
+    if (!p) return;
+    try { prefs = await api.notifyPrefs(p.id); } catch (e) { error = e instanceof ApiError ? e.message : 'Preferenze delle notifiche non lette'; }
+  }
+  loadPrefs();
+  const shownPrefs = $derived(prefs.filter((x) => kindLabels[x.kind] && !(x.kind === 'system' && session.profile?.isChild)));
+  async function setPref(kind: string, channel: 'web' | 'telegram', on: boolean) {
+    const p = session.profile;
+    if (!p) return;
+    const next = prefs.map((x) => (x.kind === kind ? { ...x, [channel]: on } : x));
+    busy = true;
+    try { prefs = await api.setNotifyPrefs(p.id, next); message = 'Salvato.'; error = ''; }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
+    finally { busy = false; }
   }
 
   // ---------------------------------------------------------------- notifiche del browser
@@ -188,7 +217,27 @@
 
     {:else if tab === 'notifiche'}
       <h2>Notifiche</h2>
-      <p class="f-muted">Le notifiche arrivano nella campanella in alto: registrazioni finite, avvisi, proposte nuove.</p>
+      <p class="f-muted">Scegli cosa ti arriva e dove: nella campanella in alto (e nelle notifiche del browser, se le attivi) o su Telegram.</p>
+      {#if shownPrefs.length > 0}
+        <div class="nprefs" role="table" aria-label="Notifiche per tipo e canale">
+          <div class="nrow nhead" role="row"><span role="columnheader">Tipo</span><span role="columnheader">Sito</span><span role="columnheader">Telegram</span></div>
+          {#each shownPrefs as p (p.kind)}
+            <div class="nrow" role="row">
+              <span role="cell" class="nkind"><strong>{kindLabels[p.kind]!.label}</strong><span class="f-muted">{kindLabels[p.kind]!.hint}</span></span>
+              <span role="cell">
+                <input type="checkbox" checked={p.web} disabled={busy || p.webLocked} onchange={(e) => setPref(p.kind, 'web', e.currentTarget.checked)}
+                  aria-label="{kindLabels[p.kind]!.label} nel sito" title={p.webLocked ? 'Sempre nella campanella' : ''} />
+                {#if p.webLocked}<span class="f-muted lock">sempre</span>{/if}
+              </span>
+              <span role="cell">
+                <input type="checkbox" checked={p.telegram && !!notif?.telegramConfigured} disabled={busy || !notif?.telegramConfigured} onchange={(e) => setPref(p.kind, 'telegram', e.currentTarget.checked)}
+                  aria-label="{kindLabels[p.kind]!.label} su Telegram" title={notif?.telegramConfigured ? '' : 'Telegram non è collegato'} />
+              </span>
+            </div>
+          {/each}
+        </div>
+        <p class="f-muted small">Avvisi e problemi delle registrazioni restano sempre nella campanella: per non ricevere più un avviso, toglilo in <a href="/avvisi" onclick={navigate}>I miei avvisi</a>. Telegram è una chat sola per la famiglia: un messaggio parte se lo vuole il profilo a cui è destinato; per le registrazioni, che sono di tutti, basta un profilo.{notif && !notif.telegramConfigured ? ' Telegram non è collegato: si collega in Impostazioni › Notifiche.' : ''}</p>
+      {/if}
       <h3>Su questo dispositivo</h3>
       {#if !canNotify}
         <p class="f-muted">Questo browser non mostra notifiche di sistema: resta la campanella.</p>
@@ -241,6 +290,17 @@
   .trash :global(.btn) { padding-inline: 10px; color: var(--muted); }
   .trash :global(.btn:hover:not(:disabled)) { color: var(--orange-text); border-color: var(--orange); }
   .tg { margin: 0; color: var(--muted); }
+  /* tabella delle notifiche: colonne fisse, una riga per tipo (26/11/2026) */
+  .nprefs { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); overflow: hidden; max-width: 720px; }
+  .nrow { display: grid; grid-template-columns: minmax(0, 1fr) 96px 96px; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .nrow:last-child { border-bottom: 0; }
+  .nhead { font-size: 13px; font-weight: 600; color: var(--muted); padding-top: 10px; padding-bottom: 10px; }
+  .nrow > span:not(.nkind) { display: inline-flex; align-items: center; gap: 6px; }
+  .nkind { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .nkind .f-muted { font-size: 13px; }
+  .nrow input { width: 20px; height: 20px; margin: 0; accent-color: var(--blue); }
+  .lock { font-size: 12px; }
+  .small { font-size: 13px; max-width: 720px; }
   .tg.on { color: var(--green-text); }
   .card { display: flex; flex-direction: column; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 20px; }
   .card h3 { margin-top: 0; }

@@ -27,7 +27,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
             string text = c.NewlyScheduled == 1
                 ? $"{first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))} su {first.ChannelName}"
                 : $"{c.NewlyScheduled} puntate nuove, la prima {first.Start.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo("it-IT"))}";
-            ctx.Notifications.Add(c.Rule.ProfileId, "recording", $"Serie: «{c.Rule.Title}» programmata", text, "/registrazioni", now, first.WorkId);
+            ctx.Notifications.Add(c.Rule.ProfileId, "series", $"Serie: «{c.Rule.Title}» programmata", text, "/registrazioni", now, first.WorkId);
             log.LogInformation("Serie {Title}: {Count} puntate programmate", c.Rule.Title, c.NewlyScheduled);
         }
     }
@@ -84,12 +84,12 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
                 ctx.Notifications.Add(null, "recording", $"Registrata: «{title}»", o.MergeFailed ? "Unione in MP4 non riuscita: restano gli spezzoni" : r?.ChannelName ?? "", "/registrazioni", now, work);
                 break;
             case "incomplete":
-                ctx.Notifications.Add(null, "recording", $"Registrazione incompleta: «{title}»", $"Mancano {o.LostMinutes} minuti", "/registrazioni", now, work);
+                ctx.Notifications.Add(null, "recording_problem", $"Registrazione incompleta: «{title}»", $"Mancano {o.LostMinutes} minuti", "/registrazioni", now, work);
                 break;
             case "stopped":
                 break;   // fermata a mano: chi l'ha fermata lo sa già
             default:
-                ctx.Notifications.Add(null, "recording", $"Registrazione non riuscita: «{title}»", "Il motivo è nell'elenco delle registrazioni", "/registrazioni", now, work);
+                ctx.Notifications.Add(null, "recording_problem", $"Registrazione non riuscita: «{title}»", "Il motivo è nell'elenco delle registrazioni", "/registrazioni", now, work);
                 break;
         }
     }
@@ -113,25 +113,67 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
     /// <summary>
     /// Proposte (19/11/2026): per le liste dinamiche che il profilo ha nella pagina principale, i titoli nuovi che passano
     /// in TV nei prossimi 2 giorni (la stessa ricerca della pagina Cerca, solo tra le opere note, senza «Non proporre più»).
+    /// Dal 26/11/2026 (richiesta di Antonio) una notifica per titolo, con locandina e dati del film (ProposalText); oltre
+    /// MaxProposals titoli nello stesso giro, gli altri in una notifica sola con i nomi.
     /// </summary>
     async Task RunProposalsAsync(DateTimeOffset now, CancellationToken ct)
     {
         foreach (var g in ctx.Lists.HomeDynamic().GroupBy(x => x.ProfileId))
         {
             if (ctx.Profiles.Get(g.Key) == null) continue;
-            var found = new Dictionary<string, string>();          // opera@passaggio -> titolo
+            var found = new Dictionary<string, SearchHit>();       // opera@passaggio -> risultato
             foreach (var l in g)
             {
                 var r = await SearchApi.RunAsync(ctx, (l.Query.Q ?? "").Trim(), l.Query.ToFilter(), g.Key, 400, dropExcluded: true, useTmdb: false, ct);
                 foreach (var h in r.Hits.Where(h => h.WorkId != null && h.NextAiring is { } t && t > now && t < now.AddDays(2)))
-                    found.TryAdd($"{h.WorkId}@{h.NextAiring!.Value.ToUnixTimeSeconds()}", h.Title);
+                    found.TryAdd($"{h.WorkId}@{h.NextAiring!.Value.ToUnixTimeSeconds()}", h);
             }
             var fresh = ctx.Preferences.TakeNewKeys(g.Key, "L:", found.Keys, now);
             if (fresh.Count == 0) continue;
-            var titles = fresh.Select(k => found[k]).Distinct().ToList();
-            string names = string.Join(", ", titles.Take(3)) + (titles.Count > 3 ? $" e altri {titles.Count - 3}" : "");
-            ctx.Notifications.Add(g.Key, "proposals", titles.Count == 1 ? "Una nuova proposta per te" : $"{titles.Count} nuove proposte per te", names, "/#proposte", now);
+            var hits = fresh.Select(k => found[k]).DistinctBy(h => h.WorkId).OrderBy(h => h.NextAiring).ToList();
+            foreach (var h in hits.Take(MaxProposals))
+                ctx.Notifications.Add(g.Key, "proposals", $"Proposta per te: «{h.Title}»", ProposalText(h, now, ctx.Clock.LocalTimeZone), $"/opera/{h.WorkId}", now, h.WorkId);
+            if (hits.Count > MaxProposals)
+            {
+                var rest = hits.Skip(MaxProposals).Select(h => h.Title).ToList();
+                string names = string.Join(", ", rest.Take(5)) + (rest.Count > 5 ? $" e altri {rest.Count - 5}" : "");
+                ctx.Notifications.Add(g.Key, "proposals", rest.Count == 1 ? "Un'altra proposta per te" : $"Altre {rest.Count} proposte per te", names, "/", now);
+            }
         }
+    }
+
+    /// <summary>Proposte con la loro notifica e la loro locandina in un giro; le altre vanno in una notifica con i nomi.</summary>
+    public const int MaxProposals = 5;
+
+    static readonly CultureInfo It = CultureInfo.GetCultureInfo("it-IT");
+
+    /// <summary>
+    /// Testo di una proposta (26/11/2026): «★ 8,1 IMDb · 1994 · Drammatico, Crime · USA», poi regia e al massimo tre
+    /// attori, poi quando e dove passa («Stasera alle 21:10 su Iris»).
+    /// </summary>
+    public static string ProposalText(SearchHit h, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        var facts = new List<string>();
+        if (h.Rating is double r) facts.Add($"★ {r.ToString("0.0", It)}{(h.RatingSource.Length > 0 ? " " + h.RatingSource : "")}");
+        if (h.Year > 0) facts.Add(h.Year.ToString(CultureInfo.InvariantCulture));
+        if (h.Genres is { Count: > 0 } gs) facts.Add(string.Join(", ", gs.Take(2)));
+        if (h.Country.Length > 0) facts.Add(h.Country);
+        var lines = new List<string>();
+        if (facts.Count > 0) lines.Add(string.Join(" · ", facts));
+        string credits = string.Join(" · ", h.Credits.Split(" · ", StringSplitOptions.RemoveEmptyEntries).Select(part =>
+            part.StartsWith("Con ", StringComparison.Ordinal) ? "Con " + string.Join(", ", part[4..].Split(", ").Take(3)) : part));
+        if (credits.Length > 0) lines.Add(credits);
+        if (h.NextAiring is { } t)
+        {
+            var local = TimeZoneInfo.ConvertTime(t, zone);
+            var today = TimeZoneInfo.ConvertTime(now, zone).Date;
+            string when = local.Date == today ? (local.Hour >= 18 ? "Stasera" : "Oggi")
+                : local.Date == today.AddDays(1) ? "Domani"
+                : local.ToString("dddd d MMMM", It);
+            when = char.ToUpper(when[0], It) + when[1..];
+            lines.Add($"{when} alle {local:HH:mm}{(h.NextChannel.Length > 0 ? " su " + h.NextChannel : "")}");
+        }
+        return string.Join('\n', lines);
     }
 
     /// <summary>Piattaforme (JustWatch tramite TMDB) delle opere con un avviso su abbonamenti o noleggio, una volta al giorno.</summary>
@@ -157,7 +199,7 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
     /// </summary>
     async Task ForwardAsync(NotificationRow n, long? workId)
     {
-        if (!TelegramOn(out _, out _)) return;
+        if (!TelegramOn(out _, out _) || !WantsTelegram(n)) return;
         string text = n.Title + (n.Text.Length > 0 ? "\n" + n.Text : "");
         // 25/11/2026: locandina dell'opera e link alla sua scheda (o alla pagina della notifica) nella rete di casa
         string photo = "", path = n.Link;
@@ -170,6 +212,17 @@ public sealed class NotifyHost(ServerContext ctx, ILogger<NotifyHost> log) : Bac
         string link = home.Length > 0 && path.StartsWith('/') ? home + path : "";
         TelegramQueue.Add(ctx.Settings, [new QueuedMessage(n.CreatedAt, text, photo, link)]);
         await FlushTelegramAsync();
+    }
+
+    /// <summary>
+    /// Preferenze per tipo e canale di notifica (26/11/2026): una notifica di un profilo va su Telegram se quel profilo la
+    /// vuole lì; una della famiglia (registrazioni) se la vuole almeno un profilo. La chat Telegram è una sola per tutti.
+    /// </summary>
+    bool WantsTelegram(NotificationRow n)
+    {
+        if (n.ProfileId is long p) return NotifyPrefs.Telegram(ctx.Settings, p, n.Kind);
+        var all = ctx.Profiles.List();
+        return all.Count == 0 || all.Any(x => NotifyPrefs.Telegram(ctx.Settings, x.Id, n.Kind));
     }
 
     bool TelegramOn(out string token, out string chat)

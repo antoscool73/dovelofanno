@@ -1,7 +1,8 @@
 <script lang="ts">
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
   import { canConvert, openConvert } from '../lib/convert.svelte';
-  import { seenState } from '../lib/seen.svelte';
+  import SeenButton from '../lib/components/SeenButton.svelte';
+  import SeenMark from '../lib/components/SeenMark.svelte';
   import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
@@ -122,24 +123,17 @@
     catch (e) { error = e instanceof ApiError ? e.message : 'Non salvato'; }
   }
 
-  // "Visto" è un interruttore: segna o toglie il visto (anche dei file in casa e degli episodi) e rilegge la scheda
-  let seenBusy = $state(false);
-  async function toggleSeen() {
+  // "Visto" (26/11/2026): l'occhio comune (SeenButton) segna o toglie il visto, anche dei file in casa e degli episodi;
+  // poi si rilegge la scheda
+  async function seenChanged(watched: boolean) {
     const prof = session.profile;
-    if (!prof || !w || seenBusy) return;
-    seenBusy = true;
+    if (!prof || !w) return;
     notice = '';
     try {
-      const was = w.watched;
-      if (was) await api.unwatched(prof.id, w.id);
-      else await api.watched(prof.id, w.id);
       w = await api.work(w.id, prof.id);
-      seenState.set(w.id, w.watched);       // le locandine e le righe degli altri elenchi lo vedono subito
-      notice = was ? 'Segnato come non visto.' : `Segnato come visto${w.files.length > 0 ? ', anche i file in casa' : ''}. Se ti va, dagli le stelle qui sopra.`;
+      notice = !watched ? 'Segnato come non visto.' : `Segnato come visto${w.files.length > 0 ? ', anche i file in casa' : ''}. Se ti va, dagli le stelle qui sopra.`;
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Non segnato';
-    } finally {
-      seenBusy = false;
+      error = e instanceof ApiError ? e.message : 'Scheda non riletta';
     }
   }
 
@@ -204,11 +198,6 @@
   const heroZoom = $derived(!w?.backdrop && !first?.icon && !!w?.poster);
   const heroImage = $derived(w?.backdrop || first?.icon || (w?.poster ?? '').replace('/t/p/w500/', '/t/p/w780/'));
 
-  // aperta da un link diretto non c'è una pagina precedente dell'app: si torna a Stasera
-  function goBack() {
-    if (history.length > 1) history.back();
-    else router.go('/');
-  }
   const recordLabel = (a: GuideProgramme) => {
     if (new Date(a.start).getTime() < Date.now()) return 'Registra da adesso';
     const d = day(a.start);
@@ -217,18 +206,12 @@
 </script>
 
 {#if error && !w}
-  <section class="pad"><p class="error" role="alert">{error}</p><Button onclick={() => history.back()}>Indietro</Button></section>
+  <section class="pad"><p class="error" role="alert">{error}</p><Button onclick={() => router.back()}>Indietro</Button></section>
 {:else if !w}
   <p class="pad muted" role="status">Un momento…</p>
 {:else}
   <section class="hero">
     {#if heroImage}<img class="backdrop" class:zoom={heroZoom} src={heroImage} alt="" referrerpolicy="no-referrer" />{:else}<div class="hero-word" aria-hidden="true">{w.title}</div>{/if}
-    <div class="topbar">
-      <button type="button" class="back" onclick={goBack}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-        Indietro
-      </button>
-    </div>
     <div class="hero-in">
       <div class="poster">
         <PosterImg src={w.poster || first?.icon || ''} title={w.title} />
@@ -243,7 +226,6 @@
           {#if runtime}<span>{minutes(runtime)}</span>{/if}
           {#if first?.country}<span>{first.country}</span>{/if}
           {#if w.rating != null}<Badge tone="blue">★ {vote(w.rating)} {w.ratingSource}</Badge>{:else if w.kind !== 'programme' && w.kind !== 'episode'}<span title="Voto non ancora disponibile: IMDb non ha ancora il titolo e su TMDB ha meno di 20 voti">★ N/A</span>{/if}
-          {#if w.watched}<Badge tone="green">Visto</Badge>{/if}
         </div>
         {#if plot}<p class="plot">{plot}</p>{/if}
         {#if directors || actors}
@@ -263,10 +245,10 @@
             <Button variant="primary" size="l" href="/guarda/{playFile.itemId}" onclick={navigate}>▶ {playFile.positionS > 0 && !playFile.watched ? `Riprendi da ${clock(playFile.positionS)}` : episodes && playFile.episode != null ? `Guarda S${playFile.season}E${String(playFile.episode).padStart(2, '0')}` : 'Guarda'}</Button>
           {/if}
           {#if nextRecordable}<RecordButton scheduled={nextRecordable.scheduled} busy={busy === nextRecordable.id} label={recordLabel(nextRecordable)} onclick={() => record(nextRecordable)} />{/if}
-          {#if w.trailer}<Button variant="soft" size="l" href={w.trailer}>▶ Trailer</Button>{/if}
+          {#if w.trailer}<Button variant="soft" size="l" href={w.trailer} external>▶ Trailer</Button>{/if}
           {#if session.profile}
             <Button variant={w.inTonight ? "primary" : "soft"} size="l" pressed={w.inTonight} onclick={toggleTonight}><StableLabel text={w.inTonight ? 'Nella mia lista' : 'Aggiungi alla mia lista'} variants={['Nella mia lista', 'Aggiungi alla mia lista']} /></Button>
-            <Button variant={w.watched ? "primary" : "soft"} size="l" pressed={w.watched} disabled={seenBusy} onclick={toggleSeen}><StableLabel text={w.watched ? 'Visto' : 'Segna come visto'} variants={['Visto', 'Segna come visto']} /></Button>
+            <SeenButton workId={w.id} title={w.title} size="l" onchange={seenChanged} />
             <Button variant="soft" size="l" pressed={listsOpen} onclick={openLists}>Aggiungi a una lista</Button>
             <!-- pulsanti a stato (serata, visto, avvisi): acceso = colori invertiti, senza segno di spunta -->
             <Button variant={activeAlerts > 0 ? 'primary' : 'soft'} size="l" pressed={alertsOpen} onclick={() => (alertsOpen ? (alertsOpen = false) : openAlerts())}><StableLabel text={activeAlerts > 0 ? 'Avvisi attivi' : 'Avvisami'} variants={['Avvisi attivi', 'Avvisami']} /></Button>
@@ -307,7 +289,7 @@
                   <strong>{f.episode != null ? `S${f.season}E${String(f.episode).padStart(2, '0')}${f.episodeTitle ? ' · ' + f.episodeTitle : ''}` : f.name}</strong>
                   <span class="muted small">{[f.durationS ? clock(f.durationS) : '', f.width && f.height ? `${f.width}×${f.height}` : '', f.origin === 'recorded' ? 'registrazione' : 'dal NAS', f.positionS > 0 && !f.watched ? `fermo a ${clock(f.positionS)}` : ''].filter(Boolean).join(' · ')}</span>
                 </span>
-                {#if f.watched}<Badge tone="green">Visto</Badge>{/if}
+                {#if f.watched}<SeenMark />{/if}
                 <Button size="s" variant={f.playable ? 'primary' : 'secondary'} href="/guarda/{f.itemId}" onclick={navigate}>{f.playable ? (f.positionS > 0 && !f.watched ? '▶ Riprendi' : '▶ Guarda') : 'Prepara e guarda'}</Button>
                 {#if session.profile && !session.profile.isChild}
                   <Button size="s" variant="ghost" onclick={() => (rematch = f.itemId)}>Abbina di nuovo…</Button>
@@ -386,15 +368,8 @@
   .hero::after { content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(90deg, rgba(13, 16, 21, 0.92) 0%, rgba(13, 16, 21, 0.7) 45%, rgba(13, 16, 21, 0.25) 100%), linear-gradient(0deg, var(--bg) 0%, rgba(13, 16, 21, 0) 35%); }
   .hero > :not(.backdrop):not(.hero-word) { z-index: 1; }
-  .topbar { position: relative; padding: 18px var(--gutter) 0; }
-  .back {
-    display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px 0 10px; border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.28); background: rgba(13, 16, 21, 0.55); color: var(--text);
-    font-size: 15px; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px);
-  }
-  .back:hover, .back:focus-visible { background: rgba(255, 255, 255, 0.14); border-color: var(--text); }
   .hero-word { position: absolute; top: 20px; right: var(--gutter); max-width: 70%; text-align: right; font-family: var(--font-display); font-weight: 700; font-size: clamp(60px, 10vw, 150px); line-height: 0.95; color: #1f2b44; text-transform: uppercase; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
-  .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 28px var(--gutter) 36px; max-width: 1240px; }
+  .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; padding: 56px var(--gutter) 36px; max-width: 1240px; }
   .poster { flex: 0 0 220px; aspect-ratio: 2 / 3; border-radius: 14px; background: #2b3d63; overflow: hidden; display: flex; align-items: flex-end; padding: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); position: relative; }
   .info { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
   .parent { align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; }

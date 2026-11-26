@@ -57,8 +57,11 @@
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
   import AlertDialog from '../lib/components/AlertDialog.svelte';
+  import { alertedState } from '../lib/alerted.svelte';
   import ListDialog from '../lib/components/ListDialog.svelte';
   import Button from '../lib/components/Button.svelte';
+  import StableLabel from '../lib/components/StableLabel.svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import { availOfHit, type Avail } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
   import { api, ApiError, fromSaved, toSaved, type ListSummary, type SearchHit, type SearchOptions } from '../lib/api/client';
@@ -283,8 +286,13 @@
   }
   async function alertFor(h: SearchHit) {
     const id = await workOf(h);
-    if (id != null) selected = { workId: id, title: h.title };
+    if (id != null) { selected = { workId: id, title: h.title }; if (h.tmdbId != null) madeWork.set(h.tmdbId, id); }
   }
+  // «Avvisami» acceso quando l'opera ha un avviso (26/11/2026). Un titolo solo di TMDB diventa un'opera aprendo il popup:
+  // si ricorda quale, per accendere il pulsante anche lì
+  const madeWork = new SvelteMap<number, number>();
+  $effect(() => { void session.profile; alertedState.sync(); });
+  const hitAlerted = (h: SearchHit) => alertedState.has(h.workId ?? (h.tmdbId != null ? madeWork.get(h.tmdbId) : null));
 
   const summary = $derived.by(() => {
     // descrive la ricerca dei risultati mostrati, non i filtri che si stanno cambiando
@@ -493,7 +501,7 @@
                 <Button size="s" variant="soft" onclick={() => open(h)} disabled={opening != null}>Apri</Button>
               {:else}
                 <span class="tip">
-                  <Button size="s" variant="soft" onclick={() => alertFor(h)} disabled={opening != null}>Avvisami</Button>
+                  <Button size="s" variant={hitAlerted(h) ? 'primary' : 'soft'} pressed={hitAlerted(h)} onclick={() => alertFor(h)} disabled={opening != null}><StableLabel text={hitAlerted(h) ? 'Avvisi attivi' : 'Avvisami'} variants={['Avvisi attivi', 'Avvisami']} /></Button>
                   <span class="tipbox" role="tooltip">Per un titolo che oggi non vedi: scegli se avvisarti quando passa in TV, quando arriva nei tuoi abbonamenti o quando si noleggia. Si apre una finestra con le scelte.</span>
                 </span>
               {/if}

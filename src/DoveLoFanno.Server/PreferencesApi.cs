@@ -145,13 +145,29 @@ public static class PreferencesApi
 
         // ---------------------------------------------------------------- notifiche
         prof.MapGet("/{id:long}/notifications", IResult (long id, ServerContext ctx) =>
-            ctx.Notifications.List(id) is { } l ? Results.Ok(l) : Results.NotFound())
+            ctx.Notifications.List(id, hidden: NotifyPrefs.HiddenInApp(ctx.Settings, id)) is { } l ? Results.Ok(l) : Results.NotFound())
             .WithSummary("Ultime notifiche del profilo e della famiglia, con quante non sono lette")
             .Produces<NotificationList>().Produces(StatusCodes.Status404NotFound);
 
         prof.MapPost("/{id:long}/notifications/read", IResult (long id, ReadBody b, ServerContext ctx) =>
             ctx.Notifications.MarkRead(id, b.UpTo) ? Results.NoContent() : Results.NotFound())
             .WithSummary("Segna come lette le notifiche fino a quella indicata").Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+
+        // quali notifiche arrivano e dove, per tipo e canale di notifica (26/11/2026)
+        prof.MapGet("/{id:long}/notification-prefs", IResult (long id, ServerContext ctx) =>
+            ctx.Profiles.Get(id) is null ? Results.NotFound() : Results.Ok(NotifyPrefs.Load(ctx.Settings, id)))
+            .WithSummary("Per ogni tipo di notifica (recording, recording_problem, series, alert, proposals, library, system) se arriva nell'app e su Telegram")
+            .Produces<List<NotifyPref>>().Produces(StatusCodes.Status404NotFound);
+
+        prof.MapPut("/{id:long}/notification-prefs", IResult (long id, List<NotifyPref> b, ServerContext ctx) =>
+        {
+            if (ctx.Profiles.Get(id) is null) return Results.NotFound();
+            if (b.Any(p => !NotifyPrefs.Kinds.Contains(p.Kind)))
+                return Results.BadRequest(new ApiError("tipi: " + string.Join(", ", NotifyPrefs.Kinds)));
+            return Results.Ok(NotifyPrefs.Save(ctx.Settings, id, b));
+        })
+            .WithSummary("Sceglie per ogni tipo di notifica se arriva nell'app e su Telegram (avvisi e problemi delle registrazioni restano sempre nell'app)")
+            .Produces<List<NotifyPref>>().Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         // ---------------------------------------------------------------- abbonamenti
         prof.MapGet("/{id:long}/subscriptions", IResult (long id, ServerContext ctx) =>

@@ -6,6 +6,7 @@
   // Le stelle sono il voto personale del profilo, accanto al voto IMDb.
   import { ask } from '../lib/confirm.svelte';
   import Badge from '../lib/components/Badge.svelte';
+  import SeenMark from '../lib/components/SeenMark.svelte';
   import PosterImg from '../lib/components/PosterImg.svelte';
   import AvailBadges from '../lib/components/AvailBadges.svelte';
   import Section from '../lib/components/Section.svelte';
@@ -268,7 +269,7 @@
                 <a class="ltitle" href="/opera/{it.workId}" onclick={navigate}>{it.title}</a>
                 {#if kindLabel[it.kind]}<Badge tone={kindLabel[it.kind]!.tone}>{kindLabel[it.kind]!.label}</Badge>{/if}
                 {#if it.rating != null}<span class="muted small">{it.ratingSource} {vote(it.rating)}</span>{:else if it.kind !== 'programme'}<span class="muted small" title="Voto non ancora disponibile">N/A</span>{/if}
-                {#if it.watched}<Badge tone="green">Visto</Badge>{/if}
+                {#if it.watched}<SeenMark />{/if}
               </div>
               <div class="muted small">{[it.country, it.year ? String(it.year) : '', it.credits].filter(Boolean).join(' · ')}</div>
               <div class="where small">
@@ -406,7 +407,7 @@
         {#if e.playItemId && e.copyState === 'needed'}<span title="Il browser non lo legge così: «Guarda» propone di prepararlo"><Badge tone="neutral">Da preparare</Badge></span>
         {:else if e.playItemId && (e.copyState === 'queued' || e.copyState === 'working')}<span title="Il server sta preparando la copia per il browser"><Badge tone="blue">In preparazione</Badge></span>
         {:else if e.playItemId && e.copyState === 'failed'}<span title="La copia per il browser non è riuscita"><Badge tone="orange">Non preparato</Badge></span>{/if}
-        {#if e.watched}<Badge tone="green">Visto</Badge>{:else if sec === 'visti'}<Badge tone="neutral">Votato</Badge>{/if}
+        {#if e.watched}<SeenMark />{:else if sec === 'visti'}<Badge tone="neutral">Votato</Badge>{/if}
         {#if e.recorded && sec !== 'registrazioni'}<Badge tone="red">Registrato</Badge>{/if}
       </div>
     </div>
@@ -451,7 +452,7 @@
           <span class="muted small one">Su {av.mine.map((s) => platforms.of(s).short).join(', ')}</span>
         {/if}
       </div>
-      <div class="cfoot">{#if it.watched}<Badge tone="green">Visto</Badge>{/if}</div>
+      <div class="cfoot">{#if it.watched}<SeenMark />{/if}</div>
     </div>
   </article>
 {/snippet}

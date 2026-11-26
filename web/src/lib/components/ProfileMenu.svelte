@@ -35,6 +35,18 @@
     else session.enter(p);
   }
 
+  // nome a larghezza fissa (26/11/2026, Antonio): il carattere scende da 14 fino a 11 px finché il nome ci sta, poi «…»
+  // e il nome intero nel tooltip. Si ricalcola quando cambia il nome (cambio di profilo o modifica)
+  function fit(node: HTMLElement, name: string) {
+    const run = () => {
+      let size = 14;
+      node.style.fontSize = size + 'px';
+      while (size > 11 && node.scrollWidth > node.clientWidth) node.style.fontSize = --size + 'px';
+    };
+    run();
+    return { update: run };
+  }
+
   function edit() {
     close();
     router.go('/profili#modifica');
@@ -56,7 +68,7 @@
     <button type="button" class="profile" bind:this={button} onclick={toggle} aria-haspopup="menu" aria-expanded={open}
       aria-label="Profilo attivo: {session.profile.name}. Cambia profilo">
       <Avatar name={session.profile.name} color={session.profile.avatar} icon={session.profile.icon} size={28} />
-      <span class="pname">{session.profile.name}</span>
+      <span class="pname" use:fit={session.profile.name} title={session.profile.name}>{session.profile.name}</span>
       <svg class="chev" class:up={open} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
     </button>
     {#if open}
@@ -90,8 +102,10 @@
   .profile:hover, .profile[aria-expanded='true'] { background: var(--card); }
   .chev { color: var(--muted); transition: transform 0.15s; }
   .chev.up { transform: rotate(180deg); }
-  .pname { font-size: 14px; font-weight: 600; }
-  @media (max-width: 1000px) { .pname { display: none; } }
+  /* larghezza fissa: avatar 28 + nome 104 + freccia 14, così la barra non si sposta cambiando profilo */
+  .profile { width: 172px; flex: 0 0 auto; }
+  .pname { flex: 1 1 0; min-width: 0; font-size: 14px; font-weight: 600; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 1000px) { .profile { width: auto; } .pname { display: none; } }
   .menu {
     position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; padding: 6px;
     display: flex; flex-direction: column; gap: 2px;

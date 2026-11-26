@@ -124,7 +124,7 @@
   <form class="card" onsubmit={save}>
     <h3>{editId === 'new' ? 'Nuovo profilo' : 'Modifica profilo'}</h3>
     <div class="f-row">
-      <label class="f-field w2">Nome<input bind:value={eName} maxlength="40" required /></label>
+      <label class="f-field w2">Nome<input bind:value={eName} maxlength="16" required /></label>
       <div class="f-field">Colore
         <div class="colors">
           {#each colors as c (c)}

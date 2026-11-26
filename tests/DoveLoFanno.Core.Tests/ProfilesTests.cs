@@ -49,6 +49,26 @@ public sealed class ProfilesTests : IDisposable
     }
 
     [Fact]
+    public void NomeAlMassimo16Caratteri()
+    {
+        // 26/11/2026: il selettore del profilo nella barra ha larghezza fissa
+        Assert.Equal(ProfileResult.Ok, store.Create("Alessandra Maria", false, null, null, Now).Result);    // 16
+        Assert.Equal(ProfileResult.InvalidName, store.Create("Alessandra Marina", false, null, null, Now).Result);
+        // un nome lungo di prima resta valido finché non lo si cambia
+        long id = store.Create("Bruno", false, null, null, Now).Id;
+        using (var c = Database.Open(Path.Combine(dir, "dlf.db")))
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "UPDATE profiles SET name = 'Bruno il cuoco di casa' WHERE id = $p";
+            cmd.Parameters.AddWithValue("$p", id);
+            cmd.ExecuteNonQuery();
+        }
+        Assert.Equal(ProfileResult.Ok, store.Update(id, "Bruno il cuoco di casa", null, "#34C77B", null, false));
+        Assert.Equal(ProfileResult.InvalidName, store.Update(id, "Bruno il cuoco di cas", null, null, null, false));
+        Assert.Equal(ProfileResult.Ok, store.Update(id, "Bruno", null, null, null, false));
+    }
+
+    [Fact]
     public void IconaDelProfilo()
     {
         long a = store.Create("Anna", false, null, null, Now, "gatto").Id;

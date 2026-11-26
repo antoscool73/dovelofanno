@@ -474,7 +474,7 @@ public static class Api
         ProfileResult.LastAdult => Results.Conflict(new ApiError("deve restare almeno un profilo adulto")),
         ProfileResult.InvalidPin => Results.BadRequest(new ApiError("PIN: da 4 a 8 cifre, solo per i profili adulti")),
         ProfileResult.InvalidIcon => Results.BadRequest(new ApiError("icona non valida")),
-        _ => Results.BadRequest(new ApiError("nome mancante o più lungo di 40 caratteri")),
+        _ => Results.BadRequest(new ApiError($"nome mancante o più lungo di {ProfileStore.MaxName} caratteri")),
     };
 
     static string DefaultName(string url)

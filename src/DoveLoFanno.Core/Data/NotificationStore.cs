@@ -33,20 +33,22 @@ public sealed class NotificationStore(string dbPath)
     }
 
     /// <summary>Le ultime notifiche del profilo (sue e della famiglia); null se il profilo non esiste.</summary>
-    public NotificationList? List(long profileId, int max = 50)
+    /// <param name="hidden">tipi che il profilo non vuole nella campanella (NotifyPrefs, 26/11/2026)</param>
+    public NotificationList? List(long profileId, int max = 50, IReadOnlySet<string>? hidden = null)
     {
+        string h = "," + string.Join(",", hidden ?? new HashSet<string>()) + ",";
         using var c = Open();
         long? read = Db.ScalarLong(c, "SELECT notifications_read FROM profiles WHERE id = $p", ("$p", profileId));
         if (read == null) return null;
         var items = Db.Query(c, """
             SELECT id, profile_id, kind, title, text, link, created_at FROM notifications
-            WHERE profile_id IS NULL OR profile_id = $p ORDER BY id DESC LIMIT $max
+            WHERE (profile_id IS NULL OR profile_id = $p) AND instr($h, ',' || kind || ',') = 0 ORDER BY id DESC LIMIT $max
             """,
             r => new NotificationRow(r.GetInt64(0), Db.NLong(r, 1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetString(5),
                 Db.FromUnix(r.GetInt64(6)), r.GetInt64(0) <= read),
-            ("$p", profileId), ("$max", max));
-        int unread = (int)(Db.ScalarLong(c, "SELECT count(*) FROM notifications WHERE (profile_id IS NULL OR profile_id = $p) AND id > $r",
-            ("$p", profileId), ("$r", read)) ?? 0);
+            ("$p", profileId), ("$max", max), ("$h", h));
+        int unread = (int)(Db.ScalarLong(c, "SELECT count(*) FROM notifications WHERE (profile_id IS NULL OR profile_id = $p) AND id > $r AND instr($h, ',' || kind || ',') = 0",
+            ("$p", profileId), ("$r", read), ("$h", h)) ?? 0);
         return new NotificationList(unread, items);
     }
 

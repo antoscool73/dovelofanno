@@ -1,7 +1,9 @@
 <script lang="ts">
-  // Il pulsante «Visto» (23/11/2026): uguale ovunque compaia un'opera. Spento = occhio con il contorno; acceso = verde
-  // con la spunta. Un tocco segna o toglie il visto per il profilo attivo (lib/seen.svelte.ts). Senza opera o senza
+  // Il pulsante «Visto» (23/11/2026): uguale ovunque compaia un'opera, anche nella Scheda (26/11/2026). Sempre l'occhio
+  // (Antonio, 26/11/2026: niente spunta né scritta «Segna come visto»): spento = occhio con il contorno; acceso = tondo
+  // verde con l'occhio pieno. Un tocco segna o toglie il visto per il profilo attivo (lib/seen.svelte.ts). Senza opera o senza
   // profilo non compare. `label` mostra anche la scritta (nei punti dove c'è spazio: popup della guida, righe).
+  import EyeIcon from './EyeIcon.svelte';
   import { seenState } from '../seen.svelte';
   import { session } from '../session.svelte';
 
@@ -9,8 +11,9 @@
     workId,
     title = '',
     label = false,
+    size = 'm',
     onchange,
-  }: { workId: number | null | undefined; title?: string; label?: boolean; onchange?: (watched: boolean) => void } = $props();
+  }: { workId: number | null | undefined; title?: string; label?: boolean; size?: 'm' | 'l'; onchange?: (watched: boolean) => void } = $props();
 
   $effect(() => { void session.profile; seenState.sync(); });
   const on = $derived(seenState.has(workId));
@@ -25,14 +28,10 @@
 </script>
 
 {#if workId != null && session.profile}
-  <button type="button" class="seen" class:on class:label disabled={busy} aria-pressed={on} onclick={click}
+  <button type="button" class="seen {size}" class:on class:label disabled={busy} aria-pressed={on} onclick={click}
     aria-label={on ? `Visto${title ? `: ${title}` : ''}. Tocca per togliere` : `Segna come visto${title ? `: ${title}` : ''}`}
     title={on ? 'Visto (tocca per togliere)' : 'Segna come visto'}>
-    {#if on}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-    {:else}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
-    {/if}
+    <EyeIcon filled={on} size={size === 'l' ? 22 : 16} />
     {#if label}<span>{on ? 'Visto' : 'Visto?'}</span>{/if}
   </button>
 {/if}
@@ -47,5 +46,7 @@
   .seen:hover { color: var(--text); border-color: var(--text-2); }
   .seen.on { background: var(--green, #34c77b); border-color: transparent; color: #0d1015; }
   .seen.label { height: 38px; padding: 0 14px; }
+  /* nella Scheda, alto come i pulsanti grandi accanto */
+  .seen.l { min-width: 48px; height: 48px; padding: 0 12px; }
   .seen:disabled { opacity: 0.6; cursor: progress; }
 </style>

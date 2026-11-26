@@ -3,6 +3,7 @@
   // Ogni scelta si salva subito; spegnere un avviso ne tiene le opzioni.
   import { api, ApiError, type AlertKind, type AlertRow, type ProfileSubscriptions } from '../api/client';
   import { session } from '../session.svelte';
+  import { alertedState } from '../alerted.svelte';
 
   // onchange: quanti avvisi sono accesi (la Scheda lo mostra sul pulsante); onclose: pannello che si chiude (Scheda);
   // title: il titolo dell'opera nell'intestazione (popup di Cerca)
@@ -18,6 +19,7 @@
     if (!prof) return;
     try {
       [alerts, subs] = await Promise.all([api.alerts(prof.id, workId), api.profileSubscriptions(prof.id)]);
+      loaded = true;
       error = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Avvisi non letti';
@@ -56,7 +58,13 @@
     { id: 'soon', label: '30 minuti prima' },
   ];
   const mySubs = $derived(subs?.services ?? []);
-  $effect(() => { onchange?.(alerts.filter((a) => a.active).length); });
+  // a ogni cambio (e dopo la lettura) il numero di avvisi accesi va al chiamante e allo stato comune dei pulsanti
+  let loaded = $state(false);
+  $effect(() => {
+    const n = alerts.filter((a) => a.active).length;
+    onchange?.(n);
+    if (loaded) alertedState.set(workId, n);
+  });
 </script>
 
 <section class="panel" aria-labelledby="av-title">

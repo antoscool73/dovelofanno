@@ -88,6 +88,8 @@ export function toSaved(f: SearchQuery): SavedQuery {
 export type GeneralSettings = S['GeneralSettings'];
 export type GeneralSettingsPatch = S['GeneralSettingsPatch'];
 export type NotificationSettings = S['NotificationSettings'];
+/** Un tipo di notifica e dove arriva per il profilo (26/11/2026): web = campanella, telegram = chat della famiglia. */
+export type NotifyPref = S['NotifyPref'];
 export type AuthStatus = S['AuthStatus'];
 export type NotificationSettingsPatch = S['NotificationSettingsPatch'];
 export type GenreCount = S['GenreCount'];
@@ -296,6 +298,8 @@ export const api = {
   stopSeries: (id: number) => call<void>('DELETE', `/series/${id}`),
 
   // sezioni predefinite di La mia lista nascoste dal profilo (20/11/2026)
+  notifyPrefs: (profileId: number) => call<NotifyPref[]>('GET', `/profiles/${profileId}/notification-prefs`),
+  setNotifyPrefs: (profileId: number, prefs: NotifyPref[]) => call<NotifyPref[]>('PUT', `/profiles/${profileId}/notification-prefs`, prefs),
   homeSections: (profileId: number) => call<HomeSections>('GET', `/profiles/${profileId}/home`),
   setHomeSections: (profileId: number, hidden: string[]) => call<HomeSections>('PUT', `/profiles/${profileId}/home`, { hidden }),
 
