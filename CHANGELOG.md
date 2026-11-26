@@ -10,6 +10,14 @@ Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/bet
 ## Prossima versione
 
 - Registrazioni da LA7 e Mediaset (DASH) di nuovo complete: prima potevano salvarne solo pezzi da mezzo minuto
+- Notifiche a scelta: per ogni tipo (registrazioni, serie, avvisi, proposte, pronti da guardare, aggiornamenti) decidi se arrivano nel sito, su Telegram o in tutti e due, in Preferenze › Notifiche
+- Proposte più ricche: una notifica per film con voto, anno, genere, paese, regia, attori e quando passa
+- «Indietro» sempre in alto, sotto la barra, in tutte le pagine
+- Barra in alto: il profilo a sinistra, il logo a destra; nome del profilo al massimo 16 caratteri
+- «Visto» sempre con l'occhio, anche nella scheda
+- In Cerca «Avvisami» diventa «Avvisi attivi» quando hai già un avviso sul titolo
+- Guida TV: i filtri restano tornando indietro da una scheda
+- Il trailer si apre in una nuova scheda del browser
 
 ## 0.4.0 · 25/11/2026
 
