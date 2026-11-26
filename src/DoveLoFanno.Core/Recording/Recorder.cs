@@ -159,11 +159,13 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
                 var src = await resolver.ResolveAsync(cand.Url, cand.UserAgent, cand.Referrer, ct);
                 if (src.Url != cand.Url) run.Log("Reindirizzato a: " + src.Url);
                 if (src.Format.Length > 0) run.Log("Formato forzato: " + src.Format);
+                var rate = RateOptions(src, tools.SupportsOption("readrate_catchup"));
+                if (rate.Count > 0) run.Log("DASH a velocità reale: " + string.Join(' ', rate));
                 var started = Now;
                 obs.PartStarted(no, cand.StreamId, src.Url, part, started);
                 run.Log($"Avvio ffmpeg, spezzone {no}, flusso {cand.StreamId}, {remaining} s rimanenti");
                 string reason = "exit";
-                using (var p = tools.StartFfmpeg(Args(job, cand, src, part, remaining), ffLog))
+                using (var p = tools.StartFfmpeg(Args(job, cand, src, rate, part, remaining), ffLog))
                 {
                     long lastSize = -1;
                     var lastGrow = Now;
@@ -272,18 +274,39 @@ public sealed class Recorder(IMediaTools tools, StreamResolver resolver, TimePro
     DateTimeOffset Now => clock.GetLocalNow();
     TimeProvider Clock => clock;
 
-    List<string> Args(RecordingJob job, StreamCandidate c, ResolvedStream src, string part, int remaining)
+    static List<string> Args(RecordingJob job, StreamCandidate c, ResolvedStream src, IReadOnlyList<string> rate, string part, int remaining)
     {
         var a = new List<string> { "-hide_banner", "-nostdin", "-loglevel", "warning", "-y", "-rw_timeout", "30000000" };
         if (c.UserAgent.Length > 0) a.AddRange(["-user_agent", c.UserAgent]);
         if (c.Referrer.Length > 0) a.AddRange(["-referer", c.Referrer]);
         if (src.Format.Length > 0) a.AddRange(["-f", src.Format]);
+        a.AddRange(rate);
         a.AddRange(["-i", src.Url]);
         // solo audio: senza flush ffmpeg scrive a blocchi da 256 KB, cioè ogni 15-30 s a 64-128 kbit/s; il controllo
         // "file fermo" resterebbe cieco e un'interruzione perderebbe l'ultimo blocco (trovato nel collaudo del 16/11)
         if (job.AudioOnly) a.AddRange(["-map", "0:a:0", "-vn", "-flush_packets", "1"]);
         a.AddRange(["-sn", "-dn", "-c", "copy", "-t", (remaining + 300).ToString(CultureInfo.InvariantCulture), "-f", "mpegts", part]);
         return a;
+    }
+
+    /// <summary>
+    /// DASH a velocità reale, come RegistraTV dal 19/11/2026. Letto alla massima velocità il lettore DASH di ffmpeg
+    /// arriva al bordo della diretta e chiede frammenti non ancora pubblicati: 404 a raffica, audio con buchi da 3,84 s
+    /// («C'è Posta per Te», La 5, 18/11) oppure ffmpeg fermo finché il controllo non lo riavvia ogni 97 s («Amabili
+    /// resti», LA7 Cinema, 25/11: 96 spezzoni, 54 min su 157). -readrate_catchup lascia recuperare un ritardo a 1,5x
+    /// (il server Mediaset tiene solo 2 min di diretta); senza (ffmpeg prima del 7.1) resta solo -readrate 1.
+    /// </summary>
+    public static IReadOnlyList<string> RateOptions(ResolvedStream src, bool catchupSupported)
+    {
+        if (!IsDash(src)) return [];
+        return catchupSupported ? ["-readrate", "1", "-readrate_catchup", "1.5"] : ["-readrate", "1"];
+    }
+
+    static bool IsDash(ResolvedStream src)
+    {
+        if (src.Format.Equals("dash", StringComparison.OrdinalIgnoreCase)) return true;
+        string path = Uri.TryCreate(src.Url, UriKind.Absolute, out var u) ? u.AbsolutePath : src.Url.Split('?')[0];
+        return path.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase);
     }
 
     static long FileSize(string path)

@@ -253,3 +253,36 @@ public sealed class RecorderSleepTests(ITestOutputHelper output) : RecorderTestB
         Assert.Empty(o.Parts);
     }
 }
+
+/// <summary>DASH a velocità reale (Amabili resti, LA7 Cinema, 25/11/2026: 404 a raffica e 96 spezzoni).</summary>
+public sealed class RecorderDashRateTests
+{
+    [Theory]
+    [InlineData("https://live.example.it/la7cinema/manifest.mpd", "")]
+    [InlineData("https://live.example.it/la7cinema/manifest.MPD?token=abc", "")]
+    [InlineData("https://live.example.it/canale5/live", "dash")]
+    public void DashLettoAVelocitaReale(string url, string format)
+    {
+        var src = new ResolvedStream(url, format);
+        Assert.Equal(["-readrate", "1", "-readrate_catchup", "1.5"], Recorder.RateOptions(src, catchupSupported: true));
+        // ffmpeg 6.1 (Docker, WSL) non conosce -readrate_catchup: con un'opzione sconosciuta non parte
+        Assert.Equal(["-readrate", "1"], Recorder.RateOptions(src, catchupSupported: false));
+    }
+
+    [Theory]
+    [InlineData("https://hls.example.it/tv8web/master.m3u8?hdnts=st=1~exp=2", "")]
+    [InlineData("https://hls.example.it/rai1/live", "hls")]
+    [InlineData("https://example.it/mpd/stream.m3u8", "")]
+    public void HlsSenzaLimite(string url, string format) =>
+        Assert.Empty(Recorder.RateOptions(new ResolvedStream(url, format), catchupSupported: true));
+
+    [Fact]
+    public void OpzioniDiFfmpegRiconosciute()
+    {
+        var tools = HlsSimulator.FindTools();
+        if (tools == null) return;
+        Assert.True(tools.SupportsOption("readrate"));
+        Assert.False(tools.SupportsOption("readrate_inesistente"));
+        Assert.False(tools.SupportsOption("read"));
+    }
+}

@@ -7,6 +7,10 @@ Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/bet
 
 <!-- La sezione «Prossima versione» non ha numero né data: tools/changelog.py la salta, così version.json non annuncia
      un aggiornamento che non c'è ancora. Al rilascio diventa «## X.Y.Z · gg/mm/aaaa» e si lancia lo script. -->
+## Prossima versione
+
+- Registrazioni da LA7 e Mediaset (DASH) di nuovo complete: prima potevano salvarne solo pezzi da mezzo minuto
+
 ## 0.4.0 · 25/11/2026
 
 - Password del server, oppure accesso solo dalla rete di casa; ogni dispositivo entra una volta

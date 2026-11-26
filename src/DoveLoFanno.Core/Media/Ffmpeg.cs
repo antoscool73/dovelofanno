@@ -22,6 +22,12 @@ public interface IMediaTools
 
     /// <summary>Esegue ffmpeg fino alla fine (unioni, conversioni), stderr nel log.</summary>
     Task<int> RunFfmpegAsync(IReadOnlyList<string> args, string logPath, CancellationToken ct);
+
+    /// <summary>
+    /// ffmpeg conosce questa opzione (nome senza trattino)? Serve per le opzioni recenti: -readrate_catchup c'è da
+    /// ffmpeg 7.1, ma Docker e WSL hanno il 6.1 di Ubuntu, che con un'opzione sconosciuta non parte nemmeno.
+    /// </summary>
+    bool SupportsOption(string name) => false;
 }
 
 /// <summary>ffmpeg e ffprobe veri: dal percorso indicato, dal PATH o (Windows) dalla cartella di winget.</summary>
@@ -29,6 +35,33 @@ public sealed class MediaTools(string ffmpegPath, string ffprobePath) : IMediaTo
 {
     public string FfmpegPath { get; } = ffmpegPath;
     public string FfprobePath { get; } = ffprobePath;
+
+    readonly Lazy<string> help = new(() => ReadHelp(ffmpegPath));
+
+    public bool SupportsOption(string name) =>
+        help.Value.Contains("\n-" + name + " ", StringComparison.Ordinal);
+
+    /// <summary>Elenco delle opzioni (ffmpeg -h full), letto una volta; vuoto se ffmpeg non risponde.</summary>
+    static string ReadHelp(string exe)
+    {
+        try
+        {
+            var psi = Info(exe, ["-hide_banner", "-h", "full"]);
+            psi.RedirectStandardOutput = true;
+            using var p = Process.Start(psi);
+            if (p == null) return "";
+            p.StandardInput.Close();
+            var err = p.StandardError.ReadToEndAsync();
+            string text = p.StandardOutput.ReadToEnd();
+            if (!p.WaitForExit(15000)) { try { p.Kill(true); } catch (InvalidOperationException) { } }
+            err.Wait(1000);
+            return "\n" + text.Replace("\r\n", "\n");
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            return "";
+        }
+    }
 
     public static MediaTools Find(string? ffmpegHint = null)
     {
