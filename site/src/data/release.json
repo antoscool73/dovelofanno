@@ -1,10 +1,26 @@
 {
-  "version": "0.4.0",
-  "base": "https://download.dovelofanno.it/0.4.0/",
+  "version": "0.5.0",
+  "base": "https://download.dovelofanno.it/0.5.0/",
   "files": {
-    "win-x64": { "name": "DoveLoFanno-0.4.0-setup.exe", "size": 4996627, "sha256": "60c0026ebb982b95f9677ced22c0a43f711d48468e20568e0bf2bca171ac2b8e" },
-    "docker-amd64": { "name": "dovelofanno-0.4.0-docker-amd64.tar.gz", "size": 245782411, "sha256": "d21a9e4dfdb6f3764e6280f4c16489317fd60fb17f4c7488b374d47f9249afb9" },
-    "docker-arm64": { "name": "dovelofanno-0.4.0-docker-arm64.tar.gz", "size": 236302483, "sha256": "841ec11464757ddd84635606dd758d8a44c7b5a028d21e8dfb52a5bf5253d2ed" },
-    "src": { "name": "DoveLoFanno-0.4.0-sorgenti.zip", "size": 2136870, "sha256": "dd047a753b62a9b8750a657f570d6d33dbf1b9d7094473aadc0a43120b0e162b" }
+    "win-x64": {
+      "name": "DoveLoFanno-0.5.0-setup.exe",
+      "size": 5016744,
+      "sha256": "b6e54a805b1b4828f99941039f91848cd090e5cf98a2856d2b46b46d8a143058"
+    },
+    "src": {
+      "name": "DoveLoFanno-0.5.0-sorgenti.zip",
+      "size": 2222270,
+      "sha256": "bc11b86f0eb779fad4367552f2ca236e3024b9936909e103103a268b46c7916e"
+    },
+    "docker-amd64": {
+      "name": "dovelofanno-0.5.0-docker-amd64.tar.gz",
+      "size": 245820750,
+      "sha256": "b84fed3a731cbc2f23d038f6cee25f8be4a756976c944cf51257c84577cb4880"
+    },
+    "docker-arm64": {
+      "name": "dovelofanno-0.5.0-docker-arm64.tar.gz",
+      "size": 236338122,
+      "sha256": "f4ca43baebe81896d1a69184024f392f19fbb297e881b5b033edc7d0989cc70a"
+    }
   }
 }
