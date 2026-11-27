@@ -59,7 +59,7 @@ public static class SearchApi
             .WithTags("Opere").WithSummary("Generi e paesi tra cui scegliere nei filtri della ricerca");
 
         api.MapGet("/search", async Task<IResult> (string? q, long? profileId, string? kind, int? genre, int? yearFrom, int? yearTo,
-            string? country, double? minRating, string? avail, int? limit, string? genres, bool? hideSeen, bool? hideHome, ServerContext ctx, CancellationToken ct) =>
+            string? country, double? minRating, string? avail, int? limit, string? genres, bool? hideSeen, bool? hideHome, string? services, ServerContext ctx, CancellationToken ct) =>
         {
             string text = (q ?? "").Trim();
             if (text.Length > 100) text = text[..100];
@@ -69,7 +69,9 @@ public static class SearchApi
             var genreList = (genres ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(x => int.TryParse(x, out int g) ? g : 0).Append(genre ?? 0).Where(g => g > 0).Distinct().Take(20).ToList();
             var f = new SearchFilter(kind is "film" or "series" or "documentary" ? kind : "all", genreList, yearFrom ?? 0, yearTo ?? 0,
-                (country ?? "").Trim().ToUpperInvariant(), minRating ?? 0, availSet, hideSeen == true, hideHome == true);
+                (country ?? "").Trim().ToUpperInvariant(), minRating ?? 0, availSet, hideSeen == true, hideHome == true,
+                [.. (services ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(s => s.Length <= 60).Distinct(StringComparer.OrdinalIgnoreCase).Take(20)]);
             if (text.Length < 2 && !f.Any) return Results.BadRequest(new ApiError("scrivi almeno 2 lettere o scegli un filtro"));
             if (text.Length < 2) text = "";
             // gli esclusi («Non proporre più») si tolgono dalle ricerche con i soli filtri; cercati per nome restano, segnati
@@ -77,7 +79,7 @@ public static class SearchApi
         })
             .WithTags("Opere")
             .WithSummary("Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, " +
-                "genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); " +
+                "genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome, services = servizi di streaming separati da virgola: uno qualsiasi); " +
                 "prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più»")
             .Produces<SearchResult>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
@@ -139,6 +141,7 @@ public static class SearchApi
             && Countries.InGuideText(f.Country, w.Country)
             && (f.MinRating <= 0 || (w.Rating ?? 0) >= f.MinRating)
             && AvailOk(f, Air(w.Id).Visible != null, w.InHouse, w.Streaming ?? [], w.Paid ?? [], subs, Air(w.Id).Paid != null)
+            && f.ServicesOk(w.Streaming ?? [])
             && !(f.HideHome && w.InHouse) && !seen.Contains(w.Id)
             && !(dropExcluded && excluded.Contains(w.Id));
         SearchHit Known(WorkSearchHit w)
@@ -187,7 +190,7 @@ public static class SearchApi
                 // titoli solo su TMDB: piattaforme in Italia sempre (per icone, "dove si vede" e il pulsante giusto) e paese
                 // se il filtro c'è e la ricerca non l'ha già applicato, per i primi lookups; gli altri senza piattaforme
                 bool needCountry = f.Country.Length > 0 && text.Length > 0;
-                bool needAvail = f.AvailSet.Count > 0;
+                bool needAvail = f.AvailSet.Count > 0 || f.ServiceList.Count > 0;
                 var checkedList = await Throttled(unknown.Take(lookups), 6, async c =>
                 {
                     IReadOnlyList<string> countries = needCountry ? await tmdb.CountriesAsync(c.Hit.Id, c.Hit.Kind, cts.Token) : [];
@@ -222,7 +225,7 @@ public static class SearchApi
                     if (needCountry && !x.Countries.Contains(f.Country)) continue;
                     var streaming = x.Providers.Where(p => p.Kind is "subscription" or "free").Select(p => p.Name).Distinct().ToList();
                     var paid = x.Providers.Where(p => p.Kind is "rent" or "buy").Select(p => p.Name).Distinct().ToList();
-                    if (needAvail && !AvailOk(f, false, false, streaming, paid, subs)) continue;
+                    if (needAvail && (!AvailOk(f, false, false, streaming, paid, subs) || !f.ServicesOk(streaming))) continue;
                     hits.Add(FromTmdb(c.Hit, c.Credits, streaming, paid,
                         f.Country.Length > 0 && x.Countries.Contains(f.Country) ? Countries.Name(f.Country) : ""));
                 }
@@ -298,7 +301,8 @@ public static class SearchApi
             return res;
         }
         string money = f.AvailSet.Contains("mine") && f.AvailSet.Contains("paid") ? "flatrate|free|ads|rent|buy"
-            : f.AvailSet.Contains("mine") ? "flatrate|free|ads" : f.AvailSet.Contains("paid") ? "rent|buy|flatrate" : "";
+            : f.AvailSet.Contains("mine") ? "flatrate|free|ads" : f.AvailSet.Contains("paid") ? "rent|buy|flatrate"
+            : f.ServiceList.Count > 0 ? "flatrate|free|ads" : "";
         // pagina per pagina (film e serie alternati): chiedendo di più, i risultati già mostrati restano in testa nello stesso ordine
         bool movies = f.Kind is "all" or "film" or "documentary", series = f.Kind is "all" or "series";
         int pages = Math.Min(20, max / 20 + 1);

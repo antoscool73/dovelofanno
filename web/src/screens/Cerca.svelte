@@ -6,9 +6,10 @@
 
   /**
    * Filtri nell'indirizzo: /cerca#kind=film&avail=mine (così Stasera porta qui con i filtri di una riga). Con list=N la
-   * pagina mostra e modifica la lista dinamica N (la sua ricerca salvata).
+   * pagina mostra e modifica la lista dinamica N (la sua ricerca salvata). sort = ordine dei risultati all'apertura
+   * (rel, rating, year, title, when), per questa volta sola: «Stasera in TV» porta qui in ordine di data e ora.
    */
-  export function searchHash(s: Partial<SearchQuery>, listId: number | null = null): string {
+  export function searchHash(s: Partial<SearchQuery>, listId: number | null = null, sort = ''): string {
     const p = new URLSearchParams();
     if (listId) p.set('list', String(listId));
     if (s.q?.trim()) p.set('q', s.q.trim());
@@ -21,28 +22,33 @@
     if (s.avail?.length) p.set('avail', s.avail.join(','));
     if (s.hideSeen) p.set('hideSeen', '1');
     if (s.hideHome) p.set('hideHome', '1');
+    if (s.services?.length) p.set('services', s.services.join(','));
+    if (sort) p.set('sort', sort);
     const t = p.toString();
     return t ? '#' + t : '';
   }
 
   /** Lista dinamica e filtri dell'indirizzo; query null se l'indirizzo non ha filtri. */
-  function fromHash(hash: string): { listId: number | null; query: SearchQuery | null } {
-    if (hash.length < 2) return { listId: null, query: null };
+  function fromHash(hash: string): { listId: number | null; query: SearchQuery | null; sort: string } {
+    if (hash.length < 2) return { listId: null, query: null, sort: '' };
     const p = new URLSearchParams(hash.slice(1));
     const listId = Number(p.get('list')) || null;
+    const sort = p.get('sort') ?? '';
     p.delete('list');
-    if ([...p.keys()].length === 0) return { listId, query: null };
+    p.delete('sort');
+    if ([...p.keys()].length === 0) return { listId, query: null, sort };
     const kind = p.get('kind');
     const avail = (p.get('avail') ?? '').split(',').filter((a): a is SearchQuery['avail'][number] => ['tv', 'paytv', 'mine', 'paid', 'home'].includes(a));
     // genre (un genere solo) è dei link di prima
     const genres = [...(p.get('genres') ?? '').split(','), p.get('genre') ?? ''].map(Number).filter((g) => g > 0);
     return {
-      listId,
+      listId, sort,
       query: {
         q: p.get('q') ?? '', kind: kind === 'film' || kind === 'series' || kind === 'documentary' ? kind : 'all',
         genres: [...new Set(genres)], yearFrom: Number(p.get('yearFrom')) || 0, yearTo: Number(p.get('yearTo')) || 0,
         country: p.get('country') ?? '', minRating: Number(p.get('minRating')) || 0, avail,
         hideSeen: p.get('hideSeen') === '1', hideHome: p.get('hideHome') === '1',
+        services: [...new Set((p.get('services') ?? '').split(',').map((s) => s.trim()).filter(Boolean))],
       },
     };
   }
@@ -61,6 +67,7 @@
   import ListDialog from '../lib/components/ListDialog.svelte';
   import Button from '../lib/components/Button.svelte';
   import StableLabel from '../lib/components/StableLabel.svelte';
+  import ServiceIcon from '../lib/components/ServiceIcon.svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { availOfHit, type Avail } from '../lib/avail';
   import { platforms } from '../lib/platforms.svelte';
@@ -72,7 +79,8 @@
   // filtri: dall'indirizzo (link da Stasera, preferiti), dalla lista dinamica aperta o quelli dell'ultima ricerca
   const fromUrl = fromHash(location.hash);
   const start = fromUrl.query ?? (fromUrl.listId ? { ...EMPTY_QUERY } : last);
-  let f = $state<SearchQuery>({ ...start, genres: [...start.genres], avail: [...start.avail] });
+  const copy = (s: SearchQuery): SearchQuery => ({ ...s, genres: [...s.genres], avail: [...s.avail], services: [...(s.services ?? [])] });
+  let f = $state<SearchQuery>(copy(start));
   // lista dinamica aperta: la sua ricerca si carica (se l'indirizzo non ha già filtri) e si può salvare di nuovo
   let listId = $state<number | null>(fromUrl.listId);
   let list = $state<ListSummary | null>(null);
@@ -132,8 +140,13 @@
 
   const activeFilters = $derived(
     (f.kind !== 'all' ? 1 : 0) + (f.genres.length ? 1 : 0) + (f.yearFrom || f.yearTo ? 1 : 0) + (f.country ? 1 : 0) + (f.minRating ? 1 : 0)
-      + (f.avail.length ? 1 : 0) + (f.hideSeen || f.hideHome ? 1 : 0),
+      + (f.avail.length ? 1 : 0) + (f.hideSeen || f.hideHome ? 1 : 0) + (f.services.length ? 1 : 0),
   );
+  // servizi di streaming tra cui scegliere: i miei abbonamenti e quelli già scelti (anche da un link della top)
+  const serviceChoices = $derived(platforms.sort([...new Set([...mySubs, ...f.services])]));
+  function toggleService(s: string) {
+    f.services = f.services.includes(s) ? f.services.filter((x) => x !== s) : [...f.services, s];
+  }
   function toggleGenre(id: number) {
     f.genres = f.genres.includes(id) ? f.genres.filter((x) => x !== id) : [...f.genres, id];
   }
@@ -149,7 +162,7 @@
     f.yearTo = b >= 1900 && b <= 2100 ? b : 0;
   }
   function reset() {
-    f = { ...EMPTY_QUERY, q: f.q, genres: [], avail: [] };
+    f = { ...EMPTY_QUERY, q: f.q, genres: [], avail: [], services: [] };
     yearFromText = ''; yearToText = '';
   }
 
@@ -160,7 +173,7 @@
   const SORT_PAGE = 200;
   let limit = PAGE;
   let more = $state(false);
-  let current = $state<SearchQuery>({ ...start, genres: [...start.genres], avail: [...start.avail] });
+  let current = $state<SearchQuery>(copy(start));
   let seq = 0;
   async function run(snap: SearchQuery, lim: number) {
     const my = ++seq;
@@ -181,7 +194,7 @@
   let applied = $state('');                     // la ricerca dei risultati mostrati
   const changed = $derived(canSearch && JSON.stringify(toSaved(f)) !== applied);
   function search() {
-    const snap: SearchQuery = { ...f, genres: [...f.genres], avail: [...f.avail] };
+    const snap: SearchQuery = copy(f);
     applied = JSON.stringify(toSaved(snap));
     if (!listId) last = snap;
     current = snap;
@@ -212,13 +225,18 @@
   // ---------------------------------------------------------------- ordine dei risultati
   // Pertinenza = l'ordine del server (prima le opere note, poi TMDB). Voto, anno e titolo: su o giù; i titoli senza voto
   // o senza anno vanno in fondo. L'ordine non è un filtro: si applica subito, senza «Cerca». Si ricorda su questo dispositivo.
-  type SortKey = 'rel' | 'rating' | 'year' | 'title';
+  // Data e ora (27/11/2026): dal prossimo passaggio in TV (quello che vedo, se no quello a pagamento); senza passaggi in fondo.
+  type SortKey = 'rel' | 'rating' | 'year' | 'title' | 'when';
   const SORT_STORE = 'dlf.cerca.ordine';
   const sorts: { id: SortKey; label: string; first: 'asc' | 'desc' }[] = [
     { id: 'rel', label: 'Pertinenza', first: 'desc' }, { id: 'rating', label: 'Voto', first: 'desc' },
     { id: 'year', label: 'Anno', first: 'desc' }, { id: 'title', label: 'Titolo', first: 'asc' },
+    { id: 'when', label: 'Data e ora', first: 'asc' },
   ];
-  const savedSort = (() => { try { return JSON.parse(localStorage.getItem(SORT_STORE) ?? 'null'); } catch { return null; } })();
+  // un ordine nell'indirizzo (link di Stasera) vale per questa apertura e non cambia quello ricordato
+  const urlSort = sorts.find((x) => x.id === fromUrl.sort);
+  const savedSort = urlSort ? { key: urlSort.id, dir: urlSort.first }
+    : (() => { try { return JSON.parse(localStorage.getItem(SORT_STORE) ?? 'null'); } catch { return null; } })();
   let sortKey = $state<SortKey>(sorts.some((x) => x.id === savedSort?.key) ? savedSort.key : 'rel');
   let sortDir = $state<'asc' | 'desc'>(savedSort?.dir === 'asc' ? 'asc' : 'desc');
   function setSort(k: SortKey) {
@@ -231,7 +249,13 @@
   const shown = $derived.by(() => {
     if (sortKey === 'rel') return hits;
     const dir = sortDir === 'asc' ? 1 : -1;
-    const val = (h: SearchHit): number | null => (sortKey === 'rating' ? h.rating ?? null : h.year > 0 ? h.year : null);
+    const at = (t: string | null | undefined) => (t ? Date.parse(t) : NaN);
+    const val = (h: SearchHit): number | null => {
+      if (sortKey === 'rating') return h.rating ?? null;
+      if (sortKey === 'year') return h.year > 0 ? h.year : null;
+      const t = Math.min(...[at(h.nextAiring), at(h.paidAiring)].filter((x) => !Number.isNaN(x)));
+      return Number.isFinite(t) ? t : null;
+    };
     return [...hits].sort((a, b) => {
       if (sortKey === 'title') return dir * collator.compare(a.title, b.title);
       const x = val(a), y = val(b);
@@ -308,6 +332,7 @@
     if (c.avail.length) parts.push(c.avail.map((a) => availItems.find((x) => x.id === a)!.label.toLowerCase()).join(' o '));
     if (c.hideSeen) parts.push('senza i già visti');
     if (c.hideHome) parts.push('senza quelli in casa');
+    if (c.services.length) parts.push('su ' + c.services.map((s) => platforms.of(s).short).join(' o '));
     return parts.filter(Boolean).join(', ');
   });
 
@@ -531,6 +556,18 @@
         {/each}
         <span class="muted small">Basta una delle caselle scelte: un film su Rai 5 e su Rai Play compare con la sola «In TV gratis». «In TV a pagamento» = su un canale che non hai (Sky senza Sky).</span>
       </fieldset>
+      <!-- servizi di streaming (27/11/2026): i miei abbonamenti e quelli scelti da un link della top di Stasera -->
+      {#if serviceChoices.length > 0}
+        <fieldset class="panel">
+          <legend>Su questi servizi</legend>
+          <label class="check"><input type="checkbox" checked={f.services.length === 0} onchange={() => (f.services = [])} /><span class="ic none" aria-hidden="true"></span>Tutti</label>
+          {#each serviceChoices as sv (sv)}
+            <label class="check"><input type="checkbox" checked={f.services.includes(sv)} onchange={() => toggleService(sv)} />
+              <span class="ic" aria-hidden="true"><ServiceIcon name={sv} size={18} /></span>{platforms.of(sv).short}</label>
+          {/each}
+          <span class="muted small">Il titolo dev'essere in streaming su uno dei servizi scelti.</span>
+        </fieldset>
+      {/if}
     </aside>
   </div>
 </div>

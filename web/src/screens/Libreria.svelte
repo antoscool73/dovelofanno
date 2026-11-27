@@ -1,6 +1,6 @@
 <script lang="ts">
   // Libreria (24/11/2026, Antonio): solo quello che c'è sul server e quello che ho visto o votato, a sezioni che si
-  // chiudono come in La mia lista: Continua a guardare, Film, Serie, Documentari, Programmi, Registrazioni, Visti e
+  // chiudono come in La mia lista: Continua a guardare, Film, Serie, Documentari, Programmi, Registrazioni, Visti o
   // votati, Da sistemare. Ogni sezione è una fila di locandine. Niente liste qui (si gestiscono da La mia lista e da
   // Preferenze); resta solo il dettaglio di una lista a mano (/libreria/liste/N), dove porta la pennina della home.
   // Le stelle sono il voto personale del profilo, accanto al voto IMDb.
@@ -30,7 +30,8 @@
     { id: 'documentari', label: 'Documentari', api: 'documentaries' },
     { id: 'programmi', label: 'Programmi', api: 'programmes' },
     { id: 'registrazioni', label: 'Registrazioni', api: 'recordings' },
-    { id: 'visti', label: 'Visti e votati', api: 'watched' },
+    // «o», non «e»: basta averlo visto oppure votato (26/11/2026, Antonio)
+    { id: 'visti', label: 'Visti o votati', api: 'watched' },
     { id: 'da-sistemare', label: 'Da sistemare', api: 'unmatched' },
   ];
   const listId = $derived(router.libraryListId);
@@ -166,9 +167,11 @@
     const id = detail.list.id;
     act(() => api.deleteList(prof.id, id).then(() => router.go('/libreria')), 'Lista cancellata.');
   }
-  function removeFromList(workId: number) {
+  // togliere un titolo da una lista chiede conferma, con il bidone (26/11/2026, Antonio)
+  async function removeFromList(workId: number, title: string) {
     const prof = session.profile;
     if (!prof || !detail) return;
+    if (!(await ask({ title: `Togliere «${title}» da «${detail.list.name}»?`, text: 'Il titolo resta nella libreria e nelle altre liste.', ok: 'Togli dalla lista' }))) return;
     const id = detail.list.id;
     act(() => api.removeFromList(prof.id, id, workId));
   }
@@ -285,7 +288,7 @@
             {#if it.playItemId}<Button size="s" variant="primary" href="/guarda/{it.playItemId}" onclick={navigate}>▶ Guarda</Button>{/if}
             <Stars value={it.stars} label="Il tuo voto per {it.title}" onchange={(v) => setStars(it.workId, v)} />
             {#if detail.list.canEdit}
-              <button type="button" class="x" aria-label="Togli {it.title} dalla lista" onclick={() => removeFromList(it.workId)}>×</button>
+              <button type="button" class="x" aria-label="Togli {it.title} dalla lista" title="Togli dalla lista" onclick={() => removeFromList(it.workId, it.title)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg></button>
             {/if}
           </div>
         {/each}
@@ -504,7 +507,8 @@
   .ltitle { font-size: 16px; font-weight: 600; color: var(--text); text-decoration: none; }
   .where { color: var(--text-2); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .x { width: 40px; height: 40px; border-radius: 8px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
-  .x:hover { color: var(--text); background: var(--raised); }
+  .x { display: inline-flex; align-items: center; justify-content: center; }
+  .x:hover { color: var(--orange-text); background: var(--raised); }
   .tools { display: flex; flex-wrap: wrap; gap: 10px; flex: 1 1 320px; }
   .search { flex: 1 1 260px; max-width: 420px; display: flex; }
   .search input { flex: 1 1 0; }

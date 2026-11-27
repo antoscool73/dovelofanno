@@ -7,6 +7,7 @@
   import Button from '../lib/components/Button.svelte';
   import RecordButton from '../lib/components/RecordButton.svelte';
   import SeenButton from '../lib/components/SeenButton.svelte';
+  import { ask } from '../lib/confirm.svelte';
   import { seenState } from '../lib/seen.svelte';
   import Section from '../lib/components/Section.svelte';
   import ServiceIcon from '../lib/components/ServiceIcon.svelte';
@@ -208,9 +209,11 @@
     }
   }
 
+  // togliere un titolo dalla mia lista chiede conferma (26/11/2026, Antonio)
   async function drop(i: TonightItem) {
     const prof = session.profile;
     if (!prof) return;
+    if (!(await ask({ title: `Togliere «${i.title}» dalla mia lista?`, text: 'Lo rimetti quando vuoi dalla sua scheda.', ok: 'Togli dalla lista' }))) return;
     try { await api.removeTonight(prof.id, i.workId); await load(); }
     catch (e) { error = e instanceof ApiError ? e.message : 'Non tolto'; }
   }
@@ -291,6 +294,8 @@
     }
     return cols;
   });
+  const colHref = (c: TopCol) =>
+    '/cerca' + (c.service ? searchHash({ kind: 'film', services: [c.service] }) : searchHash({ kind: 'film', avail: ['tv'] }, null, 'when'));
   // la top è un'unica riga che scorre in orizzontale: frecce ai lati, trascinamento col mouse, barra in basso (24/11/2026)
   let topsEl = $state<HTMLElement | null>(null);
   let topsAtStart = $state(true), topsAtEnd = $state(true);
@@ -514,7 +519,9 @@
       <div class="topcols" bind:this={topsEl} use:dragScroll onscroll={topsEdges}>
         {#each topCols as col (col.key)}
           <div class="topcol">
-            <div class="kicker">{#if col.service}<ServiceIcon name={col.service} size={20} />{/if}{col.title.toUpperCase()}</div>
+            <!-- il nome della colonna apre Cerca con i filtri della colonna: film in TV gratis in ordine di data e ora, o
+                 film sul servizio (27/11/2026, Antonio) -->
+            <a class="kicker klink" href={colHref(col)} onclick={navigate} title={col.service ? `Tutti i film su ${col.title}` : 'Tutti i film in TV gratis'}>{#if col.service}<ServiceIcon name={col.service} size={20} />{/if}{col.title.toUpperCase()}<span class="kgo" aria-hidden="true">›</span></a>
             {#if col.list.length === 0}
               <p class="muted small">Stasera in TV non resta niente da vedere dall'inizio.</p>
             {:else}
@@ -671,7 +678,7 @@
                   </button>
                 {/if}
                 <SeenButton workId={c.workId} title={c.title} onchange={c.onSeen} />
-                {#if c.drop}<button type="button" class="mini ghost" onclick={c.drop} aria-label="{c.dropLabel}: {c.title}" title={c.dropLabel}>✕</button>{/if}
+                {#if c.drop}<button type="button" class="mini ghost" class:trash={c.dropLabel === 'Togli dalla mia lista'} onclick={c.drop} aria-label="{c.dropLabel}: {c.title}" title={c.dropLabel}>{#if c.dropLabel === 'Togli dalla mia lista'}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>{:else}✕{/if}</button>{/if}
               </div>
             {/if}
           </li>
@@ -756,6 +763,9 @@
   .topcol { scroll-snap-align: start; }
   :global(.topcols.dragging) { cursor: grabbing; scroll-snap-type: none; user-select: none; }
   .tops .kicker { display: flex; align-items: center; gap: 8px; }
+  .tops .klink { align-self: flex-start; text-decoration: none; border-radius: 6px; }
+  .tops .klink:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .tops .klink .kgo { font-size: 16px; line-height: 1; opacity: 0.7; }
   .topcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .toplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .toplist li { display: grid; grid-template-columns: 22px 56px minmax(0, 1fr); align-items: center; gap: 10px 12px; }
@@ -839,6 +849,8 @@
   .mini.rec { flex: 1 1 auto; background: var(--bg); color: var(--text); border: 0; box-shadow: inset 0 0 0 1.5px var(--text); }
   .mini.rec.on { background: var(--text); color: var(--bg); box-shadow: none; }
   .mini.ghost { border-color: transparent; background: none; color: var(--muted); }
+  .mini.ghost.trash { display: inline-flex; align-items: center; justify-content: center; }
+  .mini.ghost.trash:hover { color: var(--orange-text); }
   .mini .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--rec-dot); }
   .empty { background: var(--surface); border: 1px dashed var(--line-btn); border-radius: var(--radius-l); padding: 20px; }
   .empty p { margin: 0 0 6px; }

@@ -40,7 +40,7 @@ public static class LibraryApi
             if (!Sorts.Contains(sort)) return Results.BadRequest(new ApiError("ordine: " + string.Join(", ", Sorts)));
             return Results.Ok(ctx.Library.Entries(section, profileId, sort, text));
         })
-            .WithSummary("Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti e votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti")
+            .WithSummary("Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti o votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti")
             .Produces<List<LibraryEntry>>().Produces<ApiError>(StatusCodes.Status400BadRequest);
 
         lib.MapGet("/status", (ServerContext ctx, LibraryHost host) => StatusOf(ctx, host))

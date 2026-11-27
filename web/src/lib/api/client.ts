@@ -63,26 +63,28 @@ export type SearchOptions = S['SearchOptions'];
  */
 export type SearchQuery = {
   q: string; kind: 'all' | 'film' | 'series' | 'documentary'; genres: number[]; yearFrom: number; yearTo: number;
-  country: string; minRating: number; avail: ('tv' | 'paytv' | 'mine' | 'paid' | 'home')[]; hideSeen: boolean; hideHome: boolean; limit?: number;
+  country: string; minRating: number; avail: ('tv' | 'paytv' | 'mine' | 'paid' | 'home')[]; hideSeen: boolean; hideHome: boolean;
+  /** servizi di streaming (uno qualsiasi), 27/11/2026: i link delle colonne di «Il top per la serata» */
+  services: string[]; limit?: number;
 };
 export type SavedQuery = S['SavedQuery'];
-export const EMPTY_QUERY: SearchQuery = { q: '', kind: 'all', genres: [], yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [], hideSeen: false, hideHome: false };
+export const EMPTY_QUERY: SearchQuery = { q: '', kind: 'all', genres: [], yearFrom: 0, yearTo: 0, country: '', minRating: 0, avail: [], hideSeen: false, hideHome: false, services: [] };
 const AVAILS = ['tv', 'paytv', 'mine', 'paid', 'home'] as const;
 /** Ricerca salvata di una lista dinamica → filtri della pagina Cerca. */
 export function fromSaved(q: SavedQuery | null | undefined): SearchQuery {
-  if (!q) return { ...EMPTY_QUERY, genres: [], avail: [] };
+  if (!q) return { ...EMPTY_QUERY, genres: [], avail: [], services: [] };
   const kind = q.kind === 'film' || q.kind === 'series' || q.kind === 'documentary' ? q.kind : 'all';
   return {
     q: q.q ?? '', kind, genres: [...(q.genres ?? [])], yearFrom: q.yearFrom ?? 0, yearTo: q.yearTo ?? 0, country: q.country ?? '',
     minRating: q.minRating ?? 0, avail: (q.avail ?? []).filter((a): a is SearchQuery['avail'][number] => (AVAILS as readonly string[]).includes(a)),
-    hideSeen: !!q.hideSeen, hideHome: !!q.hideHome,
+    hideSeen: !!q.hideSeen, hideHome: !!q.hideHome, services: [...(q.services ?? [])],
   };
 }
 /** Filtri della pagina Cerca → ricerca da salvare in una lista dinamica. */
 export function toSaved(f: SearchQuery): SavedQuery {
   return {
     q: f.q.trim(), kind: f.kind, genres: [...f.genres], yearFrom: f.yearFrom, yearTo: f.yearTo, country: f.country,
-    minRating: f.minRating, avail: [...f.avail], hideSeen: f.hideSeen, hideHome: f.hideHome,
+    minRating: f.minRating, avail: [...f.avail], hideSeen: f.hideSeen, hideHome: f.hideHome, services: [...f.services],
   };
 }
 export type GeneralSettings = S['GeneralSettings'];
@@ -259,6 +261,7 @@ export const api = {
     if (s.avail.length) p.set('avail', s.avail.join(','));
     if (s.hideSeen) p.set('hideSeen', 'true');
     if (s.hideHome) p.set('hideHome', 'true');
+    if (s.services.length) p.set('services', s.services.join(','));
     if (s.limit) p.set('limit', String(s.limit));
     return call<SearchResult>('GET', '/search?' + p.toString());
   },
@@ -288,6 +291,8 @@ export const api = {
   // fine effettiva (margine compreso) di una registrazione in corso o in programma (24/11/2026)
   changeRecordingEnd: (id: number, recordTo: string) => call<ScheduledRecording>('PUT', `/recordings/${id}/end`, { recordTo }),
   cancelRecording: (id: number) => call<void>('DELETE', `/recordings/${id}`),
+  /** Cancella il file di una registrazione finita e la toglie dall'elenco (26/11/2026). */
+  deleteRecordingFile: (id: number) => call<void>('DELETE', `/recordings/${id}/file`),
 
   // «Registra la serie» (20/11/2026)
   seriesRules: () => call<SeriesRule[]>('GET', '/series'),

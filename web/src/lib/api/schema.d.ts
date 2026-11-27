@@ -292,7 +292,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più» */
+        /** Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome, services = servizi di streaming separati da virgola: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più» */
         get: {
             parameters: {
                 query?: {
@@ -309,6 +309,7 @@ export interface paths {
                     genres?: string;
                     hideSeen?: boolean;
                     hideHome?: boolean;
+                    services?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1087,6 +1088,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancella una registrazione finita: il file dal disco (con .nfo, copia per il browser e spezzoni) e la riga dall'elenco */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles": {
         parameters: {
             query?: never;
@@ -1639,7 +1692,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti e votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti */
+        /** Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti o votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti */
         get: {
             parameters: {
                 query?: {
@@ -5735,6 +5788,7 @@ export interface components {
             hideSeen: boolean;
             /** @default false */
             hideHome: boolean;
+            services?: null | string[];
         };
         ScanReport: {
             /** Format: int32 */

@@ -19,6 +19,9 @@ Da questo file il sito genera la pagina <https://dovelofanno.it/beta/novita/> e 
 - In Cerca «Avvisami» diventa «Avvisi attivi» quando hai già un avviso sul titolo
 - Guida TV: i filtri restano tornando indietro da una scheda
 - Il trailer si apre in una nuova scheda del browser
+- «Il top per la serata»: tocca il nome di una colonna per vedere tutti i film in TV gratis (in ordine di data e ora) o tutti quelli di quel servizio
+- Cerca: filtro per servizio di streaming e ordine per data e ora del passaggio in TV
+- Libreria: la sezione dei titoli che hai visto o votato si chiama «Visti o votati»
 
 ## 0.4.0 · 25/11/2026
 

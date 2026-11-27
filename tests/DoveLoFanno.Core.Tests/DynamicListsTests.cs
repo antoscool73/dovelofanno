@@ -52,6 +52,15 @@ public sealed class DynamicListsTests(ITestOutputHelper output) : IDisposable
         var f = back.ToFilter();
         Assert.Equal(("IT", 2), (f.Country, f.AvailSet.Count));
         Assert.Null(SavedQuery.FromJson(""));
+        // servizi di streaming (27/11/2026): bastano da soli, uno qualsiasi, le varianti «with Ads» valgono
+        var s = new SavedQuery(Services: ["Netflix", " Disney Plus "]);
+        Assert.Equal("", s.Validate());
+        var sf = SavedQuery.FromJson(s.ToJson())!.ToFilter();
+        Assert.Equal(["Netflix", "Disney Plus"], sf.ServiceList);
+        Assert.True(sf.ServicesOk(["Netflix basic with Ads"]));
+        Assert.True(sf.ServicesOk(["Rai Play", "Disney Plus"]));
+        Assert.False(sf.ServicesOk(["Netflixx", "Rai Play"]));
+        Assert.True(new SearchFilter().ServicesOk([]));
     }
 
     [Fact]

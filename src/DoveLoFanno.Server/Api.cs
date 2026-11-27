@@ -229,6 +229,31 @@ public static class Api
             .WithSummary("Annulla una registrazione non ancora partita")
             .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status409Conflict);
 
+        // cancellare una registrazione finita (26/11/2026, richiesta di Antonio): il file (anche se la libreria l'ha spostato),
+        // la copia per il browser, il .nfo, gli spezzoni rimasti e le cartelle rimaste vuote; la riga esce dall'elenco
+        rec.MapDelete("/{id:long}/file", IResult (long id, ServerContext ctx) =>
+        {
+            var r = ctx.Recordings.Get(id);
+            if (r is null) return Results.NotFound();
+            if (RecordingStore.Pending.Contains(r.State))
+                return Results.Conflict(new ApiError("la registrazione è in programma o in corso: prima si annulla o si ferma"));
+            var media = new List<string>();
+            foreach (long item in ctx.Library.ItemIdsOfRecording(id, r.File))
+                if (ctx.Library.Remove(item) is { } x) { media.Add(x.Path); DeleteFile(x.Copy); }
+            if (r.File.Length > 0) media.Add(r.File);
+            foreach (string f in media.Distinct())
+            {
+                DeleteFile(f);
+                DeleteFile(Path.ChangeExtension(f, ".nfo"));
+                DeleteEmptyFolders(Path.GetDirectoryName(f), ctx.RecordingsDir);
+            }
+            foreach (var p in ctx.Recordings.Parts(id)) DeleteFile(p.File);
+            ctx.Recordings.MarkDeleted(id, ctx.Clock.GetUtcNow());
+            return Results.NoContent();
+        })
+            .WithSummary("Cancella una registrazione finita: il file dal disco (con .nfo, copia per il browser e spezzoni) e la riga dall'elenco")
+            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound).Produces<ApiError>(StatusCodes.Status409Conflict);
+
         // ---------------------------------------------------------------- profili (aggiunta della wave 5)
         var prof = api.MapGroup("/profiles").WithTags("Profili");
 
@@ -476,6 +501,31 @@ public static class Api
         ProfileResult.InvalidIcon => Results.BadRequest(new ApiError("icona non valida")),
         _ => Results.BadRequest(new ApiError($"nome mancante o più lungo di {ProfileStore.MaxName} caratteri")),
     };
+
+    static void DeleteFile(string path)
+    {
+        if (path.Length == 0) return;
+        try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Cartelle rimaste vuote (Film/Titolo (anno), Serie TV/Titolo/Stagione N), risalendo fino alla cartella delle registrazioni esclusa.</summary>
+    static void DeleteEmptyFolders(string? dir, string root)
+    {
+        if (dir is null || root.Length == 0) return;
+        string top = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+        for (var d = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar);
+             d.StartsWith(top + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+             d = Path.GetDirectoryName(d) ?? top)
+        {
+            try
+            {
+                if (!Directory.Exists(d) || Directory.EnumerateFileSystemEntries(d).Any()) return;
+                Directory.Delete(d);
+            }
+            catch (IOException) { return; }
+            catch (UnauthorizedAccessException) { return; }
+        }
+    }
 
     static string DefaultName(string url)
     {

@@ -437,6 +437,13 @@ public sealed class LibraryStore(string dbPath)
         return (r.Path, false, r.State);
     }
 
+    /// <summary>File della libreria che vengono da una registrazione (anche se la libreria li ha rinominati o spostati).</summary>
+    public List<long> ItemIdsOfRecording(long recordingId, string path)
+    {
+        using var c = Open();
+        return Db.Query(c, "SELECT id FROM library_items WHERE recording_id = $r OR ($p <> '' AND path = $p)", x => x.GetInt64(0), ("$r", recordingId), ("$p", path));
+    }
+
     /// <summary>Toglie il file dalla libreria; restituisce i percorsi da cancellare dal disco (file e copia), null se non c'è.</summary>
     public (string Path, string Copy, long? RecordingId)? Remove(long itemId)
     {
@@ -538,7 +545,7 @@ public sealed class LibraryStore(string dbPath)
     }
 
     /// <summary>
-    /// "Visti e votati": le opere che il profilo ha visto o votato con le stelle, anche senza file in casa (viste in TV,
+    /// "Visti o votati": le opere che il profilo ha visto o votato con le stelle, anche senza file in casa (viste in TV,
     /// segnate dalla Scheda). Prima le più recenti.
     /// </summary>
     static List<LibraryEntry> Watched(SqliteConnection c, long? profileId, string sort, string tk, bool child)

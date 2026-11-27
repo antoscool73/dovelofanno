@@ -7,15 +7,23 @@ namespace DoveLoFanno.Ratings;
 /// Filtri della ricerca (tutti facoltativi): tipo (all, film, series, documentary), generi (codici TMDB dei film: vale uno
 /// qualsiasi; nessuno = tutti), anni, paese di produzione (ISO, "" = tutti), voto minimo, disponibilità (tv, mine, paid,
 /// home: vale uno qualsiasi di quelli scelti; nessuno = ovunque, anche non disponibile). HideSeen e HideHome tolgono i
-/// titoli già visti dal profilo e quelli già in casa (19/11/2026, liste dinamiche).
+/// titoli già visti dal profilo e quelli già in casa (19/11/2026, liste dinamiche). Services = servizi di streaming
+/// (nomi delle piattaforme, uno qualsiasi; nessuno = tutti): il titolo dev'essere nel catalogo di uno di loro (27/11/2026,
+/// link dalle colonne di «Il top per la serata»).
 /// </summary>
 public sealed record SearchFilter(string Kind = "all", IReadOnlyList<int>? Genres = null, int YearFrom = 0, int YearTo = 0, string Country = "",
-    double MinRating = 0, IReadOnlySet<string>? Avail = null, bool HideSeen = false, bool HideHome = false)
+    double MinRating = 0, IReadOnlySet<string>? Avail = null, bool HideSeen = false, bool HideHome = false, IReadOnlyList<string>? Services = null)
 {
+    public IReadOnlyList<string> ServiceList => Services ?? [];
     public IReadOnlySet<string> AvailSet => Avail ?? new HashSet<string>();
     public IReadOnlyList<int> GenreList => Genres ?? [];
     public bool Any => Kind != "all" || GenreList.Count > 0 || YearFrom > 0 || YearTo > 0 || Country.Length > 0 || MinRating > 0 || AvailSet.Count > 0
-        || HideSeen || HideHome;
+        || HideSeen || HideHome || ServiceList.Count > 0;
+
+    /// <summary>In streaming su uno dei servizi scelti ("Netflix basic with Ads" vale come "Netflix"); nessuno scelto = sì.</summary>
+    public bool ServicesOk(IReadOnlyList<string> streaming) =>
+        ServiceList.Count == 0 || streaming.Any(s => ServiceList.Any(m =>
+            s.Equals(m, StringComparison.OrdinalIgnoreCase) || s.StartsWith(m + " ", StringComparison.OrdinalIgnoreCase)));
 
     public bool KindOk(string kind) => Kind switch
     {

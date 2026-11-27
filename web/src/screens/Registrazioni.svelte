@@ -140,6 +140,19 @@
   }
   const later = (r: Recording, min: number) => new Date(new Date(r.recordTo).getTime() + min * 60_000);
 
+  // cancellare una registrazione finita: il file sparisce dal disco (26/11/2026, Antonio); conferma sempre
+  async function removeFile(r: Recording) {
+    const hasFile = !!r.file || r.libraryItemId != null;
+    const ok = await ask(hasFile
+      ? { title: `Cancellare «${r.title}»?`, text: 'Il file della registrazione viene cancellato dal disco, anche dalla Libreria. Non si torna indietro.', ok: 'Cancella il file', cancel: 'Tienila' }
+      : { title: `Togliere «${r.title}» dall'elenco?`, text: "Non c'è nessun file da cancellare: sparisce solo la riga.", ok: "Togli dall'elenco", cancel: 'Tienila' });
+    if (!ok) return;
+    busyId = r.id;
+    try { await api.deleteRecordingFile(r.id); await load(); }
+    catch (e) { error = e instanceof ApiError ? e.message : 'Non cancellata'; }
+    finally { busyId = null; }
+  }
+
   async function cancel(r: Recording) {
     if (!(await ask({ title: `Annullare «${r.title}»?`, text: `Non verrà registrata ${day(r.start, now).toLowerCase()} alle ${time(r.start)}.`, ok: 'Annulla la registrazione', cancel: 'Tienila' }))) return;
     busyId = r.id;
@@ -272,8 +285,7 @@
               <div class="meta">{meta(r)}</div>
               {#if note(r)}<div class="note">{note(r)}</div>{/if}
             </div>
-            {#if r.libraryItemId != null || (r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file))}
-              <div class="acts">
+            <div class="acts">
                 <!-- il player è quello della Libreria: la registrazione finita vi entra da sola -->
                 {#if r.libraryItemId != null}
                   <Button size="s" variant="primary" href="/guarda/{r.libraryItemId}" onclick={navigate} label="{r.format === 'mp3' ? 'Ascolta' : 'Guarda'} «{r.title}»">
@@ -283,8 +295,11 @@
                 {#if r.file && ['completed', 'incomplete', 'stopped'].includes(r.state) && canConvert(r.file)}
                   <Button size="s" variant="secondary" onclick={() => openConvert({ recordingId: r.id, name: fileName(r.file) })}>Converti...</Button>
                 {/if}
+                <!-- cestino: cancella il file dal disco, con conferma (26/11/2026) -->
+                <button type="button" class="ico del" disabled={busyId === r.id} onclick={() => removeFile(r)} aria-label="Cancella «{r.title}»" title={r.file || r.libraryItemId != null ? 'Cancella il file' : "Togli dall'elenco"}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+                </button>
               </div>
-            {/if}
           </li>
         {/each}
       </ul>
@@ -306,7 +321,7 @@
     border: 1px solid var(--line-btn); background: none; color: var(--text-2); cursor: pointer;
   }
   .ico:hover { color: var(--text); background: var(--raised); }
-  .ico.del:hover { color: var(--rec-text); border-color: var(--rec); }
+  .ico.del:hover { color: var(--orange-text); border-color: var(--orange); }
   .ico:disabled { opacity: 0.5; cursor: progress; }
   .page { padding: 28px var(--gutter) 64px; max-width: 1240px; display: flex; flex-direction: column; gap: 18px; }
   .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }

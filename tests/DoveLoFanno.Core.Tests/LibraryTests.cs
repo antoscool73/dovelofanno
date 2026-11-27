@@ -378,7 +378,7 @@ public sealed class LibraryScanTests(ITestOutputHelper output) : IDisposable
         Assert.False(lib.Item(ep2, bimbi)!.Watched);                               // il visto è per profilo
         Assert.Equal(ProgressResult.NotFound, lib.Progress(999, ep1, 1, 0, Now));
 
-        // visti e votati: la serie vista, il film votato senza averlo visto
+        // visti o votati: la serie vista, il film votato senza averlo visto
         new WorkStore(Db, guide).SetStars(anna, padrinoGuida, 5, Now);
         Assert.Equal(["Il Padrino", "Breaking Bad"], lib.Entries("watched", anna, "stars", null).Select(e => e.Title));
         Assert.Empty(lib.Entries("watched", bimbi, "added", null));

@@ -2,6 +2,8 @@
   // Scheda dell'opera: risponde in quest'ordine a "è in casa?", "passa in TV?", "dov'è in streaming?".
   import { canConvert, openConvert } from '../lib/convert.svelte';
   import SeenButton from '../lib/components/SeenButton.svelte';
+  import { providerUrl } from '../lib/providerLinks';
+  import { ask } from '../lib/confirm.svelte';
   import SeenMark from '../lib/components/SeenMark.svelte';
   import { recordChoice } from '../lib/series.svelte';
   import Badge from '../lib/components/Badge.svelte';
@@ -110,6 +112,8 @@
     const prof = session.profile;
     if (!prof || !w) return;
     try {
+      // togliere dalla mia lista chiede conferma (26/11/2026, Antonio)
+      if (w.inTonight && !(await ask({ title: `Togliere «${w.title}» dalla mia lista?`, text: 'Lo rimetti quando vuoi con lo stesso pulsante.', ok: 'Togli dalla lista' }))) return;
       if (w.inTonight) await api.removeTonight(prof.id, w.id);
       else await api.addTonight(prof.id, w.id);
       w.inTonight = !w.inTonight;
@@ -336,7 +340,7 @@
           <div class="wrow"><span><span class="muted small">In onda</span><br /><strong>{a.channelName || a.guideChannelName}, {day(a.start).toLowerCase()} {time(a.start)}</strong></span>{#if !payPlatform(a)}<Badge tone="blue">Gratis</Badge>{:else if inMySubscriptions(a, mySubs)}<Badge tone="green">Nel tuo abbonamento</Badge>{:else}<Badge tone="orange">A pagamento · {payPlatform(a)}</Badge>{/if}</div>
         {/snippet}
         {#snippet kindRow(k: { kind: string; label: string; names: string[] })}
-          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink}<a href={watchLink} target="_blank" rel="noopener noreferrer">Apri ↗</a>{/if}</div>
+          <div class="wrow"><span><span class="muted small">{k.label}</span><span class="plats">{#each platforms.sort(k.names) as n (n)}{@const pu = providerUrl(platforms.of(n).group, w?.title ?? '')}{#if pu}<a class="plat" class:mine={k.kind === 'mine'} href={pu.url} target="_blank" rel="noopener noreferrer" title={pu.search ? `Cerca «${w?.title ?? ''}» su ${platforms.of(n).short}` : `Apri ${platforms.of(n).short}`}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong> <span aria-hidden="true">↗</span></a>{:else}<span class="plat" class:mine={k.kind === 'mine'}><ServiceIcon name={n} size={26} label={false} /><strong>{platforms.of(n).short}</strong></span>{/if}{/each}</span>{#if (k.kind === 'subscription' || k.kind === 'mine') && k.names.some((n) => fromRelease.includes(n))}<span class="muted small origin">Originale {fromRelease.map((n) => platforms.of(n).short).join(', ')}: lo dice la data di uscita. JustWatch non l'ha ancora in catalogo e lo aggiunge di solito in pochi giorni.</span>{/if}</span>{#if watchLink && k.names.some((n) => !providerUrl(platforms.of(n).group, w?.title ?? ''))}<a href={watchLink} target="_blank" rel="noopener noreferrer" title="Pagina del titolo su TMDB, con i link di JustWatch">Altri ↗</a>{/if}</div>
         {/snippet}
         <!-- prima dove non pago (TV in chiaro o nei miei abbonamenti, streaming nei miei abbonamenti, gratis), poi a pagamento -->
         {#if freeAiring}{@render airingRow(freeAiring)}{/if}
@@ -404,6 +408,10 @@
   .plats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
   .plat { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
   .plat.mine :global(.ic) { box-shadow: 0 0 0 2px var(--green); }
+  /* i servizi si aprono in una nuova scheda, cercando il titolo (26/11/2026) */
+  a.plat { color: var(--text); text-decoration: none; border-radius: 8px; padding: 2px 6px 2px 2px; margin-left: -2px; }
+  a.plat:hover { background: var(--raised); }
+  a.plat span[aria-hidden] { color: var(--muted); font-size: 12px; }
   .wrow a { font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
   @media (max-width: 720px) { .poster { flex-basis: 140px; padding: 12px; } .hero-in { gap: 20px; padding-top: 24px; } }
 </style>

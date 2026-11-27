@@ -209,7 +209,7 @@
         "tags": [
           "Opere"
         ],
-        "summary": "Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più»",
+        "summary": "Ricerca avanzata: titolo, regista o attore, e filtri facoltativi (kind film|series|documentary, genre = codice TMDB, genres = più codici, uno qualsiasi, yearFrom, yearTo, country ISO, minRating, avail = tv,paytv,mine,paid,home: uno qualsiasi, hideSeen, hideHome, services = servizi di streaming separati da virgola: uno qualsiasi); prima le opere note, poi TMDB. Profilo bambino: solo titoli per bambini. Senza testo niente titoli «Non proporre più»",
         "parameters": [
           {
             "name": "q",
@@ -306,6 +306,13 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "services",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -974,6 +981,43 @@
         }
       }
     },
+    "/api/v1/recordings/{id}/file": {
+      "delete": {
+        "tags": [
+          "Registrazioni"
+        ],
+        "summary": "Cancella una registrazione finita: il file dal disco (con .nfo, copia per il browser e spezzoni) e la riga dall'elenco",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/profiles": {
       "get": {
         "tags": [
@@ -1486,7 +1530,7 @@
         "tags": [
           "Libreria"
         ],
-        "summary": "Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti e votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti",
+        "summary": "Opere della libreria per sezione (all, films, series, documentaries, programmes, recordings, unmatched, watched = visti o votati dal profilo) con lo stato del profilo; il profilo bambino vede solo i titoli adatti",
         "parameters": [
           {
             "name": "section",
@@ -7308,6 +7352,15 @@
           "hideHome": {
             "type": "boolean",
             "default": false
+          },
+          "services": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -301,6 +301,15 @@ public class SourcesTests
             var row = r.Get(a)!;
             Assert.Equal(("incomplete", 5), (row.State, row.LostMinutes));
             Assert.Equal([new LostRange(lost.Item1, lost.Item2)], row.LostRanges);
+
+            // registrazione finita cancellata (26/11/2026): sparisce dall'elenco ma resta nel database, senza file
+            Assert.True(r.MarkDeleted(a, now));
+            Assert.DoesNotContain(r.List(), x => x.Id == a);
+            Assert.Equal(("incomplete", ""), (r.Get(a)!.State, r.Get(a)!.File));
+            Assert.False(r.MarkDeleted(a, now));                          // già cancellata
+            long c = r.Schedule(ch, "Ancora dopo", now.AddHours(7), now.AddHours(8), 2, 10, "mp4", now);
+            Assert.False(r.MarkDeleted(c, now));                          // in programma: si annulla, non si cancella
+            Assert.Contains(r.List(), x => x.Id == c);
         }
         finally { Cleanup(db); }
     }

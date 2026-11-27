@@ -96,7 +96,7 @@ public sealed class RecordingStore(string dbPath)
     public List<RecordingRow> List(DateTimeOffset? since = null)
     {
         using var c = Open();
-        return Db.Query(c, Select + " WHERE $since IS NULL OR r.stop >= $since ORDER BY r.start DESC, r.id DESC", Map,
+        return Db.Query(c, Select + " WHERE r.deleted_at IS NULL AND ($since IS NULL OR r.stop >= $since) ORDER BY r.start DESC, r.id DESC", Map,
             ("$since", since is DateTimeOffset s ? Db.Unix(s) : null));
     }
 
@@ -143,6 +143,17 @@ public sealed class RecordingStore(string dbPath)
         return Db.Exec(c, """
             UPDATE recordings SET stop = $e, after_min = $a WHERE id = $id AND state IN ('scheduled', 'recording') AND start < $e
             """, ("$e", Db.Unix(stop)), ("$a", afterMin), ("$id", id)) == 1;
+    }
+
+    /// <summary>
+    /// Toglie dall'elenco una registrazione finita dopo averne cancellato il file (26/11/2026): resta nel database con
+    /// deleted_at, così «Registra la serie» non riprende la puntata alla replica. false se è in programma o in corso.
+    /// </summary>
+    public bool MarkDeleted(long id, DateTimeOffset now)
+    {
+        using var c = Open();
+        return Db.Exec(c, "UPDATE recordings SET deleted_at = $now, file = '' WHERE id = $id AND deleted_at IS NULL AND state NOT IN ('scheduled', 'recording', 'merging')",
+            ("$now", Db.Unix(now)), ("$id", id)) == 1;
     }
 
     /// <summary>Annulla una registrazione non ancora partita; false se è già partita o finita.</summary>
