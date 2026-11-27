@@ -1,5 +1,6 @@
 # DoveLoFanno: immagine del server per amd64 e arm64 (NAS Synology, mini-PC, Raspberry Pi 4/5).
-#   docker run -d -p 8765:8765 -v ./data:/data -v ./registrazioni:/recordings ghcr.io/antoscool73/dovelofanno
+#   docker run -d -p 8765:8765 -v ./data:/data -v ./registrazioni:/recordings dovelofanno:<versione>
+# (immagine caricata con docker load dal .tar.gz di dovelofanno.it: non è su nessun registro)
 # La compilazione gira sull'architettura di chi costruisce (veloce anche per arm64); solo l'immagine finale è per
 # l'architettura di destinazione.
 

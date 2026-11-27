@@ -2,10 +2,11 @@ name: Rilascio
 
 # Un tag vX.Y.Z produce l'installatore Windows (Inno Setup; runtime .NET di Microsoft, non incluso), le immagini Docker
 # esportate in .tar.gz (amd64, arm64: si caricano con docker load, Synology Container Manager o QNAP Container Station
-# senza accedere a ghcr.io; nel formato classico di docker save, perché Container Station rifiuta l'OCI di buildx),
-# lo zip dei sorgenti e la pagina del rilascio; l'immagine Docker X.Y.Z e latest su ghcr.io la pubblica ci.yml
-# sullo stesso tag. Se ci sono i segreti R2_*, i file vanno anche su Cloudflare R2 (download.dovelofanno.it/<versione>/)
-# per la pagina della beta. Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
+# nel formato classico di docker save, perché Container Station rifiuta l'OCI di buildx), lo zip dei sorgenti e la
+# pagina del rilascio. Scelta di Antonio (25 e 27/11/2026): su GitHub vanno solo i sorgenti e le impronte; installatore
+# e immagini Docker si scaricano solo da dovelofanno.it, cioè da Cloudflare R2 (download.dovelofanno.it/<versione>/,
+# se ci sono i segreti R2_*). Nessuna immagine su ghcr.io.
+# Le 0.x e le versioni con trattino (1.0.0-beta.1) escono come pre-release.
 # Firma: quando SignPath approva il progetto, l'installatore "unsigned" va firmato tra il job windows e il job release
 # (azione signpath/github-action-submit-signing-request, con approvazione manuale su SignPath). Vedi CODE_SIGNING.md.
 
@@ -189,41 +190,24 @@ jobs:
           print(open('release.json').read())
           PY
 
-      # Beta riservata (25/11/2026, scelta di Antonio): finché la variabile del repository PUBLIC_DOWNLOADS non vale
-      # 'true', su GitHub vanno solo i sorgenti e le impronte; installatore e immagini Docker restano su R2, dietro
-      # Cloudflare Access (pagina beta). Per aprire i download: Settings › Secrets and variables › Actions › Variables.
+      # Su GitHub solo i sorgenti, le impronte di tutti i file e release.json (scelta di Antonio, 25/11/2026):
+      # installatore e immagini Docker si scaricano solo da dovelofanno.it (R2, passo dopo).
       - name: Rilascio su GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.windows.outputs.version }}
-          PUBLIC_DOWNLOADS: ${{ vars.PUBLIC_DOWNLOADS }}
         run: |
           pre=""
           if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then pre="--prerelease"; fi
-          if [[ "$PUBLIC_DOWNLOADS" != true ]]; then
-            cat > notes.md <<EOF
-          ## Installazione
-
-          Durante la beta i file d'installazione (Windows e Docker) si scaricano solo dalla pagina riservata a chi prova
-          la beta. Qui ci sono i sorgenti di questa versione e le impronte SHA-256 di tutti i file, anche di quelli della
-          beta. Istruzioni in [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
-
-          EOF
-            gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS.txt out/release.json $pre \
-              --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
-            exit 0
-          fi
           cat > notes.md <<EOF
           ## Installazione
 
-          - **Docker** (amd64, arm64): \`docker pull ghcr.io/${GITHUB_REPOSITORY,,}:${VERSION}\`, oppure \`docker load -i dovelofanno-${VERSION}-docker-<arch>.tar.gz\` (immagine \`dovelofanno:${VERSION}\`) — vedi [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
-          - **Windows** (servizio): \`DoveLoFanno-${VERSION}-setup.exe\`. Installa da solo, se mancano, il runtime .NET di Microsoft e ffmpeg (con winget).
-
-          > Questa versione per Windows **non è firmata**: SmartScreen può mostrare un avviso e Smart App Control la blocca.
-          > Vedi [CODE_SIGNING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CODE_SIGNING.md).
+          L'installatore per Windows e le immagini Docker (amd64, arm64) si scaricano da [dovelofanno.it](https://dovelofanno.it/beta/).
+          Qui ci sono i sorgenti di questa versione e le impronte SHA-256 di tutti i file (\`SHA256SUMS.txt\`), per
+          controllare quello che hai scaricato. Istruzioni anche in [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
 
           EOF
-          gh release create "$GITHUB_REF_NAME" out/*.exe out/*.zip out/*.tar.gz out/SHA256SUMS.txt out/release.json $pre \
+          gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS.txt out/release.json $pre \
             --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
 
       - name: Copia su Cloudflare R2 (download.dovelofanno.it)
