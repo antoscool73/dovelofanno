@@ -1,0 +1,14 @@
+# DoveLoFanno
+
+> Programma libero (GPL-3.0) che si installa su un NAS o su un PC di casa sempre acceso e si usa dal browser: dice cosa
+> guardare stasera e dove (guida TV, servizi di streaming, film di casa) e registra la TV da una playlist IPTV. Non
+> fornisce canali né contenuti. In prova con pochi utenti; il sito e il manuale sono in italiano.
+
+## Manuale
+
+- [Manuale](https://dovelofanno.it/manuale/): indice
+- [Cos'è DoveLoFanno](https://dovelofanno.it/manuale/introduzione/cos-e/): come è fatto, cosa serve, dati
+- [La playlist M3U](https://dovelofanno.it/manuale/primi-passi/playlist/)
+- [La chiave TMDB](https://dovelofanno.it/manuale/primi-passi/chiave-tmdb/)
+- [Avvisi con Telegram](https://dovelofanno.it/manuale/primi-passi/telegram/)
+- [Dal telefono e dagli altri computer](https://dovelofanno.it/manuale/primi-passi/telefono-e-tablet/)

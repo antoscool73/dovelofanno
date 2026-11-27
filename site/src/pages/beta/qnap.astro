@@ -1,28 +1,8 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>DoveLoFanno beta su QNAP</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=6">
-</head>
-<body>
-<header class="bar">
-  <div class="wrap bar-in">
-    <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="tag" href="/beta/" aria-label="Beta 0.4.0, pagina iniziale della beta">Beta 0.4.0</a>
-    <nav class="areas" aria-label="Dove lo installi">
-      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
-      <a href="/beta/qnap/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
-      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
-      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
-    </nav>
-  </div>
-</header>
-
-<main class="wrap">
+---
+import Beta from '../../layouts/Beta.astro';
+import Email from '../../components/Email.astro';
+---
+<Beta title="DoveLoFanno beta su QNAP" area="qnap">
   <h1>DoveLoFanno su un NAS QNAP</h1>
   <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
     dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
@@ -34,6 +14,9 @@
   <div class="note warn">
     <p><strong>Istruzioni provate da poco su un QNAP vero</strong> (TS-253A, Container Station 3.1.2). Se una voce ha
       un nome diverso o qualcosa non torna, scrivimi cosa vedi (anche con uno screenshot) e le correggo.</p>
+    <p><strong>Su QNAP per ora c'è la versione 0.2.2</strong>, quella provata sul NAS: le versioni nuove arrivano su
+      questa pagina appena è sicuro che Container Station le importa. Fino ad allora DoveLoFanno ti avviserà di
+      aggiornamenti che qui non ci sono ancora: puoi ignorarli.</p>
   </div>
 
   <section id="prima">
@@ -139,7 +122,7 @@
         con ▶. In <strong>Container</strong>, ingranaggio accanto a <code>dovelofanno</code> › Ferma, poi Elimina; se in
         Applicazioni è rimasta una <code>dovelofanno</code> in errore, elimina anche quella. Poi rifai il passo 3.</li>
       <li><strong>I log</strong> sono in <code>Container/dovelofanno/data/logs</code>: mandameli a
-        <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+        <Email to="beta@dovelofanno.it" />.</li>
     </ul>
   </section>
 
@@ -153,12 +136,4 @@
       elimina <code>dovelofanno</code>. La cartella <code>Container/dovelofanno</code> con dati e registrazioni resta:
       cancellala da File Station solo se non ti servono più.</p>
   </section>
-</main>
-
-<footer class="wrap small">
-  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
-  <a href="/beta/">Beta</a> ·
-  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
-</footer>
-</body>
-</html>
+</Beta>

@@ -37,12 +37,12 @@ jobs:
           if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "tag non valido: ${{ github.ref_name }} (atteso vX.Y.Z)" }
           "version=$v" >> $env:GITHUB_OUTPUT
 
-      - name: site/version.json annuncia questa versione
+      - name: site/public/version.json annuncia questa versione
         shell: pwsh
         run: |
-          $j = Get-Content site/version.json -Raw | ConvertFrom-Json
-          if ($j.version -ne "${{ steps.version.outputs.version }}") { throw "site/version.json dice $($j.version): aggiornarlo (con data e note) nel commit del tag" }
-          if ($j.url -notlike 'https://*') { throw "site/version.json: url non https" }
+          $j = Get-Content site/public/version.json -Raw | ConvertFrom-Json
+          if ($j.version -ne "${{ steps.version.outputs.version }}") { throw "site/public/version.json dice $($j.version): aggiornarlo (con data e note) nel commit del tag" }
+          if ($j.url -notlike 'https://*') { throw "site/public/version.json: url non https" }
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -168,6 +168,27 @@ jobs:
         run: |
           cd out && sha256sum *.exe *.zip *.tar.gz > SHA256SUMS.txt && cat SHA256SUMS.txt && ls -l
 
+      # Per il sito (27/11/2026): nomi, dimensioni in byte e impronte dei file, allegati al rilascio. Le pagine della beta
+      # li prendono da site/src/data/release.json, che si aggiorna con python tools/site-release.py vX.Y.Z.
+      - name: release.json per il sito
+        env:
+          VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          cd out && python3 - <<'PY'
+          import json, os, re
+          v = os.environ['VERSION']
+          keys = {f'DoveLoFanno-{v}-setup.exe': 'win-x64', f'dovelofanno-{v}-docker-amd64.tar.gz': 'docker-amd64',
+                  f'dovelofanno-{v}-docker-arm64.tar.gz': 'docker-arm64', f'DoveLoFanno-{v}-sorgenti.zip': 'src'}
+          files = {}
+          for line in open('SHA256SUMS.txt'):
+              sha, name = re.match(r'([0-9a-f]{64}) [ *](.+)', line.strip()).groups()
+              files[keys[name]] = {'name': name, 'size': os.path.getsize(name), 'sha256': sha}
+          assert set(files) == set(keys.values()), files
+          json.dump({'version': v, 'base': f'https://download.dovelofanno.it/{v}/', 'files': files},
+                    open('release.json', 'w'), indent=2)
+          print(open('release.json').read())
+          PY
+
       # Beta riservata (25/11/2026, scelta di Antonio): finché la variabile del repository PUBLIC_DOWNLOADS non vale
       # 'true', su GitHub vanno solo i sorgenti e le impronte; installatore e immagini Docker restano su R2, dietro
       # Cloudflare Access (pagina beta). Per aprire i download: Settings › Secrets and variables › Actions › Variables.
@@ -188,7 +209,7 @@ jobs:
           beta. Istruzioni in [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
 
           EOF
-            gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS.txt $pre \
+            gh release create "$GITHUB_REF_NAME" out/*.zip out/SHA256SUMS.txt out/release.json $pre \
               --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
             exit 0
           fi
@@ -202,7 +223,7 @@ jobs:
           > Vedi [CODE_SIGNING.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CODE_SIGNING.md).
 
           EOF
-          gh release create "$GITHUB_REF_NAME" out/*.exe out/*.zip out/*.tar.gz out/SHA256SUMS.txt $pre \
+          gh release create "$GITHUB_REF_NAME" out/*.exe out/*.zip out/*.tar.gz out/SHA256SUMS.txt out/release.json $pre \
             --title "DoveLoFanno $VERSION" --notes-file notes.md --generate-notes --verify-tag
 
       - name: Copia su Cloudflare R2 (download.dovelofanno.it)

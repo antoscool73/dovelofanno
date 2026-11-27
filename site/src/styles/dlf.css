@@ -1,0 +1,40 @@
+/* Manuale (Starlight): i colori del logo e dell'app (public/style.css, web/src/lib/theme.css). Caratteri di sistema.
+   Il verde è il colore d'azione; il rosso solo per «registra». */
+:root {
+  --sl-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --sl-font-mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+}
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #12331f;
+  --sl-color-accent: #34c77b;
+  --sl-color-accent-high: #8fe3b5;
+  --sl-color-white: #f2f4f7;
+  --sl-color-gray-1: #e3e7ed;
+  --sl-color-gray-2: #c9d0db;
+  --sl-color-gray-3: #a7b0be;
+  --sl-color-gray-4: #6b7485;
+  --sl-color-gray-5: #2a313d;
+  --sl-color-gray-6: #161a21;
+  --sl-color-black: #0d1015;
+  --sl-color-text-accent: #8fb2ff;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d4f3e2;
+  --sl-color-accent: #1f8a52;
+  --sl-color-accent-high: #0f4a2b;
+  --sl-color-text-accent: #2c5bd1;
+}
+/* logo uguale a home e beta (public/style.css .h-logo): icona 36 px, scritta 21 px in grassetto, «Lo» in blu */
+.dlf-logo { display: flex; align-items: center; gap: 10px; color: var(--sl-color-white); text-decoration: none; font-size: 21px; white-space: nowrap; }
+.dlf-logo img { width: 36px; height: 36px; }
+.dlf-logo b { font-weight: 700; }
+.dlf-logo b span { color: #6e9bff; }
+:root[data-theme='light'] .dlf-logo b span { color: #2c5bd1; }
+.dlf-logo:hover { color: var(--sl-color-white); }
+
+/* «Cosa vedrai» dopo un passo: come nelle pagine della beta */
+.expect {
+  display: block; margin-top: 0.4rem; padding-left: 0.75rem;
+  border-left: 3px solid var(--sl-color-accent); color: var(--sl-color-gray-2); font-size: var(--sl-text-sm);
+}
+.expect::before { content: 'Cosa vedrai: '; color: var(--sl-color-accent-high); font-weight: 600; }

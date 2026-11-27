@@ -1,0 +1,10 @@
+---
+// Indirizzo email tra <!--email_off--> e <!--/email_off-->: senza, l'«Email Address Obfuscation» di Cloudflare lo
+// sostituisce con uno script che la nostra Content-Security-Policy blocca (docs/sito.md). Il commento va scritto
+// con set:html perché Astro non copia nella pagina i commenti HTML del modello.
+interface Props { to: string; class?: string; text?: string }
+const { to, class: cls, text } = Astro.props;
+const label = (await Astro.slots.render('default')) || text || to;
+const html = `<!--email_off--><a${cls ? ` class="${cls}"` : ''} href="mailto:${to}">${label}</a><!--/email_off-->`;
+---
+<Fragment set:html={html} />

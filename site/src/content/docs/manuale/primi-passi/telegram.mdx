@@ -1,0 +1,45 @@
+---
+title: Avvisi sul telefono con Telegram
+description: Collegare un bot Telegram per ricevere avvisi e registrazioni anche fuori casa.
+sidebar:
+  order: 3
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CosaVedrai from '../../../../components/CosaVedrai.astro';
+
+Gli avvisi di DoveLoFanno («stasera c'è quel film», «registrazione finita»…) compaiono nella campanella dell'app. Se
+vuoi riceverli anche sul telefono, ovunque tu sia, DoveLoFanno può mandarteli su Telegram attraverso un *bot*: un
+account automatico che crei tu e che scrive solo a te. Ci vogliono 5 minuti, dal telefono.
+
+<Steps>
+
+1. Installa **Telegram** sul telefono (App Store o Play Store) e registrati, se non l'hai già.
+
+2. Nella ricerca di Telegram scrivi **BotFather** e apri quello con la spunta blu (`@BotFather`). Tocca **Avvia**.
+
+3. Scrivigli `/newbot`. Ti chiede due cose: un nome qualsiasi (per esempio *DoveLoFanno di casa*) e un nome utente
+   che deve finire con `bot` (per esempio *rossi_dovelofanno_bot*; se è già preso, prova con un altro).
+   <CosaVedrai>un messaggio «Done! Congratulations…» con un link `t.me/…` e un codice lungo tipo `7123456789:AAH…`: è il **token**.</CosaVedrai>
+
+4. Copia il token (tienilo per te: chi lo ha può scrivere a nome del tuo bot).
+
+5. Tocca il link `t.me/…` del tuo bot e premi **Avvia**. Serve: Telegram non lascia scrivere a un bot chi non gli ha
+   mai scritto.
+
+6. Ora ti serve il numero della tua chat. Cerca **userinfobot** (`@userinfobot`), aprilo e tocca **Avvia**.
+   <CosaVedrai>un messaggio con `Id: 123456789`: quel numero è la tua chat.</CosaVedrai>
+
+7. In DoveLoFanno apri Impostazioni › **Notifiche**, incolla il token in «Token del bot» e il numero in «Chat», poi
+   **Collega e prova**.
+   <CosaVedrai>«Telegram collegato» e, sul telefono, il messaggio del tuo bot «DoveLoFanno è collegato: qui arriveranno avvisi e registrazioni».</CosaVedrai>
+
+</Steps>
+
+In Preferenze › Notifiche ci sono anche gli **Orari di silenzio**: per esempio dalle 23:00 alle 07:00 i messaggi su
+Telegram aspettano e arrivano tutti insieme alla fine (la campanella si aggiorna lo stesso).
+
+:::tip[Se dice «Telegram non ha accettato il messaggio di prova»]
+Controlla di aver premuto Avvia nella chat del tuo bot (passo 5) e di aver copiato token e numero per intero, senza
+spazi.
+:::

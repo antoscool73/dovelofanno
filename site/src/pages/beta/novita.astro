@@ -1,0 +1,20 @@
+---
+// Novità della beta, da CHANGELOG.md (modificare quello). L'ultima versione pubblicata è quella di release.json.
+import Beta from '../../layouts/Beta.astro';
+import { releases, inline } from '../../lib/changelog';
+const list = releases();
+---
+<Beta title="Novità della beta di DoveLoFanno" areas={false}>
+  <h1>Novità della beta</h1>
+  <p class="lead">Cosa è cambiato in ogni versione, dalla più recente. Per aggiornare segui le istruzioni della
+    <a href="/beta/#aggiornare">pagina della beta</a>.</p>
+
+  {list.map((r) => (
+    <section id={`v${r.version}`}>
+      <h2>{r.version} <span class="small">· {r.date}</span></h2>
+      <ul>
+        {r.items.map((i) => <li set:html={inline(i)} />)}
+      </ul>
+    </section>
+  ))}
+</Beta>

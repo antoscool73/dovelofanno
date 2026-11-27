@@ -1,0 +1,14 @@
+---
+// Una riga della tabella dei download Docker: nome, impronta e dimensione dal rilascio (src/data/release.json).
+import { file, type FileKey } from '../lib/release';
+interface Props { k: FileKey; icon: string; cpu?: string }  // il processore anche come contenuto, se ha del markup
+const { k, icon, cpu } = Astro.props;
+const f = file(k);
+---
+<tr>
+  <td class="ic"><svg class="ico" aria-hidden="true"><use href={`/beta/icone.svg#${icon}`}/></svg></td>
+  <td><a href={f.url}>{f.name}</a>
+    <div class="hash" data-hash={k}>SHA-256 {f.sha256}</div></td>
+  <td>{cpu ?? <slot />}</td>
+  <td class="size" data-size={k}>{f.sizeText}</td>
+</tr>

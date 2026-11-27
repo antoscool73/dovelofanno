@@ -1,0 +1,33 @@
+---
+title: La chiave TMDB
+description: Come chiedere la chiave gratuita di The Movie Database per voti, locandine e streaming.
+sidebar:
+  order: 2
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CosaVedrai from '../../../../components/CosaVedrai.astro';
+
+TMDB (The Movie Database) è un archivio gratuito di film e serie. La chiave è come una tessera personale: serve a
+DoveLoFanno per chiedere voti, locandine e dove si trova un titolo in streaming. Ci vogliono 5 minuti.
+
+<Steps>
+
+1. Vai su [themoviedb.org](https://www.themoviedb.org/signup) e crea un account (nome utente, password, email).
+   <CosaVedrai>un'email di conferma: apri il link che contiene.</CosaVedrai>
+
+2. Entra, clicca sulla tua iniziale in alto a destra › **Impostazioni** › **API** (o vai direttamente su
+   [questa pagina](https://www.themoviedb.org/settings/api)).
+
+3. Chiedi una chiave di tipo **Developer**, accetta le condizioni e compila il modulo: tipo di uso «Personale», nome
+   dell'applicazione *DoveLoFanno*, indirizzo *https://dovelofanno.it*, una riga di descrizione (per esempio «uso
+   personale, guida TV di casa») e i tuoi dati.
+   <CosaVedrai>la pagina API con due codici: «Chiave API» (corta) e «Token di accesso in lettura» (lungo).</CosaVedrai>
+
+4. Copia la **Chiave API** (va bene anche il token lungo) e incollala in DoveLoFanno: al primo avvio, oppure in
+   Impostazioni › Voti dei film.
+   <CosaVedrai>«Chiave TMDB salvata». Se è sbagliata te lo dice subito.</CosaVedrai>
+
+</Steps>
+
+La chiave resta solo sul tuo DoveLoFanno, che non la mostra più dopo averla salvata.

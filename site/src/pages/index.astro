@@ -1,3 +1,20 @@
+---
+// Home di dovelofanno.it (CSP rigida: solo file del sito, niente in linea). Lo script JSON-LD non viene eseguito.
+import Email from '../components/Email.astro';
+const ld = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "DoveLoFanno",
+  "url": "https://dovelofanno.it/",
+  "description": "Cosa guardare stasera e dove vederlo: guida TV, servizi di streaming e i film di casa in un posto solo, con registrazione della TV su NAS o PC.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Windows, Linux, Docker",
+  "inLanguage": "it",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "image": "https://dovelofanno.it/img/anteprima.jpg?v=2",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+};
+---
 <!doctype html>
 <html lang="it">
 <head>
@@ -20,25 +37,11 @@
 <meta property="og:image:alt" content="DoveLoFanno: La risposta a stasera che si guarda? sopra le schermate dell'app.">
 <meta name="twitter:card" content="summary_large_image">
 <!-- dati strutturati per i motori di ricerca: non è uno script eseguito, la CSP non lo blocca -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "DoveLoFanno",
-  "url": "https://dovelofanno.it/",
-  "description": "Cosa guardare stasera e dove vederlo: guida TV, servizi di streaming e i film di casa in un posto solo, con registrazione della TV su NAS o PC.",
-  "applicationCategory": "MultimediaApplication",
-  "operatingSystem": "Windows, Linux, Docker",
-  "inLanguage": "it",
-  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
-  "image": "https://dovelofanno.it/img/anteprima.jpg?v=2",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
-}
-</script>
+<script type="application/ld+json" is:inline set:html={JSON.stringify(ld)}></script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=7">
-<script src="/carosello.js?v=1" defer></script>
-<script src="/intro.js?v=2" defer></script>
+<link rel="stylesheet" href="/style.css?v=8">
+<script is:inline src="/carosello.js?v=1" defer></script>
+<script is:inline src="/intro.js?v=2" defer></script>
 </head>
 <body class="home-page">
 <!-- icone a linea, generiche: <svg class="ico"><use href="#i-..."/></svg> -->
@@ -54,7 +57,10 @@
 <header class="h-top">
   <div class="h-wrap">
     <a class="h-logo" href="/"><img src="/favicon.svg" alt="" width="36" height="36"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="h-btn small" href="/beta/">Area beta</a>
+    <nav class="h-nav" aria-label="Sito">
+      <a href="/manuale/">Manuale</a>
+      <a class="h-btn small" href="/beta/">Area beta</a>
+    </nav>
   </div>
 </header>
 
@@ -70,7 +76,7 @@
     <p class="h-sub2">Gratis, senza account e senza pubblicità. Gira a casa tua.</p>
     <div class="h-cta">
       <a class="h-btn" href="/beta/">Sono tra chi lo prova <span aria-hidden="true">›</span></a>
-      <!--email_off--><a class="h-btn ghost" href="mailto:info@dovelofanno.it">Voglio provarlo anch'io</a><!--/email_off-->
+      <Email to="info@dovelofanno.it" class="h-btn ghost">Voglio provarlo anch'io</Email>
     </div>
   </div>
 </section>
@@ -142,22 +148,23 @@
       <p>No. DoveLoFanno non include né fornisce canali o contenuti. Per registrare serve una playlist M3U che hai il
         diritto di usare; senza, guida, liste e streaming funzionano lo stesso.</p></details>
     <details><summary>Che fine fanno i miei dati?</summary>
-      <p>Restano sul tuo computer. Il programma parla solo con la guida TV, con TMDB per voti e locandine e, una volta al
-        giorno, con questo sito per sapere se c'è una versione nuova (si può spegnere).</p></details>
+      <p>Restano sul tuo computer. Il programma parla solo con la tua playlist, con la guida TV, con TMDB per voti e
+        locandine, con Telegram se lo colleghi e, una volta al giorno, con questo sito per sapere se c'è una versione
+        nuova (si può spegnere).</p></details>
     <details><summary>Come lo provo?</summary>
       <p>Per ora è in prova con pochi amici. Se vuoi provarlo anche tu, scrivi a
-        <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->.</p></details>
+        <Email to="info@dovelofanno.it" />.</p></details>
   </div>
 
   <div class="h-end">
     <p>Vuoi sapere quando esce per tutti, o provarlo prima?</p>
-    <!--email_off--><a class="h-btn" href="mailto:info@dovelofanno.it">Scrivimi <span aria-hidden="true">›</span></a><!--/email_off-->
+    <Email to="info@dovelofanno.it" class="h-btn">Scrivimi <span aria-hidden="true">›</span></Email>
   </div>
 </main>
 
 <footer class="h-wrap h-foot">
   <p>DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
-    <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off--> · <a href="/beta/">Area beta</a></p>
+    <Email to="info@dovelofanno.it" /> · <a href="/manuale/">Manuale</a> · <a href="/beta/">Area beta</a></p>
   <p>Le immagini mostrano l'app con la guida TV vera. Locandine, voti e dati dei film vengono da TMDB: questo prodotto
     usa l'API di TMDB ma non è approvato né certificato da TMDB.</p>
 </footer>

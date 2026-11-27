@@ -1,29 +1,10 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>DoveLoFanno beta</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=6">
-</head>
-<body>
-<!-- barra fissa: uguale in tutte le pagine della beta, cambia solo aria-current -->
-<header class="bar">
-  <div class="wrap bar-in">
-    <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="tag" href="/beta/" aria-label="Beta 0.4.0, pagina iniziale della beta">Beta 0.4.0</a>
-    <nav class="areas" aria-label="Dove lo installi">
-      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
-      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
-      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
-      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
-    </nav>
-  </div>
-</header>
-
-<main class="wrap">
+---
+import Beta from '../../layouts/Beta.astro';
+import Email from '../../components/Email.astro';
+import { version, file } from '../../lib/release';
+const src = file('src');
+---
+<Beta title="DoveLoFanno beta" footBack="home">
   <h1>Grazie di provarlo!</h1>
   <p class="lead">DoveLoFanno ti dice cosa guardare stasera e dove trovarlo: in TV, sui tuoi abbonamenti in streaming o
     tra i film che hai già in casa. Se hai una playlist IPTV registra anche i programmi.</p>
@@ -75,11 +56,11 @@
       <li><strong>Un apparecchio sempre acceso</strong>: uno dei quattro qui sopra. Le registrazioni partono solo se è
         acceso: un PC in sospensione di solito non si risveglia da solo.</li>
       <li><strong>Una chiave TMDB</strong> (gratis, facoltativa ma consigliata): dà voti, locandine e su quali servizi
-        di streaming si trova un titolo. Te la spiego <a href="#tmdb">qui sotto</a>.</li>
+        di streaming si trova un titolo. Te la spiego <a href="/manuale/primi-passi/chiave-tmdb/">nel manuale</a>.</li>
       <li><strong>Una playlist M3U</strong> (facoltativa): serve solo per registrare e per l'anteprima dei canali.
-        <a href="#playlist">Cos'è</a>.</li>
+        <a href="/manuale/primi-passi/playlist/">Cos'è</a>.</li>
       <li><strong>Telegram</strong> (facoltativo): per ricevere gli avvisi sul telefono anche fuori casa.
-        <a href="#telegram">Come si collega</a>.</li>
+        <a href="/manuale/primi-passi/telegram/">Come si collega</a>.</li>
     </ul>
     <p class="small">Le tre cose facoltative si possono aggiungere anche dopo, quando vuoi, in Impostazioni.</p>
   </section>
@@ -101,72 +82,28 @@
       La guida TV si riempie da sola nel giro di qualche minuto; i voti dei film arrivano un po' alla volta.</p>
   </section>
 
+  <!-- 27/11/2026: le istruzioni passo per passo sono nel manuale pubblico; qui restano le ancore di prima -->
   <section id="playlist">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-list"/></svg>La playlist M3U</h2>
-    <p>È un indirizzo internet (di solito finisce con <code>.m3u</code> o <code>.m3u8</code>) che contiene l'elenco
-      dei canali e dove trovarli. Te la dà chi fornisce il servizio IPTV, oppure ne esistono di pubbliche con i canali
-      in chiaro italiani. Con una playlist DoveLoFanno può registrare e mostrarti l'anteprima dei canali; senza, fa tutto
-      il resto (guida, proposte, Dove Lo Fanno, avvisi, i film di casa).</p>
-    <p class="small">DoveLoFanno non include né fornisce canali: usa solo playlist che hai il diritto di usare. Si
-      aggiungono o tolgono quando vuoi in Impostazioni › Sorgenti.</p>
+    <p>Serve solo per registrare e per l'anteprima dei canali; senza, DoveLoFanno fa tutto il resto. Cos'è e dove si
+      mette: <a href="/manuale/primi-passi/playlist/">La playlist M3U</a> nel manuale.</p>
   </section>
 
   <section id="tmdb">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-key"/></svg>La chiave TMDB, passo per passo</h2>
-    <p>TMDB (The Movie Database) è un archivio gratuito di film e serie. La chiave è come una tessera personale: serve a
-      DoveLoFanno per chiedere voti, locandine e dove si trova un titolo in streaming. Ci vogliono 5 minuti.</p>
-    <ol>
-      <li>Vai su <a href="https://www.themoviedb.org/signup" rel="noopener">themoviedb.org</a> e crea un account
-        (nome utente, password, email). <span class="expect">un'email di conferma: apri il link che contiene.</span></li>
-      <li>Entra, clicca sulla tua iniziale in alto a destra › <strong>Impostazioni</strong> › <strong>API</strong>
-        (o vai direttamente su <a href="https://www.themoviedb.org/settings/api" rel="noopener">questa pagina</a>).</li>
-      <li>Chiedi una chiave di tipo <strong>Developer</strong>, accetta le condizioni e compila il modulo: tipo di uso
-        «Personale», nome dell'applicazione <em>DoveLoFanno</em>, indirizzo <em>https://dovelofanno.it</em>, una riga di
-        descrizione (per esempio «uso personale, guida TV di casa») e i tuoi dati.
-        <span class="expect">la pagina API con due codici: «Chiave API» (corta) e «Token di accesso in lettura» (lungo).</span></li>
-      <li>Copia la <strong>Chiave API</strong> (va bene anche il token lungo) e incollala in DoveLoFanno: al primo avvio,
-        oppure in Impostazioni › Voti dei film.</li>
-    </ol>
-    <p class="small">La chiave resta solo sul tuo DoveLoFanno, che non la mostra più dopo averla salvata.</p>
+    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-key"/></svg>La chiave TMDB</h2>
+    <p>Gratis, in 5 minuti: <a href="/manuale/primi-passi/chiave-tmdb/">come chiederla, passo per passo</a>.</p>
   </section>
 
   <section id="telegram">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-send"/></svg>Avvisi sul telefono con Telegram</h2>
-    <p>Gli avvisi di DoveLoFanno («stasera c'è quel film», «registrazione finita»…) compaiono nella campanella dell'app.
-      Se vuoi riceverli anche sul telefono, ovunque tu sia, DoveLoFanno può mandarteli su Telegram attraverso un
-      <em>bot</em>: un account automatico che crei tu e che scrive solo a te. Ci vogliono 5 minuti, dal telefono.</p>
-    <ol>
-      <li>Installa <strong>Telegram</strong> sul telefono (App Store o Play Store) e registrati, se non l'hai già.</li>
-      <li>Nella ricerca di Telegram scrivi <strong>BotFather</strong> e apri quello con la spunta blu
-        (<code>@BotFather</code>). Tocca <strong>Avvia</strong>.</li>
-      <li>Scrivigli <code>/newbot</code>. Ti chiede due cose: un nome qualsiasi (per esempio <em>DoveLoFanno di
-        casa</em>) e un nome utente che deve finire con <code>bot</code> (per esempio <em>rossi_dovelofanno_bot</em>; se
-        è già preso, prova con un altro).
-        <span class="expect">un messaggio «Done! Congratulations…» con un link <code>t.me/…</code> e un codice lungo tipo
-        <code>7123456789:AAH…</code>: è il <strong>token</strong>.</span></li>
-      <li>Copia il token (tienilo per te: chi lo ha può scrivere a nome del tuo bot).</li>
-      <li>Tocca il link <code>t.me/…</code> del tuo bot e premi <strong>Avvia</strong>. Serve: Telegram non lascia
-        scrivere a un bot chi non gli ha mai scritto.</li>
-      <li>Ora ti serve il numero della tua chat. Cerca <strong>userinfobot</strong> (<code>@userinfobot</code>), aprilo e
-        tocca <strong>Avvia</strong>. <span class="expect">un messaggio con <code>Id: 123456789</code>: quel numero è la
-        tua chat.</span></li>
-      <li>In DoveLoFanno apri Impostazioni › <strong>Notifiche</strong>, incolla il token in «Token del bot» e il numero
-        in «Chat», poi <strong>Collega e prova</strong>.
-        <span class="expect">«Telegram collegato» e, sul telefono, il messaggio del tuo bot «DoveLoFanno è collegato:
-        qui arriveranno avvisi e registrazioni».</span></li>
-    </ol>
-    <p>Sotto c'è anche <strong>Orari di silenzio</strong>: per esempio dalle 23:00 alle 07:00 non arriva niente sul
-      telefono (la campanella si aggiorna lo stesso).</p>
-    <p class="small">Se dice «Telegram non ha accettato il messaggio di prova»: controlla di aver premuto Avvia nella
-      chat del tuo bot (passo 5) e di aver copiato token e numero per intero, senza spazi.</p>
+    <p>Per ricevere avvisi e registrazioni anche fuori casa: <a href="/manuale/primi-passi/telegram/">come collegare il
+      tuo bot</a>, dal telefono, in 5 minuti.</p>
   </section>
 
   <section id="telefono">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-phone"/></svg>Dal telefono e dagli altri computer</h2>
-    <p>Da qualunque apparecchio collegato al Wi-Fi di casa apri il browser e scrivi l'indirizzo di DoveLoFanno: quello
-      che trovi alla fine della pagina della tua installazione, per esempio <code>http://192.168.1.50:8765</code>.
-      Sul telefono puoi metterlo nella schermata Home: nel menu del browser, «Aggiungi alla schermata Home».
-      Fuori casa DoveLoFanno non si raggiunge (è voluto): gli avvisi però arrivano su Telegram.</p>
+    <p>Apri nel browser l'indirizzo che trovi alla fine della pagina della tua installazione, per esempio
+      <code>http://192.168.1.50:8765</code>. <a href="/manuale/primi-passi/telefono-e-tablet/">Altro nel manuale</a>.</p>
   </section>
 
   <section id="aggiornare">
@@ -180,7 +117,7 @@
 
   <section id="problemi">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-mail"/></svg>Problemi, dubbi, idee</h2>
-    <p>Scrivi a <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->: va tutto
+    <p>Scrivi a <Email to="beta@dovelofanno.it" />: va tutto
       bene, anche «questa cosa non la capisco». Se qualcosa non funziona, aiutano:</p>
     <ul>
       <li>cosa stavi facendo e cosa ti aspettavi;</li>
@@ -197,17 +134,8 @@
 
   <section id="sorgenti">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-code"/></svg>Codice sorgente</h2>
-    <p>DoveLoFanno è software libero (GPL-3.0 o successive). Il codice della versione 0.4.0:
-      <a href="https://download.dovelofanno.it/0.4.0/DoveLoFanno-0.4.0-sorgenti.zip">DoveLoFanno-0.4.0-sorgenti.zip</a>
-      (2,1 MB).</p>
-    <div class="hash" data-hash="src">SHA-256 dd047a753b62a9b8750a657f570d6d33dbf1b9d7094473aadc0a43120b0e162b</div>
+    <p>DoveLoFanno è software libero (GPL-3.0 o successive). Il codice della versione {version}:
+      <a href={src.url}>{src.name}</a> ({src.sizeText}).</p>
+    <div class="hash" data-hash="src">SHA-256 {src.sha256}</div>
   </section>
-</main>
-
-<footer class="wrap small">
-  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
-  <a href="/">dovelofanno.it</a> ·
-  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
-</footer>
-</body>
-</html>
+</Beta>

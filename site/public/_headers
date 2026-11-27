@@ -1,0 +1,35 @@
+# Cloudflare Pages: intestazioni del sito. La pagina della beta è protetta da Cloudflare Access e non va indicizzata.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'
+
+/version.json
+  Cache-Control: no-cache
+
+/beta/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+
+# Manuale (Starlight): gli script in linea passano solo con la loro impronta SHA-256, gli attributi style="" con
+# 'unsafe-inline' (solo style-src-attr), 'wasm-unsafe-eval' serve alla ricerca Pagefind. Home, beta e 404 restano con
+# la CSP rigida qui sopra. Il segnaposto lo sostituisce tools/csp-headers.mjs dopo la compilazione (in dist/_headers).
+/manuale/*
+  ! Content-Security-Policy
+  Content-Security-Policy: @MANUALE@
+
+# La ricerca del manuale gira in un Worker caricato da /pagefind/: il Worker prende la CSP dalla sua risposta, e
+# compila il WebAssembly di Pagefind (prova nel browser del 27/11/2026: senza questa regola la ricerca non parte).
+/pagefind/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; frame-ancestors 'none'
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# lo stesso sito su pages.dev (e le anteprime dei commit) non va indicizzato: l'indirizzo ufficiale è dovelofanno.it
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

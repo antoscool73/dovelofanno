@@ -1,0 +1,58 @@
+---
+// Pagine dell'area beta (dietro Cloudflare Access, noindex): barra fissa con le quattro installazioni, una sola volta qui.
+import { version } from '../lib/release';
+
+interface Props {
+  title: string;
+  /** l'installazione di questa pagina, evidenziata nella barra; nessuna per l'inizio e le novità */
+  area?: 'synology' | 'qnap' | 'linux' | 'windows';
+  /** false nelle novità: la barra mostra solo logo e versione */
+  areas?: boolean;
+  /** dove porta il secondo collegamento del piede */
+  footBack?: 'home' | 'beta';
+}
+const { title, area, areas = true, footBack = 'beta' } = Astro.props;
+const links = [
+  { id: 'synology', label: 'Synology', icon: 'i-nas' },
+  { id: 'qnap', label: 'QNAP', icon: 'i-nas4' },
+  { id: 'linux', label: 'Linux', icon: 'i-term' },
+  { id: 'windows', label: 'Windows', icon: 'i-pc' },
+];
+---
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{title}</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css?v=8">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="36" height="36"><b>Dove<span>Lo</span>Fanno</b></a>
+    <a class="tag" href="/beta/" aria-label={`Beta ${version}, pagina iniziale della beta`}>Beta {version}</a>
+    {areas && (
+      <nav class="areas" aria-label="Dove lo installi">
+        {links.map((l) => (
+          <a href={`/beta/${l.id}/`} aria-current={l.id === area ? 'page' : undefined}><svg class="ico" aria-hidden="true"><use href={`/beta/icone.svg#${l.icon}`}/></svg>{l.label}</a>
+        ))}
+      </nav>
+    )}
+  </div>
+</header>
+
+<main class="wrap">
+  <slot />
+</main>
+
+<footer class="wrap small">
+  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
+  {footBack === 'home' ? <a href="/">dovelofanno.it</a> : <a href="/beta/">Beta</a>} ·
+  <a href="/manuale/">Manuale</a> ·
+  <Fragment set:html={'<!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->'} />
+</footer>
+</body>
+</html>

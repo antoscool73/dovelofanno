@@ -1,28 +1,10 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>DoveLoFanno beta su Linux</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=6">
-</head>
-<body>
-<header class="bar">
-  <div class="wrap bar-in">
-    <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="tag" href="/beta/" aria-label="Beta 0.4.0, pagina iniziale della beta">Beta 0.4.0</a>
-    <nav class="areas" aria-label="Dove lo installi">
-      <a href="/beta/synology/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
-      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
-      <a href="/beta/linux/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
-      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
-    </nav>
-  </div>
-</header>
-
-<main class="wrap">
+---
+import Beta from '../../layouts/Beta.astro';
+import Email from '../../components/Email.astro';
+import DownloadRow from '../../components/DownloadRow.astro';
+import { version } from '../../lib/release';
+---
+<Beta title="DoveLoFanno beta su Linux" area="linux">
   <h1>DoveLoFanno su Linux e altri NAS con Docker</h1>
   <p class="lead">Per mini-PC, Raspberry Pi 4 o 5, server di casa, Unraid, TrueNAS, OpenMediaVault: ovunque ci sia
     Docker. DoveLoFanno gira in un <em>container</em> e tiene tutti i suoi dati in una cartella.</p>
@@ -55,33 +37,21 @@
     <table class="dl">
       <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
       <tbody>
-        <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-amd64.tar.gz">dovelofanno-0.4.0-docker-amd64.tar.gz</a>
-            <div class="hash" data-hash="docker-amd64">SHA-256 d21a9e4dfdb6f3764e6280f4c16489317fd60fb17f4c7488b374d47f9249afb9</div></td>
-          <td><code>x86_64</code>: Intel o AMD</td>
-          <td class="size" data-size="docker-amd64">246 MB</td>
-        </tr>
-        <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-arm64.tar.gz">dovelofanno-0.4.0-docker-arm64.tar.gz</a>
-            <div class="hash" data-hash="docker-arm64">SHA-256 841ec11464757ddd84635606dd758d8a44c7b5a028d21e8dfb52a5bf5253d2ed</div></td>
-          <td><code>aarch64</code>: Raspberry Pi 4/5 e altri ARM</td>
-          <td class="size" data-size="docker-arm64">236 MB</td>
-        </tr>
+        <DownloadRow k="docker-amd64" icon="i-term"><code>x86_64</code>: Intel o AMD</DownloadRow>
+        <DownloadRow k="docker-arm64" icon="i-term"><code>aarch64</code>: Raspberry Pi 4/5 e altri ARM</DownloadRow>
       </tbody>
     </table>
     <p>Poi copialo sul server, per esempio dal tuo computer con
-      <code>scp dovelofanno-0.4.0-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
-      Per controllarlo: <code>sha256sum dovelofanno-0.4.0-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
+      <code>scp dovelofanno-{version}-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
+      Per controllarlo: <code>sha256sum dovelofanno-{version}-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
   </section>
 
   <section id="installa">
     <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Installa, passo per passo</h2>
     <ol>
       <li><strong>Carica l'immagine</strong> (con <code>arm64</code> al posto di <code>amd64</code> se è il tuo caso):
-<pre><code>docker load -i dovelofanno-0.4.0-docker-amd64.tar.gz</code></pre>
-        <span class="expect"><code>Loaded image: dovelofanno:0.4.0</code> dopo qualche decina di secondi.</span></li>
+<pre><code>docker load -i dovelofanno-{version}-docker-amd64.tar.gz</code></pre>
+        <span class="expect"><code>Loaded image: dovelofanno:{version}</code> dopo qualche decina di secondi.</span></li>
       <li><strong>Crea le cartelle</strong> e guarda i numeri del tuo utente:
 <pre><code>mkdir -p ~/dovelofanno/data ~/dovelofanno/registrazioni
 cd ~/dovelofanno
@@ -92,7 +62,7 @@ id -u; id -g</code></pre>
         <kbd>Invio</kbd> ed esci con <kbd>Ctrl</kbd>+<kbd>X</kbd>.
 <pre><code>services:
   dovelofanno:
-    image: dovelofanno:0.4.0
+    image: dovelofanno:{version}
     container_name: dovelofanno
     restart: unless-stopped
     user: "1000:1000"
@@ -129,7 +99,7 @@ id -u; id -g</code></pre>
         <code>sudo ufw allow 8765/tcp</code>.</li>
       <li><strong><code>exec format error</code></strong>: hai caricato il file dell'altro processore.</li>
       <li><strong>I log</strong> sono in <code>~/dovelofanno/data/logs</code> e in <code>docker compose logs</code>:
-        mandameli a <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+        mandameli a <Email to="beta@dovelofanno.it" />.</li>
     </ul>
   </section>
 
@@ -139,15 +109,7 @@ id -u; id -g</code></pre>
       cambia il numero nella riga <code>image</code> di <code>compose.yaml</code> e dalla cartella
       <code>~/dovelofanno</code> lancia <code>docker compose up -d</code>. Dati, liste e registrazioni restano.</p>
     <p><strong>Togliere</strong>: dalla cartella <code>~/dovelofanno</code> <code>docker compose down</code>, poi
-      <code>docker image rm dovelofanno:0.4.0</code>. La cartella con dati e registrazioni resta finché non la cancelli
+      <code>docker image rm dovelofanno:{version}</code>. La cartella con dati e registrazioni resta finché non la cancelli
       tu.</p>
   </section>
-</main>
-
-<footer class="wrap small">
-  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
-  <a href="/beta/">Beta</a> ·
-  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
-</footer>
-</body>
-</html>
+</Beta>

@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://dovelofanno.it"><img src="site/favicon.svg" width="96" alt="Logo di DoveLoFanno"></a>
+  <a href="https://dovelofanno.it"><img src="site/public/favicon.svg" width="96" alt="Logo di DoveLoFanno"></a>
 </p>
 
 <h1 align="center">DoveLoFanno</h1>

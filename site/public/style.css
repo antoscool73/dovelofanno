@@ -52,8 +52,12 @@ p code, li code { overflow-wrap: anywhere; }
 .h-top { position: absolute; inset: 0 0 auto 0; z-index: 3; }
 .h-top .h-wrap { display: flex; align-items: center; justify-content: space-between; height: 76px; }
 .h-logo { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 21px; }
+.h-logo b { font-weight: 700; }
 .h-logo span { color: var(--blue); }
 .h-logo:hover { color: var(--text); }
+.h-nav { display: flex; align-items: center; gap: 18px; }
+.h-nav > a:not(.h-btn) { color: var(--text-2); text-decoration: none; font-weight: 600; }
+.h-nav > a:not(.h-btn):hover { color: var(--text); }
 
 .h-btn {
   display: inline-flex; align-items: center; gap: 8px; background: var(--green); color: #0b1a12;
@@ -185,31 +189,25 @@ section.h-hero {
 @media (pointer: coarse) { .h-arrow { display: none; } }
 
 /* Comparsa allo scorrimento (23/11/2026, Antonio: «come i siti WordPress»): solo CSS, legata allo scorrimento e non al
-   tempo (tornando su si riavvolge). Titoli, riquadri e domande salgono in dissolvenza; le schermate entrano da destra
-   una dopo l'altra. Dove il browser non conosce animation-timeline (oggi Firefox) o con «riduci le animazioni» resta
-   tutto fermo e visibile come prima. */
+   tempo (tornando su si riavvolge). Titoli, riquadri e domande salgono in dissolvenza. Le schermate del carosello
+   restano ferme: entravano da destra scorrendo in giù e sembrava che il carosello si muovesse da solo (tolto il
+   27/11/2026 su richiesta di Antonio). Dove il browser non conosce animation-timeline (oggi Firefox) o con «riduci le
+   animazioni» resta tutto fermo e visibile come prima. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     @keyframes h-rise { from { opacity: 0; transform: translateY(36px); } to { opacity: 1; transform: none; } }
-    @keyframes h-slide { from { opacity: 0; transform: translateX(120px); } to { opacity: 1; transform: none; } }
     .home-page .h-banner, .home-page .h-h2, .home-page .h-card, .home-page .h-faq details, .home-page .h-end {
       animation: h-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 80%;
     }
-    /* le schermate stanno in un contenitore che scorre di lato: la linea del tempo è quella del carosello nella pagina */
-    .home-page .h-row { view-timeline: --h-shots block; }
-    .home-page .h-shot { animation: h-slide linear both; animation-timeline: --h-shots; }
-    .home-page .h-shot:nth-child(1) { animation-range: entry 0% entry 70%; }
-    .home-page .h-shot:nth-child(2) { animation-range: entry 10% entry 80%; }
-    .home-page .h-shot:nth-child(3) { animation-range: entry 20% entry 90%; }
-    .home-page .h-shot:nth-child(4) { animation-range: entry 30% entry 100%; }
-    .home-page .h-shot:nth-child(n+5) { animation-range: entry 40% cover 30%; }
   }
 }
 
 /* Area beta: barra fissa in alto con il logo e le quattro aree (beta/*) */
 header.bar { position: sticky; top: 0; z-index: 10; background: var(--navy); border-bottom: 1px solid var(--line-strong); }
 .bar-in { display: flex; align-items: center; gap: 14px; height: 62px; }
-header.bar a.home { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 19px; }
+/* logo uguale in tutte le pagine (27/11/2026): icona 36 px, scritta 21 px in grassetto, come .h-logo e il manuale */
+header.bar a.home { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 21px; }
+header.bar a.home b { font-weight: 700; }
 header.bar a.home b span { color: var(--blue); }
 header.bar .tag { font-size: 12px; color: var(--green-text); background: var(--green-soft); padding: 2px 9px; border-radius: 999px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 header.bar a.tag:hover { color: var(--text); }

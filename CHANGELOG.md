@@ -2,8 +2,8 @@
 
 Le novità di ogni versione della beta, dalla più recente. Con la 1.0 pubblica si riparte da zero.
 
-Da questo file `tools/changelog.py` genera la pagina <https://dovelofanno.it/beta/novita/> e le note di
-`site/version.json` (quelle che l'app mostra in Impostazioni › Aggiornamenti e nella campanella).
+Da questo file il sito genera la pagina <https://dovelofanno.it/beta/novita/> e `tools/changelog.py` le note di
+`site/public/version.json` (quelle che l'app mostra in Impostazioni › Aggiornamenti e nella campanella).
 
 <!-- La sezione «Prossima versione» non ha numero né data: tools/changelog.py la salta, così version.json non annuncia
      un aggiornamento che non c'è ancora. Al rilascio diventa «## X.Y.Z · gg/mm/aaaa» e si lancia lo script. -->

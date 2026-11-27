@@ -1,28 +1,10 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>DoveLoFanno beta su Synology</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/style.css?v=6">
-</head>
-<body>
-<header class="bar">
-  <div class="wrap bar-in">
-    <a class="home" href="/" aria-label="DoveLoFanno, torna al sito"><img src="/favicon.svg" alt="" width="32" height="32"><b>Dove<span>Lo</span>Fanno</b></a>
-    <a class="tag" href="/beta/" aria-label="Beta 0.4.0, pagina iniziale della beta">Beta 0.4.0</a>
-    <nav class="areas" aria-label="Dove lo installi">
-      <a href="/beta/synology/" aria-current="page"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Synology</a>
-      <a href="/beta/qnap/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>QNAP</a>
-      <a href="/beta/linux/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Linux</a>
-      <a href="/beta/windows/"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Windows</a>
-    </nav>
-  </div>
-</header>
-
-<main class="wrap">
+---
+import Beta from '../../layouts/Beta.astro';
+import Email from '../../components/Email.astro';
+import DownloadRow from '../../components/DownloadRow.astro';
+import { version } from '../../lib/release';
+---
+<Beta title="DoveLoFanno beta su Synology" area="synology">
   <h1>DoveLoFanno su un NAS Synology</h1>
   <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
     dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
@@ -54,20 +36,8 @@
     <table class="dl">
       <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
       <tbody>
-        <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-amd64.tar.gz">dovelofanno-0.4.0-docker-amd64.tar.gz</a>
-            <div class="hash" data-hash="docker-amd64">SHA-256 d21a9e4dfdb6f3764e6280f4c16489317fd60fb17f4c7488b374d47f9249afb9</div></td>
-          <td>Intel o AMD (quasi tutti i modelli «+» e «xs»)</td>
-          <td class="size" data-size="docker-amd64">246 MB</td>
-        </tr>
-        <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg></td>
-          <td><a href="https://download.dovelofanno.it/0.4.0/dovelofanno-0.4.0-docker-arm64.tar.gz">dovelofanno-0.4.0-docker-arm64.tar.gz</a>
-            <div class="hash" data-hash="docker-arm64">SHA-256 841ec11464757ddd84635606dd758d8a44c7b5a028d21e8dfb52a5bf5253d2ed</div></td>
-          <td>Realtek (ARM a 64 bit)</td>
-          <td class="size" data-size="docker-arm64">236 MB</td>
-        </tr>
+        <DownloadRow k="docker-amd64" icon="i-nas" cpu="Intel o AMD (quasi tutti i modelli «+» e «xs»)" />
+        <DownloadRow k="docker-arm64" icon="i-nas" cpu="Realtek (ARM a 64 bit)" />
       </tbody>
     </table>
   </section>
@@ -83,7 +53,7 @@
       <li><strong>L'immagine.</strong> Apri <strong>Container Manager</strong> › <strong>Immagine</strong> ›
         <strong>Aggiungi</strong> › <strong>Aggiungi da file</strong> e scegli il file <code>.tar.gz</code> scaricato.
         <span class="expect">il caricamento richiede qualche minuto; poi nell'elenco compare <code>dovelofanno</code>
-        con l'etichetta <code>0.4.0</code>.</span></li>
+        con l'etichetta <code>{version}</code>.</span></li>
       <li><strong>Il progetto.</strong> Container Manager › <strong>Progetto</strong> › <strong>Crea</strong>:
         <ul>
           <li>Nome del progetto: <code>dovelofanno</code></li>
@@ -93,7 +63,7 @@
         </ul>
 <pre><code>services:
   dovelofanno:
-    image: dovelofanno:0.4.0
+    image: dovelofanno:{version}
     container_name: dovelofanno
     restart: unless-stopped
     user: "1026:100"
@@ -136,7 +106,7 @@
       <li><strong>«Aggiungi da file» dà errore.</strong> Probabilmente il file è dell'altro processore (amd64 al posto di
         arm64 o viceversa) o è arrivato a metà: riscaricalo.</li>
       <li><strong>I log</strong> sono in <code>docker/dovelofanno/data/logs</code>: mandameli a
-        <!--email_off--><a href="mailto:beta@dovelofanno.it">beta@dovelofanno.it</a><!--/email_off-->.</li>
+        <Email to="beta@dovelofanno.it" />.</li>
     </ul>
   </section>
 
@@ -148,7 +118,7 @@
       <li>Container Manager › Immagine › Aggiungi › Aggiungi da file: il nuovo <code>.tar.gz</code>.</li>
       <li>Container Manager › Progetto › <code>dovelofanno</code> › <strong>Arresta</strong>.</li>
       <li>Nella scheda <strong>YAML</strong> del progetto cambia il numero nella riga <code>image</code> (per esempio da
-        <code>dovelofanno:0.4.0</code> al numero nuovo) e salva.</li>
+        <code>dovelofanno:{version}</code> al numero nuovo) e salva.</li>
       <li>Azione › <strong>Crea</strong> (o Compila): il progetto riparte con la versione nuova. Dati, liste e
         registrazioni restano.</li>
     </ol>
@@ -156,12 +126,4 @@
       Immagine elimina <code>dovelofanno</code>. La cartella <code>docker/dovelofanno</code> con dati e registrazioni
       resta: cancellala da File Station solo se non ti servono più.</p>
   </section>
-</main>
-
-<footer class="wrap small">
-  DoveLoFanno è software libero (GPL-3.0 o successive) e non fornisce canali né contenuti. ·
-  <a href="/beta/">Beta</a> ·
-  <!--email_off--><a href="mailto:info@dovelofanno.it">info@dovelofanno.it</a><!--/email_off-->
-</footer>
-</body>
-</html>
+</Beta>
