@@ -1,13 +1,13 @@
 ---
-// Novità della beta, da CHANGELOG.md (modificare quello). L'ultima versione pubblicata è quella di release.json.
-import Beta from '../../layouts/Beta.astro';
+// Novità delle versioni, da CHANGELOG.md (modificare quello). L'ultima versione pubblicata è quella di release.json.
+import Installa from '../../layouts/Installa.astro';
 import { releases, inline } from '../../lib/changelog';
 const list = releases();
 ---
-<Beta title="Novità della beta di DoveLoFanno" areas={false}>
-  <h1>Novità della beta</h1>
+<Installa title="Novità di DoveLoFanno" areas={false}>
+  <h1>Novità</h1>
   <p class="lead">Cosa è cambiato in ogni versione, dalla più recente. Per aggiornare segui le istruzioni della
-    <a href="/beta/#aggiornare">pagina della beta</a>.</p>
+    <a href="/installa/#aggiornare">pagina dell'installazione</a>.</p>
 
   {list.map((r) => (
     <section id={`v${r.version}`}>
@@ -17,4 +17,4 @@ const list = releases();
       </ul>
     </section>
   ))}
-</Beta>
+</Installa>

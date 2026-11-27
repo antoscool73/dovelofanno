@@ -1,10 +1,10 @@
 ---
-import Beta from '../../layouts/Beta.astro';
+import Installa from '../../layouts/Installa.astro';
 import Email from '../../components/Email.astro';
 import DownloadRow from '../../components/DownloadRow.astro';
 import { version } from '../../lib/release';
 ---
-<Beta title="DoveLoFanno beta su Synology" area="synology">
+<Installa title="DoveLoFanno su Synology" area="synology">
   <h1>DoveLoFanno su un NAS Synology</h1>
   <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
     dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
@@ -15,12 +15,12 @@ import { version } from '../../lib/release';
   </ul>
 
   <section id="prima">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-check"/></svg>Prima di cominciare</h2>
     <ul class="checklist">
       <li><strong>Container Manager.</strong> Entra nel NAS dal browser (DSM), apri <strong>Centro pacchetti</strong> e
         cerca <em>Container Manager</em>. Se c'è, installalo (se ti chiede di creare la cartella condivisa
         <code>docker</code>, accetta). Se non c'è, il tuo modello non può far girare DoveLoFanno: usa un
-        <a href="/beta/windows/">PC Windows</a> e il NAS come archivio.</li>
+        <a href="/installa/windows/">PC Windows</a> e il NAS come archivio.</li>
       <li><strong>Il tipo di processore</strong>, per scaricare il file giusto: Pannello di controllo › Centro
         informazioni › Generale, riga «Nome CPU». Intel (Celeron, Pentium, Atom, Xeon…) o AMD (Ryzen, V1500B…) →
         file <strong>amd64</strong>. Realtek (RTD1296, RTD1619…) → file <strong>arm64</strong>.</li>
@@ -30,7 +30,7 @@ import { version } from '../../lib/release';
   </section>
 
   <section id="scarica">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-down"/></svg>Scarica</h2>
     <p>Scarica sul computer da cui stai lavorando <strong>uno</strong> dei due file, quello del tuo processore. È grande:
       ci vuole qualche minuto. Non aprirlo e non decomprimerlo.</p>
     <table class="dl">
@@ -43,7 +43,7 @@ import { version } from '../../lib/release';
   </section>
 
   <section id="installa">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>Installa, passo per passo</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-nas"/></svg>Installa, passo per passo</h2>
     <ol>
       <li><strong>Le cartelle.</strong> Apri <strong>File Station</strong>, entra nella cartella condivisa
         <code>docker</code> e crea una cartella <code>dovelofanno</code> (pulsante Crea › Crea cartella). Dentro
@@ -84,7 +84,7 @@ import { version } from '../../lib/release';
         <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
     </ol>
     <div class="next">
-      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+      <a class="btn" href="/installa/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-next"/></svg>Vai ai primi passi</a>
     </div>
     <p class="small">Lo stesso indirizzo funziona da telefono, tablet e altri computer collegati al Wi-Fi di casa. Le
       registrazioni finiscono in <code>docker/dovelofanno/registrazioni</code>: se usi Jellyfin o Plex, puoi far
@@ -92,7 +92,7 @@ import { version } from '../../lib/release';
   </section>
 
   <section id="problemi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
     <ul>
       <li><strong>Il progetto si ferma subito, o il registro parla di «permission denied».</strong> È la riga
         <code>user: "1026:100"</code>: dice con quale utente del NAS lavora DoveLoFanno, e quell'utente deve poter
@@ -111,7 +111,7 @@ import { version } from '../../lib/release';
   </section>
 
   <section id="aggiornare">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
     <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina e scarica
       il nuovo file. Poi:</p>
     <ol>
@@ -126,4 +126,4 @@ import { version } from '../../lib/release';
       Immagine elimina <code>dovelofanno</code>. La cartella <code>docker/dovelofanno</code> con dati e registrazioni
       resta: cancellala da File Station solo se non ti servono più.</p>
   </section>
-</Beta>
+</Installa>

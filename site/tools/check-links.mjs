@@ -1,6 +1,6 @@
 // Dopo astro build: collegamenti interni rotti, ancore mancanti, icone di uno sprite SVG che non esistono e indirizzi
 // email fuori da <!--email_off-->. Fallisce la compilazione (e quindi la pubblicazione su Cloudflare Pages).
-// I collegamenti esterni non si controllano: i download stanno dietro Cloudflare Access.
+// I collegamenti esterni non si controllano (i download su download.dovelofanno.it li prova tools/site-release.py).
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, sep, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';

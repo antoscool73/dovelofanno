@@ -1,10 +1,12 @@
 ---
-import Beta from '../../layouts/Beta.astro';
+import Installa from '../../layouts/Installa.astro';
 import Email from '../../components/Email.astro';
 import DownloadRow from '../../components/DownloadRow.astro';
-import { version } from '../../lib/release';
+import { version, file } from '../../lib/release';
+const amd = file('docker-amd64');
+const base = amd.url.slice(0, -amd.name.length);
 ---
-<Beta title="DoveLoFanno beta su Linux" area="linux">
+<Installa title="DoveLoFanno su Linux" area="linux">
   <h1>DoveLoFanno su Linux e altri NAS con Docker</h1>
   <p class="lead">Per mini-PC, Raspberry Pi 4 o 5, server di casa, Unraid, TrueNAS, OpenMediaVault: ovunque ci sia
     Docker. DoveLoFanno gira in un <em>container</em> e tiene tutti i suoi dati in una cartella.</p>
@@ -13,11 +15,11 @@ import { version } from '../../lib/release';
     <li><strong>Difficoltà</strong>: serve un po' di pratica col terminale</li>
     <li><strong>Serve</strong>: Docker con <code>docker compose</code></li>
   </ul>
-  <p class="small">Mai usato un terminale? Allora è più semplice un <a href="/beta/windows/">PC Windows</a>. Se hai un
+  <p class="small">Mai usato un terminale? Allora è più semplice un <a href="/installa/windows/">PC Windows</a>. Se hai un
     Synology o un QNAP, usa le loro pagine.</p>
 
   <section id="prima">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-check"/></svg>Prima di cominciare</h2>
     <p>Apri un terminale sul server (direttamente o con <code>ssh</code>) e controlla due cose.</p>
     <ul class="checklist">
       <li><strong>Il processore</strong>: scrivi <code>uname -m</code>. <code>x86_64</code> → file
@@ -31,9 +33,8 @@ import { version } from '../../lib/release';
   </section>
 
   <section id="scarica">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
-    <p>Scarica il file del tuo processore <strong>con il browser</strong>: questa pagina è riservata agli amici della
-      beta, quindi <code>wget</code> o <code>curl</code> dal server non funzionano.</p>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-down"/></svg>Scarica</h2>
+    <p>Il file del tuo processore, con le impronte per controllarlo:</p>
     <table class="dl">
       <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
       <tbody>
@@ -41,13 +42,18 @@ import { version } from '../../lib/release';
         <DownloadRow k="docker-arm64" icon="i-term"><code>aarch64</code>: Raspberry Pi 4/5 e altri ARM</DownloadRow>
       </tbody>
     </table>
-    <p>Poi copialo sul server, per esempio dal tuo computer con
-      <code>scp dovelofanno-{version}-docker-amd64.tar.gz utente@server:</code> (oppure con una chiavetta USB).
-      Per controllarlo: <code>sha256sum dovelofanno-{version}-docker-*.tar.gz</code> deve dare il codice della tabella.</p>
+    <p>Il modo più semplice è scaricarlo direttamente sul server (con <code>arm64</code> al posto di <code>amd64</code>
+      se è il tuo caso) e controllarlo:</p>
+<pre><code>wget {amd.url}
+wget {base}SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt --ignore-missing</code></pre>
+    <p><span class="expect"><code>dovelofanno-{version}-docker-amd64.tar.gz: OK</code></span></p>
+    <p>Oppure scaricalo con il browser e copialo sul server, per esempio con
+      <code>scp dovelofanno-{version}-docker-amd64.tar.gz utente@server:</code> o con una chiavetta USB.</p>
   </section>
 
   <section id="installa">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>Installa, passo per passo</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-term"/></svg>Installa, passo per passo</h2>
     <ol>
       <li><strong>Carica l'immagine</strong> (con <code>arm64</code> al posto di <code>amd64</code> se è il tuo caso):
 <pre><code>docker load -i dovelofanno-{version}-docker-amd64.tar.gz</code></pre>
@@ -84,14 +90,14 @@ id -u; id -g</code></pre>
         <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
     </ol>
     <div class="next">
-      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+      <a class="btn" href="/installa/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-next"/></svg>Vai ai primi passi</a>
     </div>
     <p class="small"><strong>Unraid, TrueNAS, OpenMediaVault</strong> hanno un loro modo di caricare un'immagine e un
       file compose: valgono lo stesso file e le stesse due cartelle. Se non trovi la strada, scrivimi.</p>
   </section>
 
   <section id="problemi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
     <ul>
       <li><strong>Il container si ferma subito con «permission denied».</strong> I numeri della riga <code>user</code>
         non sono quelli del proprietario delle cartelle: controlla con <code>ls -ln ~/dovelofanno</code>.</li>
@@ -104,12 +110,13 @@ id -u; id -g</code></pre>
   </section>
 
   <section id="aggiornare">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
-    <p><strong>Aggiornare</strong>: scarica e copia il nuovo file, <code>docker load -i</code> come la prima volta,
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <p><strong>Aggiornare</strong>: scarica il nuovo file come la prima volta (<code>wget</code> e controllo
+      dell'impronta), <code>docker load -i</code>,
       cambia il numero nella riga <code>image</code> di <code>compose.yaml</code> e dalla cartella
       <code>~/dovelofanno</code> lancia <code>docker compose up -d</code>. Dati, liste e registrazioni restano.</p>
     <p><strong>Togliere</strong>: dalla cartella <code>~/dovelofanno</code> <code>docker compose down</code>, poi
       <code>docker image rm dovelofanno:{version}</code>. La cartella con dati e registrazioni resta finché non la cancelli
       tu.</p>
   </section>
-</Beta>
+</Installa>

@@ -6,8 +6,9 @@ all'indirizzo `http://<nome-o-indirizzo>:8765`. L'API (`/api/v1/...`) è documen
 
 ## NAS o mini-PC con Docker
 
-L'immagine (amd64 e arm64) si scarica solo da [dovelofanno.it](https://dovelofanno.it/beta/): il file
-`dovelofanno-<versione>-docker-<arch>.tar.gz`. Prima di caricarlo si controlla l'impronta con `SHA256SUMS.txt`, allegato
+L'immagine (amd64 e arm64) si scarica da [dovelofanno.it/installa](https://dovelofanno.it/installa/): il file
+`dovelofanno-<versione>-docker-<arch>.tar.gz`, anche direttamente dal server con
+`wget https://download.dovelofanno.it/<versione>/dovelofanno-<versione>-docker-<arch>.tar.gz`. Prima di caricarlo si controlla l'impronta con `SHA256SUMS.txt`, allegato
 al rilascio su GitHub e scaricabile accanto ai file (`sha256sum -c SHA256SUMS.txt --ignore-missing`). Poi si carica con
 `docker load -i dovelofanno-<versione>-docker-<arch>.tar.gz` (o da Container Manager / Container Station: Immagine ›
 Importa) e nel compose si usa `image: dovelofanno:<versione>`. Le immagini non sono su un registro (niente

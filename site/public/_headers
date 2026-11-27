@@ -1,4 +1,5 @@
-# Cloudflare Pages: intestazioni del sito. La pagina della beta è protetta da Cloudflare Access e non va indicizzata.
+# Cloudflare Pages: intestazioni del sito. Le pagine di installazione (/installa/, prima /beta/ dietro Cloudflare Access)
+# sono pubbliche dal 27/11/2026; i vecchi indirizzi /beta/ rimandano lì (_redirects).
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
@@ -7,12 +8,11 @@
 /version.json
   Cache-Control: no-cache
 
-/beta/*
-  X-Robots-Tag: noindex, nofollow
-  Cache-Control: no-store
+/installa/*
+  Cache-Control: no-cache
 
 # Manuale (Starlight): gli script in linea passano solo con la loro impronta SHA-256, gli attributi style="" con
-# 'unsafe-inline' (solo style-src-attr), 'wasm-unsafe-eval' serve alla ricerca Pagefind. Home, beta e 404 restano con
+# 'unsafe-inline' (solo style-src-attr), 'wasm-unsafe-eval' serve alla ricerca Pagefind. Home, installazione e 404 restano con
 # la CSP rigida qui sopra. Il segnaposto lo sostituisce tools/csp-headers.mjs dopo la compilazione (in dist/_headers).
 /manuale/*
   ! Content-Security-Policy

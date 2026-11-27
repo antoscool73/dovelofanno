@@ -5,7 +5,7 @@
 // - attributi style="" (Starlight, blocchi di codice): non si possono improntare, quindi 'unsafe-inline' ma solo in
 //   style-src-attr;
 // - 'wasm-unsafe-eval': la ricerca Pagefind usa WebAssembly.
-// Controlla anche che home, beta e 404 non abbiano niente in linea, perché lì vale la CSP rigida di /*.
+// Controlla anche che home, installazione e 404 non abbiano niente in linea, perché lì vale la CSP rigida di /*.
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';

@@ -6,7 +6,7 @@
 
 <p align="center"><b>La risposta a <i>stasera che si guarda?</i></b></p>
 
-<p align="center"><a href="https://dovelofanno.it"><b>dovelofanno.it</b></a> · schermate, presentazione e beta</p>
+<p align="center"><a href="https://dovelofanno.it"><b>dovelofanno.it</b></a> · schermate, presentazione e installazione</p>
 
 Guida TV, registratore e libreria di casa in un solo server domestico
 (Docker su NAS o mini-PC, oppure servizio Windows), da usare dal browser di qualunque dispositivo della casa.
@@ -40,8 +40,8 @@ senza IPTV (guida, libreria, liste). Nessun account, nessun servizio in cloud, n
 
 Istruzioni complete in [docs/installazione.md](docs/installazione.md).
 
-> L'installatore Windows e le immagini Docker si scaricano solo da [dovelofanno.it](https://dovelofanno.it) (durante
-> la beta dalla pagina riservata a chi la prova). Nella pagina [Releases](https://github.com/antoscool73/dovelofanno/releases)
+> L'installatore Windows e le immagini Docker si scaricano da [dovelofanno.it/installa](https://dovelofanno.it/installa/),
+> con le istruzioni passo per passo. Nella pagina [Releases](https://github.com/antoscool73/dovelofanno/releases)
 > ci sono i sorgenti di ogni versione e le impronte SHA-256 di tutti i file.
 
 - **Docker** (NAS Synology, mini-PC, Linux, amd64 e arm64): file `.tar.gz` da caricare con `docker load`, esempio in
@@ -104,7 +104,7 @@ any browser on the home network. The user interface is in Italian.
 
 - Website: [dovelofanno.it](https://dovelofanno.it)
 - Install: [docs/installazione.md](docs/installazione.md) (Docker image for amd64/arm64, Windows installer).
-  Installers and images are downloaded only from dovelofanno.it (during the beta, only by beta testers);
+  Installers and images are downloaded from [dovelofanno.it/installa](https://dovelofanno.it/installa/);
   [Releases](https://github.com/antoscool73/dovelofanno/releases) carry the source code and SHA-256 checksums.
 - License: GPL-3.0-or-later, see [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 - Trademark: DoveLoFanno™ is a trademark; modified versions must use another name. See [TRADEMARKS.md](TRADEMARKS.md).

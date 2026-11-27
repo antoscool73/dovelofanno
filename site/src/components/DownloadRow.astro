@@ -6,7 +6,7 @@ const { k, icon, cpu } = Astro.props;
 const f = file(k);
 ---
 <tr>
-  <td class="ic"><svg class="ico" aria-hidden="true"><use href={`/beta/icone.svg#${icon}`}/></svg></td>
+  <td class="ic"><svg class="ico" aria-hidden="true"><use href={`/installa/icone.svg#${icon}`}/></svg></td>
   <td><a href={f.url}>{f.name}</a>
     <div class="hash" data-hash={k}>SHA-256 {f.sha256}</div></td>
   <td>{cpu ?? <slot />}</td>

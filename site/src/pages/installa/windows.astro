@@ -1,10 +1,10 @@
 ---
-import Beta from '../../layouts/Beta.astro';
+import Installa from '../../layouts/Installa.astro';
 import Email from '../../components/Email.astro';
 import { version, file } from '../../lib/release';
 const win = file('win-x64');
 ---
-<Beta title="DoveLoFanno beta su Windows" area="windows">
+<Installa title="DoveLoFanno su Windows" area="windows">
   <h1>DoveLoFanno su un PC Windows</h1>
   <p class="lead">Si installa come un normale programma. Poi lavora da solo in sottofondo: parte quando accendi il PC,
     anche se nessuno entra in Windows, e lo usi dal browser.</p>
@@ -15,7 +15,7 @@ const win = file('win-x64');
   </ul>
 
   <section id="prima">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-check"/></svg>Prima di cominciare</h2>
     <ul class="checklist">
       <li><strong>Windows 10 o 11 a 64 bit.</strong> Per controllare: Start › Impostazioni › Sistema › Informazioni,
         alla riga «Tipo di sistema» deve esserci «64 bit». Quasi tutti i PC degli ultimi dieci anni lo sono.</li>
@@ -34,9 +34,9 @@ const win = file('win-x64');
   </section>
 
   <section id="scarica">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-down"/></svg>Scarica</h2>
     <div class="next">
-      <a class="btn" href={win.url}><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>{win.name} · {win.sizeText}</a>
+      <a class="btn" href={win.url}><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-down"/></svg>{win.name} · {win.sizeText}</a>
     </div>
     <div class="hash" data-hash="win-x64">SHA-256 {win.sha256}</div>
     <p>Il browser potrebbe avvisarti che il file «non viene scaricato comunemente» o «potrebbe essere pericoloso». È
@@ -52,7 +52,7 @@ const win = file('win-x64');
   </section>
 
   <section id="installa">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>Installa, passo per passo</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-pc"/></svg>Installa, passo per passo</h2>
     <ol>
       <li>Apri la cartella <strong>Download</strong> e fai doppio clic su <code>DoveLoFanno-{version}-setup.exe</code>.
         <span class="expect">una finestra blu «Windows ha protetto il PC». Clicca <strong>Ulteriori
@@ -72,12 +72,12 @@ const win = file('win-x64');
         <span class="expect">il browser si apre su <code>localhost:8765</code> con la schermata dei profili.</span></li>
     </ol>
     <div class="next">
-      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+      <a class="btn" href="/installa/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-next"/></svg>Vai ai primi passi</a>
     </div>
   </section>
 
   <section id="usarlo">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-phone"/></svg>Usarlo, anche dal telefono</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-phone"/></svg>Usarlo, anche dal telefono</h2>
     <ul>
       <li><strong>Da questo PC</strong>: Start › <strong>DoveLoFanno</strong> apre il browser all'indirizzo
         <code>http://localhost:8765</code>. Non c'è una finestra da tenere aperta: il programma lavora anche a browser
@@ -94,7 +94,7 @@ const win = file('win-x64');
   </section>
 
   <section id="problemi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
     <ul>
       <li><strong>L'installatore dice che qualcosa «non si è installato» o che il servizio «non è partito».</strong>
         Il messaggio indica un registro: <code>C:\ProgramData\DoveLoFanno\logs\installazione.log</code>. Mandamelo a
@@ -110,11 +110,11 @@ const win = file('win-x64');
   </section>
 
   <section id="aggiornare">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
     <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina,
       scarica il nuovo installatore e aprilo come la prima volta. Dati, liste e registrazioni restano.</p>
     <p><strong>Togliere</strong>: Start › Impostazioni › App › App installate › DoveLoFanno › «…» › Disinstalla. Ti
       chiede se togliere anche database e impostazioni; le registrazioni restano comunque nella loro cartella. Il runtime
       .NET e ffmpeg restano installati: se non ti servono per altro puoi toglierli dallo stesso elenco.</p>
   </section>
-</Beta>
+</Installa>

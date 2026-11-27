@@ -1,11 +1,11 @@
 ---
-import Beta from '../../layouts/Beta.astro';
+import Installa from '../../layouts/Installa.astro';
 import Email from '../../components/Email.astro';
 import { version, file } from '../../lib/release';
 const src = file('src');
 ---
-<Beta title="DoveLoFanno beta" footBack="home">
-  <h1>Grazie di provarlo!</h1>
+<Installa title="Installa DoveLoFanno" footBack="home">
+  <h1>Installa DoveLoFanno</h1>
   <p class="lead">DoveLoFanno ti dice cosa guardare stasera e dove trovarlo: in TV, sui tuoi abbonamenti in streaming o
     tra i film che hai già in casa. Se hai una playlist IPTV registra anche i programmi.</p>
   <p>Come funziona, in due parole: DoveLoFanno si installa <strong>una volta sola</strong> su un apparecchio di casa
@@ -15,23 +15,23 @@ const src = file('src');
   <h2 class="pick">Dove lo installi?</h2>
   <p>Scegli il tuo caso: ogni pagina ti accompagna dal download fino alla prima apertura, passo per passo.</p>
   <div class="choices">
-    <a class="choice" href="/beta/synology/">
-      <svg class="ico big" aria-hidden="true"><use href="/beta/icone.svg#i-nas"/></svg>
+    <a class="choice" href="/installa/synology/">
+      <svg class="ico big" aria-hidden="true"><use href="/installa/icone.svg#i-nas"/></svg>
       <span><strong>Synology</strong>Un NAS Synology con Container Manager.
         <span class="meta">Circa 20 minuti · si fa tutto dal browser</span></span>
     </a>
-    <a class="choice" href="/beta/qnap/">
-      <svg class="ico big" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>
+    <a class="choice" href="/installa/qnap/">
+      <svg class="ico big" aria-hidden="true"><use href="/installa/icone.svg#i-nas4"/></svg>
       <span><strong>QNAP</strong>Un NAS QNAP con Container Station.
         <span class="meta">Circa 20 minuti · si fa tutto dal browser</span></span>
     </a>
-    <a class="choice" href="/beta/linux/">
-      <svg class="ico big" aria-hidden="true"><use href="/beta/icone.svg#i-term"/></svg>
+    <a class="choice" href="/installa/linux/">
+      <svg class="ico big" aria-hidden="true"><use href="/installa/icone.svg#i-term"/></svg>
       <span><strong>Linux e altri NAS</strong>Mini-PC, Raspberry Pi 4/5, Unraid, TrueNAS… con Docker.
         <span class="meta">Per chi usa già il terminale</span></span>
     </a>
-    <a class="choice" href="/beta/windows/">
-      <svg class="ico big" aria-hidden="true"><use href="/beta/icone.svg#i-pc"/></svg>
+    <a class="choice" href="/installa/windows/">
+      <svg class="ico big" aria-hidden="true"><use href="/installa/icone.svg#i-pc"/></svg>
       <span><strong>PC Windows</strong>Windows 10 o 11, con un normale installatore.
         <span class="meta">Circa 10 minuti · il più semplice</span></span>
     </a>
@@ -51,7 +51,7 @@ const src = file('src');
   </div>
 
   <section id="cosa-serve">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Cosa ti serve</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-check"/></svg>Cosa ti serve</h2>
     <ul>
       <li><strong>Un apparecchio sempre acceso</strong>: uno dei quattro qui sopra. Le registrazioni partono solo se è
         acceso: un PC in sospensione di solito non si risveglia da solo.</li>
@@ -66,7 +66,7 @@ const src = file('src');
   </section>
 
   <section id="primi-passi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-play"/></svg>Dopo l'installazione: i primi passi</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-play"/></svg>Dopo l'installazione: i primi passi</h2>
     <p>La prima volta che apri DoveLoFanno nel browser ti fa quattro domande. Puoi saltare tutto tranne il profilo.</p>
     <ol>
       <li><strong>Il tuo profilo</strong>: nome e, se vuoi, un PIN. Poi potrai aggiungere quelli di famiglia, anche per
@@ -84,39 +84,39 @@ const src = file('src');
 
   <!-- 27/11/2026: le istruzioni passo per passo sono nel manuale pubblico; qui restano le ancore di prima -->
   <section id="playlist">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-list"/></svg>La playlist M3U</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-list"/></svg>La playlist M3U</h2>
     <p>Serve solo per registrare e per l'anteprima dei canali; senza, DoveLoFanno fa tutto il resto. Cos'è e dove si
       mette: <a href="/manuale/primi-passi/playlist/">La playlist M3U</a> nel manuale.</p>
   </section>
 
   <section id="tmdb">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-key"/></svg>La chiave TMDB</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-key"/></svg>La chiave TMDB</h2>
     <p>Gratis, in 5 minuti: <a href="/manuale/primi-passi/chiave-tmdb/">come chiederla, passo per passo</a>.</p>
   </section>
 
   <section id="telegram">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-send"/></svg>Avvisi sul telefono con Telegram</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-send"/></svg>Avvisi sul telefono con Telegram</h2>
     <p>Per ricevere avvisi e registrazioni anche fuori casa: <a href="/manuale/primi-passi/telegram/">come collegare il
       tuo bot</a>, dal telefono, in 5 minuti.</p>
   </section>
 
   <section id="telefono">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-phone"/></svg>Dal telefono e dagli altri computer</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-phone"/></svg>Dal telefono e dagli altri computer</h2>
     <p>Apri nel browser l'indirizzo che trovi alla fine della pagina della tua installazione, per esempio
       <code>http://192.168.1.50:8765</code>. <a href="/manuale/primi-passi/telefono-e-tablet/">Altro nel manuale</a>.</p>
   </section>
 
   <section id="aggiornare">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-sync"/></svg>Aggiornare</h2>
     <p>Quando esce una versione nuova DoveLoFanno te lo dice da solo: una notifica nella campanella e i dettagli in
       Impostazioni › Aggiornamenti. Come si aggiorna è spiegato in fondo alla pagina della tua installazione; dati,
       liste e registrazioni restano. Il database si aggiorna da solo dopo averne fatto una copia, e ogni notte alle 3 ne
       viene fatta un'altra (tiene le ultime 7).</p>
-    <p>Cosa è cambiato in ogni versione: <a href="/beta/novita/">Novità della beta</a>.</p>
+    <p>Cosa è cambiato in ogni versione: <a href="/installa/novita/">Novità</a>.</p>
   </section>
 
   <section id="problemi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-mail"/></svg>Problemi, dubbi, idee</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-mail"/></svg>Problemi, dubbi, idee</h2>
     <p>Scrivi a <Email to="beta@dovelofanno.it" />: va tutto
       bene, anche «questa cosa non la capisco». Se qualcosa non funziona, aiutano:</p>
     <ul>
@@ -133,10 +133,10 @@ const src = file('src');
   </section>
 
   <section id="sorgenti">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-code"/></svg>Codice sorgente</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-code"/></svg>Codice sorgente</h2>
     <p>DoveLoFanno è software libero (GPL-3.0 o successive). Il codice della versione {version}:
       <a href={src.url}>{src.name}</a> ({src.sizeText}). Tutta la storia del codice è su
       <a href="https://github.com/antoscool73/dovelofanno">GitHub</a>.</p>
     <div class="hash" data-hash="src">SHA-256 {src.sha256}</div>
   </section>
-</Beta>
+</Installa>

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Pagine della beta: file, dimensioni e impronte dell'ultima versione in site/src/data/release.json.
+"""Pagine di installazione: file, dimensioni e impronte dell'ultima versione in site/src/data/release.json.
 
 Uso (dalla radice del repository, dopo che release.yml ha finito):  python tools/site-release.py v0.5.0
 Scarica con gh il release.json che release.yml allega al rilascio e lo copia nel sito; versione, nomi, dimensioni e
-impronte di tutte le pagine di /beta/ vengono da lì (prima si cercava e sostituiva il numero in ogni pagina).
+impronte di tutte le pagine di /installa/ vengono da lì (prima si cercava e sostituiva il numero in ogni pagina).
 La pagina QNAP non lo usa finché non è provato che Container Station importa i .tar.gz del rilascio (docs/sito.md).
 """
 import json

@@ -36,7 +36,7 @@
 
     <ul class="links">
       <li><a href="https://dovelofanno.it/" target="_blank" rel="noopener noreferrer">dovelofanno.it ↗</a></li>
-      <li><a href="https://dovelofanno.it/beta/novita/" target="_blank" rel="noopener noreferrer">Novità di ogni versione ↗</a></li>
+      <li><a href="https://dovelofanno.it/installa/novita/" target="_blank" rel="noopener noreferrer">Novità di ogni versione ↗</a></li>
       <li><a href="/impostazioni#aggiornamenti" onclick={go}>Controlla gli aggiornamenti</a></li>
       <li><a href="https://github.com/antoscool73/dovelofanno" target="_blank" rel="noopener noreferrer">Codice sorgente su GitHub ↗</a></li>
       <li><a href="mailto:beta@dovelofanno.it">Scrivici: beta@dovelofanno.it</a></li>

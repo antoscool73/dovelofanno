@@ -3,7 +3,7 @@
 Le novità di ogni versione, dalla più recente. La 0.5.0 è la prima versione pubblica: le versioni precedenti, provate
 da pochi amici, non sono elencate.
 
-Da questo file il sito genera la pagina <https://dovelofanno.it/beta/novita/> e `tools/changelog.py` le note di
+Da questo file il sito genera la pagina <https://dovelofanno.it/installa/novita/> e `tools/changelog.py` le note di
 `site/public/version.json` (quelle che l'app mostra in Impostazioni › Aggiornamenti e nella campanella).
 
 <!-- Le novità ancora da rilasciare vanno in una sezione «## Prossima versione», senza numero né data: tools/changelog.py

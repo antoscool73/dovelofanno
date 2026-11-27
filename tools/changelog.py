@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Novità della beta: da CHANGELOG.md aggiorna site/public/version.json.
+"""Novità delle versioni: da CHANGELOG.md aggiorna site/public/version.json.
 
 Uso (dalla radice del repository):  python tools/changelog.py
 Con --check non scrive niente e fallisce se version.json non è allineato a CHANGELOG.md (per la CI).
-La pagina https://dovelofanno.it/beta/novita/ la genera il sito (site/src/pages/beta/novita.astro) leggendo
+La pagina https://dovelofanno.it/installa/novita/ la genera il sito (site/src/pages/installa/novita.astro) leggendo
 CHANGELOG.md con le stesse regole: niente da rigenerare qui (dal 27/11/2026).
 
 version.json prende versione e data dalla prima sezione di CHANGELOG.md e, come note, i suoi punti uno per riga
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'CHANGELOG.md'
 VERSION = ROOT / 'site' / 'public' / 'version.json'
 MAX_NOTES = 500
-MORE = '…e altre novità su dovelofanno.it/beta/novita/'
+MORE = '…e altre novità su dovelofanno.it/installa/novita/'
 
 
 def parse(text: str):

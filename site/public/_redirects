@@ -1,0 +1,4 @@
+# Le pagine della beta (dietro Cloudflare Access fino al 27/11/2026) ora sono pubbliche in /installa/. I vecchi
+# indirizzi restano validi: li usano le app già installate (version.json fino alla 0.5.0) e i messaggi agli amici.
+/beta /installa/ 301
+/beta/* /installa/:splat 301

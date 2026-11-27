@@ -1,8 +1,8 @@
 ---
-import Beta from '../../layouts/Beta.astro';
+import Installa from '../../layouts/Installa.astro';
 import Email from '../../components/Email.astro';
 ---
-<Beta title="DoveLoFanno beta su QNAP" area="qnap">
+<Installa title="DoveLoFanno su QNAP" area="qnap">
   <h1>DoveLoFanno su un NAS QNAP</h1>
   <p class="lead">Il NAS è il posto ideale: è sempre acceso, consuma poco e ha già i tuoi film. DoveLoFanno ci gira
     dentro un <em>container</em>, una specie di scatola chiusa che non tocca il resto del NAS.</p>
@@ -20,12 +20,12 @@ import Email from '../../components/Email.astro';
   </div>
 
   <section id="prima">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-check"/></svg>Prima di cominciare</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-check"/></svg>Prima di cominciare</h2>
     <ul class="checklist">
       <li><strong>Container Station.</strong> Entra nel NAS dal browser, apri <strong>App Center</strong> e cerca
         <em>Container Station</em> (serve la versione 3). Se c'è, installalo e aprilo una volta: al primo avvio crea la
         cartella condivisa <code>Container</code> (accetta la proposta). Se non c'è, il tuo modello non può far girare
-        DoveLoFanno: usa un <a href="/beta/windows/">PC Windows</a> e il NAS come archivio.</li>
+        DoveLoFanno: usa un <a href="/installa/windows/">PC Windows</a> e il NAS come archivio.</li>
       <li><strong>Il tipo di processore</strong>, per scaricare il file giusto: Pannello di controllo › Sistema ›
         Stato del sistema › Informazioni sul sistema, riga «Processore». Intel (Celeron, Pentium, Core…) o AMD (Ryzen…)
         → file <strong>amd64</strong>. ARM (Annapurna Labs, Cortex-A…) → file <strong>arm64</strong>.</li>
@@ -35,7 +35,7 @@ import Email from '../../components/Email.astro';
   </section>
 
   <section id="scarica">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-down"/></svg>Scarica</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-down"/></svg>Scarica</h2>
     <p>Scarica sul computer da cui stai lavorando <strong>uno</strong> dei due file, quello del tuo processore. È grande:
       ci vuole qualche minuto. Non aprirlo e non decomprimerlo. Per QNAP serve proprio questo file: quello della pagina
       Linux non va bene (Container Station non lo riconosce).</p>
@@ -43,14 +43,14 @@ import Email from '../../components/Email.astro';
       <thead><tr><th></th><th>File</th><th>Processore</th><th>Dimensione</th></tr></thead>
       <tbody>
         <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-nas4"/></svg></td>
           <td><a href="https://download.dovelofanno.it/prova-qnap/0.2.2/dovelofanno-0.2.2-docker-amd64-classico.tar">dovelofanno-0.2.2-docker-amd64-classico.tar</a>
             <div class="hash" data-hash="docker-amd64">SHA-256 b78d3cb9e2523fb2765ef16c55bb822c5205de7dfa81dc68058a3c9fe717b4f8</div></td>
           <td>Intel o AMD (la maggior parte dei QNAP)</td>
           <td class="size" data-size="docker-amd64">673 MB</td>
         </tr>
         <tr>
-          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg></td>
+          <td class="ic"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-nas4"/></svg></td>
           <td><a href="https://download.dovelofanno.it/prova-qnap/0.2.2/dovelofanno-0.2.2-docker-arm64-classico.tar">dovelofanno-0.2.2-docker-arm64-classico.tar</a>
             <div class="hash" data-hash="docker-arm64">SHA-256 edace57a3488b0bfec5064edb9fb7162698db79475bd27555aa56c35ba2fbd49</div></td>
           <td>ARM a 64 bit (alcuni modelli economici)</td>
@@ -61,7 +61,7 @@ import Email from '../../components/Email.astro';
   </section>
 
   <section id="installa">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-nas4"/></svg>Installa, passo per passo</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-nas4"/></svg>Installa, passo per passo</h2>
     <ol>
       <li><strong>Le cartelle.</strong> Apri <strong>File Station</strong>, entra nella cartella condivisa
         <code>Container</code> e crea una cartella <code>dovelofanno</code>. Dentro <code>dovelofanno</code> creane
@@ -100,14 +100,14 @@ import Email from '../../components/Email.astro';
         <span class="expect">la schermata dei profili di DoveLoFanno.</span></li>
     </ol>
     <div class="next">
-      <a class="btn" href="/beta/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-next"/></svg>Vai ai primi passi</a>
+      <a class="btn" href="/installa/#primi-passi"><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-next"/></svg>Vai ai primi passi</a>
     </div>
     <p class="small">Lo stesso indirizzo funziona da telefono, tablet e altri computer collegati al Wi-Fi di casa. Le
       registrazioni finiscono in <code>Container/dovelofanno/registrazioni</code>.</p>
   </section>
 
   <section id="problemi">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-help"/></svg>Se qualcosa non va</h2>
     <ul>
       <li><strong>«Crea» dà errore sulle cartelle.</strong> Controlla che la cartella condivisa si chiami proprio
         <code>Container</code> (con la C maiuscola) e che dentro ci siano <code>dovelofanno/data</code> e
@@ -127,7 +127,7 @@ import Email from '../../components/Email.astro';
   </section>
 
   <section id="aggiornare">
-    <h2><svg class="ico" aria-hidden="true"><use href="/beta/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
+    <h2><svg class="ico" aria-hidden="true"><use href="/installa/icone.svg#i-sync"/></svg>Aggiornare e togliere</h2>
     <p><strong>Aggiornare</strong>: quando DoveLoFanno avvisa che c'è una versione nuova, torna su questa pagina e scarica
       il nuovo file. Poi importalo in Container Station › Immagine › Importa, apri l'applicazione <code>dovelofanno</code>, cambia
       il numero nella riga <code>image</code> (per esempio da <code>dovelofanno:0.2.2</code> al numero nuovo) e salva:
@@ -136,4 +136,4 @@ import Email from '../../components/Email.astro';
       elimina <code>dovelofanno</code>. La cartella <code>Container/dovelofanno</code> con dati e registrazioni resta:
       cancellala da File Station solo se non ti servono più.</p>
   </section>
-</Beta>
+</Installa>
