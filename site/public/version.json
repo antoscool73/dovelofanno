@@ -1,6 +1,6 @@
 {
-  "version": "0.4.0",
-  "date": "2026-11-25",
-  "notes": "• Password del server, oppure accesso solo dalla rete di casa; ogni dispositivo entra una volta\n• Avvertenze da accettare al primo avvio\n• «Il top per la serata» in cima a La mia lista: i tre film migliori in TV e in ognuno dei tuoi abbonamenti; sotto, il film di stasera\n• Banner e scheda con l'immagine di scena del film; la locandina solo se manca\n• Dove Lo Fanno, nella scheda: prima dove lo vedi senza pagare, poi a pagamento\n…e altre novità su dovelofanno.it/beta/novita/",
+  "version": "0.5.0",
+  "date": "2026-11-27",
+  "notes": "• Prima versione pubblica: il codice è su GitHub con licenza GPL-3.0-or-later; installatore e immagini Docker su dovelofanno.it\n• Registrazioni da LA7 e Mediaset (DASH) di nuovo complete: prima potevano salvarne solo pezzi da mezzo minuto\n• Registrazioni «Incomplete» anche quando il canale si interrompe o salta dei pezzi, non solo con il PC in sospensione: i minuti mancanti con l'orario sono nell'elenco delle registrazioni\n…e altre novità su dovelofanno.it/beta/novita/",
   "url": "https://dovelofanno.it/beta/#aggiornare"
 }
