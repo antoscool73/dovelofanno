@@ -16,3 +16,6 @@ Voti, locandine e trame arrivano da TMDB con la tua chiave personale, secondo le
 
 5. Il server è tuo
 Sei tu a gestirlo: tienilo aggiornato e, se lo raggiungi da fuori casa, proteggilo con una password (Impostazioni > Accesso).
+
+6. Collegamenti a internet
+Nessuna telemetria. Il server si collega solo a quello che scegli tu: playlist e guide TV, TMDB con la tua chiave, il file dei voti IMDb se lo attivi, Telegram se lo colleghi. In più, una volta al giorno, legge da dovelofanno.it qual è l'ultima versione, senza inviare dati: si spegne in Impostazioni > Aggiornamenti.

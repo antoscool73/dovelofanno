@@ -51,6 +51,11 @@ configures:
 - [TMDB](https://www.themoviedb.org) (`api.themoviedb.org`, `image.tmdb.org`), only after the user enters their own
   TMDB API key; title searches are sent to TMDB with that key;
 - the IMDb ratings dataset (`datasets.imdbws.com`), only if the user turns on IMDb ratings;
-- YouTube, only when the user opens a trailer link.
+- Telegram (`api.telegram.org`), only after the user connects their own Telegram bot for notifications;
+- YouTube and the streaming services' websites, only when the user opens a trailer or a service link;
+- `dovelofanno.it`, once a day, to read which version is the latest (`version.json`). No data is sent with this
+  request; it can be turned off in Settings › Updates (Impostazioni › Aggiornamenti).
+
+These connections are listed in the notices shown by the Windows installer and on the first start of the app.
 
 All data (profiles, lists, recordings, library) stays in the server's data folder on the user's own hardware.

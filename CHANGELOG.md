@@ -9,6 +9,10 @@ Da questo file il sito genera la pagina <https://dovelofanno.it/beta/novita/> e 
 <!-- Le novità ancora da rilasciare vanno in una sezione «## Prossima versione», senza numero né data: tools/changelog.py
      la salta, così version.json non annuncia un aggiornamento che non c'è ancora. Al rilascio diventa
      «## X.Y.Z · gg/mm/aaaa» e si lancia lo script. -->
+## Prossima versione
+
+- Avvertenze con un punto nuovo, «Collegamenti a internet»: al primo accesso dopo l'aggiornamento vanno accettate di nuovo
+
 ## 0.5.0 · 27/11/2026
 
 - Prima versione pubblica: il codice è su GitHub con licenza GPL-3.0-or-later; installatore e immagini Docker su dovelofanno.it

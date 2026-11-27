@@ -1,7 +1,7 @@
 // Avvertenze da accettare al primo avvio (24/11/2026, «Backlog verso il pubblico»). Lo stesso testo è nell'installatore
 // Windows: deploy/windows/installer/avvertenze.txt. Cambiando il testo si alza TERMS_VERSION e si aggiorna anche quel file:
 // ogni server le richiede di nuovo una volta.
-export const TERMS_VERSION = 1;
+export const TERMS_VERSION = 2;
 
 export const TERMS: { title: string; text: string }[] = [
   {
@@ -23,5 +23,9 @@ export const TERMS: { title: string; text: string }[] = [
   {
     title: 'Il server è tuo',
     text: 'Sei tu a gestirlo: tienilo aggiornato e, se lo raggiungi da fuori casa, proteggilo con una password (Impostazioni › Accesso).',
+  },
+  {
+    title: 'Collegamenti a internet',
+    text: 'Nessuna telemetria. Il server si collega solo a quello che scegli tu: playlist e guide TV, TMDB con la tua chiave, il file dei voti IMDb se lo attivi, Telegram se lo colleghi. In più, una volta al giorno, legge da dovelofanno.it qual è l\'ultima versione, senza inviare dati: si spegne in Impostazioni › Aggiornamenti.',
   },
 ];
