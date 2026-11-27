@@ -23,7 +23,9 @@ Every signed file carries the same metadata: product name `DoveLoFanno` and the 
    (no local builds are ever signed).
 3. The unsigned build artifact is submitted to SignPath, which verifies that it comes from that workflow run.
 4. An approver reviews and **manually approves** the signing request.
-5. The signed files are published on the [Releases](https://github.com/antoscool73/dovelofanno/releases) page.
+5. The signed files are published on [dovelofanno.it](https://dovelofanno.it) (download.dovelofanno.it); their
+   SHA-256 checksums are attached to the matching [Release](https://github.com/antoscool73/dovelofanno/releases)
+   on GitHub, next to the source code.
 
 Build scripts and CI configuration are part of the source code and follow the same review rules.
 

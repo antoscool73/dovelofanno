@@ -38,6 +38,7 @@
       <li><a href="https://dovelofanno.it/" target="_blank" rel="noopener noreferrer">dovelofanno.it ↗</a></li>
       <li><a href="https://dovelofanno.it/beta/novita/" target="_blank" rel="noopener noreferrer">Novità di ogni versione ↗</a></li>
       <li><a href="/impostazioni#aggiornamenti" onclick={go}>Controlla gli aggiornamenti</a></li>
+      <li><a href="https://github.com/antoscool73/dovelofanno" target="_blank" rel="noopener noreferrer">Codice sorgente su GitHub ↗</a></li>
       <li><a href="mailto:beta@dovelofanno.it">Scrivici: beta@dovelofanno.it</a></li>
     </ul>
 
@@ -51,6 +52,7 @@
     </ul>
 
     <p class="small">Software libero con licenza <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">GPL-3.0</a>: niente abbonamento, niente pubblicità. Guida e canali arrivano dalle playlist e dalle guide che scegli tu.</p>
+    <p class="small">Copyright © 2026 Antonio Scaglione. DoveLoFanno™ è un marchio depositato.</p>
 
     <div class="actions">
       <button type="button" class="close" data-close onclick={onclose}>Chiudi</button>

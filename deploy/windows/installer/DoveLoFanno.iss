@@ -25,7 +25,7 @@ AppPublisher=DoveLoFanno
 AppPublisherURL=https://dovelofanno.it
 AppSupportURL=https://dovelofanno.it
 AppUpdatesURL=https://dovelofanno.it
-AppCopyright=Software libero, GPL-3.0 o successive
+AppCopyright=Copyright (C) 2026 Antonio Scaglione. GPL-3.0-or-later
 ; avvertenze da accettare prima di installare (24/11/2026); stesso testo di web/src/lib/terms.ts
 LicenseFile=avvertenze.txt
 VersionInfoVersion={#Copy(AppVersion, 1, Pos("-", AppVersion + "-") - 1)}

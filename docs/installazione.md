@@ -17,7 +17,7 @@ Importa) e nel compose si usa `image: dovelofanno:<versione>`. Le immagini non s
 # deploy/compose.yaml
 services:
   dovelofanno:
-    image: dovelofanno:0.4.0        # la versione caricata con docker load
+    image: dovelofanno:0.5.0        # la versione caricata con docker load
     restart: unless-stopped
     ports: ["8765:8765"]
     volumes:

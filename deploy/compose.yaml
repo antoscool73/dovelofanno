@@ -6,7 +6,7 @@
 # "docker load -i <file>" o da Container Manager / Container Station: nella riga image va la versione caricata.
 services:
   dovelofanno:
-    image: dovelofanno:0.4.0
+    image: dovelofanno:0.5.0
     container_name: dovelofanno
     restart: unless-stopped
     ports:

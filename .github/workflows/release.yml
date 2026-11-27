@@ -202,7 +202,8 @@ jobs:
           cat > notes.md <<EOF
           ## Installazione
 
-          L'installatore per Windows e le immagini Docker (amd64, arm64) si scaricano da [dovelofanno.it](https://dovelofanno.it/beta/).
+          L'installatore per Windows e le immagini Docker (amd64, arm64) si scaricano solo da [dovelofanno.it](https://dovelofanno.it/beta/):
+          durante la beta la pagina è riservata a chi la prova (per provarla scrivi a info@dovelofanno.it).
           Qui ci sono i sorgenti di questa versione e le impronte SHA-256 di tutti i file (\`SHA256SUMS.txt\`), per
           controllare quello che hai scaricato. Istruzioni anche in [docs/installazione.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/installazione.md).
 
